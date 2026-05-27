@@ -268,10 +268,9 @@ export function Members() {
                   <div className="text-xs text-slate-500 font-mono">
                     {new Date(m.created_at).toLocaleDateString()}
                   </div>
-                  <div>
-                    {isThisOwner ? (
-                      <Pill tone="brand">owner</Pill>
-                    ) : m.tier === "developer" ? (
+                  <div className="flex flex-col gap-1 items-start">
+                    {isThisOwner && <Pill tone="brand">owner</Pill>}
+                    {m.tier === "developer" ? (
                       <select
                         value={m.tier}
                         onChange={(e) => changeTier(m, e.target.value as MemberTier)}
