@@ -28,63 +28,44 @@ constraints shape your timeline, and nothing falls through the cracks.
 
 We're building for the people who power clinical research.
 
-## What's inside
+## Repository layout
 
-Platypus is a single integrated platform that replaces the spreadsheets,
-email threads, and disconnected systems clinical research sites use today.
+```
+platypus/
+├── platypus.html              ← demo build, single-file React + Babel,
+├── platypus.jsx                  no backend, persists to localStorage.
+├── web/                       ← THE REAL APP — Vite + React + TS + Supabase.
+│   ├── src/...                   Schema-driven, multi-tenant, RLS-secured.
+│   └── README.md
+├── supabase/                  ← Database schema + migrations.
+│   ├── migrations/0001_initial.sql
+│   └── README.md
+├── platypus_logo.{svg,png}
+└── platypus_cover.{svg,png}
+```
 
-- **Study lifecycle** — intake → triage → committed-to-portfolio →
-  pipeline → activated → closeout, with amendments as parallel instances.
-- **Documents (TMF / ISF)** — the CDISC reference model, with 21 CFR Part 11
-  e-signatures and a hash-chained audit trail.
-- **Workflows you design** — your team builds its own pipeline stages,
-  workflows, role-based teams, and study fields on first login. The app
-  runs on the operating model you build, not one we impose.
-- **One operating view** — Today, Inbox, Portfolio, Pipeline, Documents in
-  one shell. No app-switching.
+**Two builds in this repo.** `platypus.html` is the original
+single-file React demo — open it directly in a browser, no install. The
+`web/` folder is the real Supabase-backed product being built around the
+same brand and patterns. As `web/` reaches feature parity, the demo file
+becomes a marketing artifact.
 
-## Running it
-
-This release is a single-file React app with Babel-standalone for in-browser
-JSX. No build step. No backend. State persists to `localStorage`.
+## Run the demo (no install)
 
 ```bash
-# clone
-git clone https://github.com/BreakingChad/platypus.git
-cd platypus
-
-# open in a browser
 open platypus.html
 ```
 
-Two files do the work:
-
-- **`platypus.jsx`** — the source. ~25k lines, single-file React.
-- **`platypus.html`** — the loadable. Mirrors the JSX inside a
-  `<script type="text/babel">` block plus the React + Babel CDN.
-
-`platypus.html` is generated from `platypus.jsx`. To rebuild:
+## Run the real app
 
 ```bash
-head -44 platypus.html > /tmp/sync.html
-cat platypus.jsx >> /tmp/sync.html
-printf "  </script>\n</body>\n</html>\n" >> /tmp/sync.html
-cp /tmp/sync.html platypus.html
+cd web
+cp .env.example .env.local       # paste your Supabase URL + publishable key
+npm install
+npm run dev                       # http://localhost:5173
 ```
 
-## Tech
-
-- **React 18** via UMD CDN (no bundler).
-- **Babel-standalone** for in-browser JSX transform.
-- **No backend** in this build — every piece of state persists to
-  `localStorage` under the `tapestry_v3_*` keys. Reset from
-  **Settings → Reset demo data**.
-
-## Status
-
-Early-stage. Configuration is the centerpiece — the team designing its own
-pipeline, workflows, roles, and fields. Onboarding is being redesigned around
-that thesis (see the in-app first-run wizard).
+Then apply the initial migration in Supabase Studio (see `supabase/README.md`).
 
 ## Brand
 
@@ -93,8 +74,7 @@ everyone said couldn't coexist. Clinical research software made the opposite
 bet — a separate system for every part of the job, with email holding it
 together. We think it belongs together.
 
-Brand colors: indigo `#4F46E5` → violet `#7C3AED`.
-Brand assets: `platypus_logo.svg`, `platypus_cover.svg`.
+Colors: indigo `#4F46E5` → violet `#7C3AED`.
 
 ---
 
