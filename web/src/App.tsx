@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppShell } from "./components/AppShell";
 import { Home } from "./pages/Home";
 import { FieldsDesigner } from "./pages/FieldsDesigner";
+import { StageDesigner } from "./pages/StageDesigner";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -41,17 +42,7 @@ function renderRoute(
     return { node: <FieldsDesigner /> };
   }
   if (hash === "#/settings/stages") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Configure"
-          title="Pipeline stages"
-          description="Design the stages every study moves through. Reorder, rename, retarget, reassign the owning team."
-          iconName="workflow"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+    return { node: <StageDesigner /> };
   }
   if (hash === "#/settings/teams") {
     return {

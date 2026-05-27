@@ -42,7 +42,6 @@ const NAV: NavGroup[] = [
         label: "Pipeline stages",
         hash: "#/settings/stages",
         icon: "workflow",
-        badge: "soon",
         adminOnly: true,
       },
       {
