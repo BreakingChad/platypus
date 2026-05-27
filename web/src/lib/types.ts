@@ -47,6 +47,29 @@ export type PipelineStageRow = {
   created_at: string;
 };
 
+export type StudyRow = {
+  id: string;
+  org_id: string;
+  code: string;
+  title: string;
+  nct: string | null;
+  sponsor: string | null;
+  therapeutic_area: string | null;
+  phase: string | null;
+  stage_key: string | null;
+  study_kind: string | null;
+  priority: string;
+  intake_status: string;
+  committed_at: string | null;
+  intake_date: string | null;
+  closed: boolean;
+  closed_at: string | null;
+  pi_name: string | null;
+  custom_field_values: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type OrgRow = {
   id: string; name: string; slug: string | null;
   sponsor_mode: SponsorMode; region: string | null; timezone: string | null;
@@ -72,6 +95,7 @@ export type Database = {
       org_members:       { Row: OrgMemberRow;        Insert: Partial<OrgMemberRow>;        Update: Partial<OrgMemberRow>;        Relationships: [] };
       field_definitions: { Row: FieldDefinitionRow;  Insert: Partial<FieldDefinitionRow>;  Update: Partial<FieldDefinitionRow>;  Relationships: [] };
       pipeline_stages:   { Row: PipelineStageRow;    Insert: Partial<PipelineStageRow>;    Update: Partial<PipelineStageRow>;    Relationships: [] };
+      studies:           { Row: StudyRow;            Insert: Partial<StudyRow>;            Update: Partial<StudyRow>;            Relationships: [] };
     };
     Views: {};
     Functions: {};

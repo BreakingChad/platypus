@@ -7,6 +7,7 @@ import { AppShell } from "./components/AppShell";
 import { Home } from "./pages/Home";
 import { FieldsDesigner } from "./pages/FieldsDesigner";
 import { StageDesigner } from "./pages/StageDesigner";
+import { StudiesList } from "./pages/StudiesList";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -72,18 +73,8 @@ function renderRoute(
   }
 
   // Workspace stubs
-  if (hash === "#/studies") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Workspace"
-          title="Studies"
-          description="Every study from intake through closeout, with the fields and lifecycle your team configured."
-          iconName="folder"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+  if (hash === "#/studies" || hash.startsWith("#/studies/")) {
+    return { node: <StudiesList onNavigate={navigate} /> };
   }
   if (hash === "#/pipeline") {
     return {
