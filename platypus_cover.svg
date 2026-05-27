@@ -1,0 +1,21 @@
+<svg width="1128" height="191" viewBox="0 0 1128 191" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="1128" height="191" fill="url(#g)"/>
+  <!-- soft depth -->
+  <circle cx="1010" cy="20" r="170" fill="#ffffff" opacity="0.06"/>
+  <circle cx="1110" cy="180" r="120" fill="#ffffff" opacity="0.05"/>
+  <!-- platypus mark -->
+  <g transform="translate(66.4,-33) scale(0.756)">
+    <path fill="#ffffff" d="M 268 155 C 269 147 263 142 251 141 L 210 141 C 197 140 189 132 181 119 C 170 101 148 94 125 97 C 101 100 83 112 73 130 C 67 140 63 147 60 154 C 50 147 34 150 26 163 C 18 176 20 194 33 204 C 45 213 62 210 72 198 C 86 206 106 211 130 211 C 168 212 202 203 226 184 C 243 171 256 163 264 159 C 268 157 268 157 268 155 Z"/>
+    <circle cx="166" cy="121" r="9" fill="#4F46E5"/>
+  </g>
+  <!-- wordmark -->
+  <text x="300" y="103" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="800" fill="#ffffff" letter-spacing="-1.5">Platypus</text>
+  <!-- tagline -->
+  <text x="303" y="140" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="500" fill="#ffffff" opacity="0.86">Clinical research, run as one system — from intake to closeout.</text>
+</svg>

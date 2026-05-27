@@ -1,0 +1,49 @@
+# Platypus — .gitignore
+# This repo is public. Internal strategy / planning / demo docs stay out.
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Dependency dirs (the app is single-file React+Babel — no build, no deps —
+# but keep these ignored defensively in case tooling is added later).
+node_modules/
+.pnpm-store/
+dist/
+build/
+.cache/
+
+# Env / secrets — never commit
+.env
+.env.*
+*.pem
+*.key
+
+# Logs / coverage / temp
+*.log
+coverage/
+.tmp/
+*.tmp
+
+# Internal strategy & planning — NOT for the public repo
+DEMO_AUDIT.md
+DEMO_SCRIPT.md
+FULL_APP_ROADMAP.md
+LINKEDIN_PAGE.md
+MILESTONE_TRACKER_COMPARISON.md
+MODULES_AND_SPRINTS.md
+ONBOARDING_REDESIGN.md
+ROADMAP_STATUS.md
+THURSDAY_PUSH.md
+USABILITY_REVIEW.md
+
+# Internal trackers
+SP1*.xlsx
+*.xlsx
+
+# Workspace
+sync.html
