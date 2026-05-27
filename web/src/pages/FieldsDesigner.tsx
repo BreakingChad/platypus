@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { FieldDefinitionRow, FieldType, FieldEditTier } from "../lib/types";
 
@@ -21,8 +21,17 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
     field_type: "text" as FieldType,
     required: false,
   });
+  const labelInputRef = useRef<HTMLInputElement>(null);
+  const composerCardRef = useRef<HTMLDivElement>(null);
 
-  const bySection = (section: string) => studyFields.filter((f) => f.section === section);
+  const bySection = (section: string) =>
+    studyFields.filter((f) => f.section === section).sort((a, b) => a.position - b.position);
+
+  const startAddInSection = (section: string) => {
+    setComposer((c) => ({ ...c, section }));
+    composerCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => labelInputRef.current?.focus(), 250);
+  };
 
   const addCustom = async () => {
     if (!composer.label.trim()) return;
@@ -44,6 +53,7 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
       position: nextPos,
     });
     setComposer({ label: "", section: composer.section, field_type: "text", required: false });
+    labelInputRef.current?.focus();
   };
 
   return (
@@ -71,10 +81,10 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
         <h1 className="text-3xl font-display font-extrabold tracking-tight text-slate-900 mb-2">
           Study fields
         </h1>
-        <p className="text-slate-600 mb-8 max-w-3xl leading-relaxed">
+        <p className="text-slate-600 mb-6 max-w-3xl leading-relaxed">
           Decide what every study record captures — which fields are required, which lock once a
-          study is committed (for regulatory integrity), and who's allowed to change each one.
-          Add custom fields for anything specific to how your site works. Every change writes
+          study is committed, and who's allowed to change each one. Add custom fields to any
+          section to capture whatever's specific to how your site works. Every change writes
           directly to Supabase.
         </p>
 
@@ -82,6 +92,77 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
           <SummaryCard label="Fields enabled" value={`${enabled}`} sub={`of ${studyFields.length}`} />
           <SummaryCard label="Required" value={`${required}`} />
           <SummaryCard label="Custom fields" value={`${customCount}`} />
+        </div>
+
+        {/* COMPOSER — at the top, primary action. */}
+        <div
+          ref={composerCardRef}
+          className="bg-white rounded-2xl border-2 border-brand-100 p-5 shadow-sm mb-8 scroll-mt-24"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+                Add a custom field
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                Available in <strong>every</strong> section — pick where it lives below.
+              </div>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+              writes live · Supabase
+            </span>
+          </div>
+          <div className="grid grid-cols-[2fr_1.3fr_1fr_auto_auto] gap-2 items-center">
+            <input
+              ref={labelInputRef}
+              type="text"
+              value={composer.label}
+              onChange={(e) => setComposer({ ...composer, label: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter" && composer.label.trim()) void addCustom(); }}
+              placeholder="Field name (e.g. Sponsor portal ID)"
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            />
+            <select
+              value={composer.section}
+              onChange={(e) => setComposer({ ...composer, section: e.target.value })}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white"
+            >
+              {SECTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <select
+              value={composer.field_type}
+              onChange={(e) =>
+                setComposer({ ...composer, field_type: e.target.value as FieldType })
+              }
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white"
+            >
+              {(["text", "date", "number", "dropdown", "boolean"] as FieldType[]).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={composer.required}
+                onChange={(e) => setComposer({ ...composer, required: e.target.checked })}
+                className="accent-brand-500 w-4 h-4"
+              />
+              Required
+            </label>
+            <button
+              onClick={addCustom}
+              disabled={!composer.label.trim()}
+              className="rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow shadow-brand-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              + Add
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -97,14 +178,33 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
         {SECTIONS.map((section) => {
           const fields = bySection(section);
           if (fields.length === 0 && !loading) return null;
+          const sectionCustomCount = fields.filter((f) => f.kind === "custom").length;
           return (
             <div
               key={section}
               className="bg-white rounded-xl border border-slate-200 mb-3 overflow-hidden shadow-sm"
             >
-              <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                {section}
+              {/* Section header with per-section add button. */}
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {section}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {fields.length} field{fields.length === 1 ? "" : "s"}
+                    {sectionCustomCount > 0 ? ` · ${sectionCustomCount} custom` : ""}
+                  </span>
+                </div>
+                <button
+                  onClick={() => startAddInSection(section)}
+                  className="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 transition flex items-center gap-1"
+                  title={`Add a custom field to ${section}`}
+                >
+                  <PlusIcon /> Add field
+                </button>
               </div>
+
+              {/* Column headers */}
               <div className="px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
                 <span className="w-8">On</span>
                 <span className="flex-1">Field</span>
@@ -113,6 +213,7 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
                 <span className="w-36">Who can edit</span>
                 <span className="w-8" />
               </div>
+
               {fields.map((f) => (
                 <FieldRow key={f.id} field={f} onUpdate={update} onRemove={remove} />
               ))}
@@ -120,62 +221,7 @@ export function FieldsDesigner({ onBack }: { onBack: () => void }) {
           );
         })}
 
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mt-6">
-          <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-            Add a custom field
-          </div>
-          <div className="grid grid-cols-[2fr_1.3fr_1fr_auto_auto] gap-2 items-center">
-            <input
-              type="text"
-              value={composer.label}
-              onChange={(e) => setComposer({ ...composer, label: e.target.value })}
-              placeholder="Field name (e.g. Sponsor portal ID)"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-            />
-            <select
-              value={composer.section}
-              onChange={(e) => setComposer({ ...composer, section: e.target.value })}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-500"
-            >
-              {SECTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <select
-              value={composer.field_type}
-              onChange={(e) =>
-                setComposer({ ...composer, field_type: e.target.value as FieldType })
-              }
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-500"
-            >
-              {(["text", "date", "number", "dropdown", "boolean"] as FieldType[]).map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={composer.required}
-                onChange={(e) => setComposer({ ...composer, required: e.target.checked })}
-                className="accent-brand-500"
-              />
-              Required
-            </label>
-            <button
-              onClick={addCustom}
-              disabled={!composer.label.trim()}
-              className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow shadow-brand-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              + Add
-            </button>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-500 mt-6 leading-relaxed">
+        <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
           <strong>Locks</strong> make a field read-only once a study is committed — use it for
           regulated identifiers (protocol number, IRB #) that shouldn't drift after activation.
           <strong> Who can edit</strong> sets the permission tier; every change is captured in
@@ -263,8 +309,11 @@ function FieldRow({
             ×
           </button>
         ) : (
-          <span title="Standard field — can be disabled but not removed" className="text-slate-300 text-xs">
-            🛡
+          <span
+            title="Standard field — can be disabled with the On toggle, but not removed (other parts of the app reference it)"
+            className="inline-flex"
+          >
+            <LockIcon />
           </span>
         )}
       </span>
@@ -281,6 +330,23 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub?
         {sub && <span className="text-xs text-slate-400 font-normal">{sub}</span>}
       </div>
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3" strokeLinecap="round">
+      <path d="M12 5v14 M5 12h14" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-slate-400">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
   );
 }
 
