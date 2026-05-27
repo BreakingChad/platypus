@@ -10,6 +10,7 @@ import { StageDesigner } from "./pages/StageDesigner";
 import { StudiesList } from "./pages/StudiesList";
 import { TeamBuilder } from "./pages/TeamBuilder";
 import { AccessRoles } from "./pages/AccessRoles";
+import { StudyDetail } from "./pages/StudyDetail";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -55,7 +56,11 @@ function renderRoute(
   }
 
   // Workspace stubs
-  if (hash === "#/studies" || hash.startsWith("#/studies/")) {
+  if (hash.startsWith("#/studies/")) {
+    const id = hash.slice("#/studies/".length).trim();
+    if (id) return { node: <StudyDetail studyId={id} onBack={() => navigate("#/studies")} /> };
+  }
+  if (hash === "#/studies") {
     return { node: <StudiesList onNavigate={navigate} /> };
   }
   if (hash === "#/pipeline") {

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 type Props = {
   kicker?: string;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 };
 
@@ -20,7 +20,9 @@ export function PageHeader({ kicker, title, subtitle, actions }: Props) {
           {title}
         </h1>
         {subtitle && (
-          <p className="text-slate-600 mt-2 max-w-3xl leading-relaxed">{subtitle}</p>
+          <div className="text-slate-600 mt-2 max-w-3xl leading-relaxed">
+            {subtitle}
+          </div>
         )}
       </div>
       {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
