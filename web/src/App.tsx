@@ -11,6 +11,7 @@ import { StudiesList } from "./pages/StudiesList";
 import { TeamBuilder } from "./pages/TeamBuilder";
 import { AccessRoles } from "./pages/AccessRoles";
 import { StudyDetail } from "./pages/StudyDetail";
+import { PipelineView } from "./pages/PipelineView";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -64,17 +65,7 @@ function renderRoute(
     return { node: <StudiesList onNavigate={navigate} /> };
   }
   if (hash === "#/pipeline") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Workspace"
-          title="Pipeline"
-          description="Studies grouped by stage, owned by the team in front of them. Drag to advance, click into the work."
-          iconName="layers"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+    return { node: <PipelineView onNavigate={navigate} /> };
   }
   if (hash === "#/inbox") {
     return {

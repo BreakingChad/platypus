@@ -30,7 +30,7 @@ const NAV: NavGroup[] = [
     items: [
       { label: "Home", hash: "#/", icon: "home" },
       { label: "Studies", hash: "#/studies", icon: "folder" },
-      { label: "Pipeline", hash: "#/pipeline", icon: "layers", badge: "soon" },
+      { label: "Pipeline", hash: "#/pipeline", icon: "layers" },
       { label: "Inbox", hash: "#/inbox", icon: "inbox", badge: "soon" },
     ],
   },
