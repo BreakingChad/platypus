@@ -5,6 +5,9 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { FieldDefinitionRow, PipelineStageRow } from "../lib/types";
+import { seedDemoStudies } from "../lib/demoSeed";
+import { useToast } from "../lib/Toast";
+import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
@@ -35,6 +38,9 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
 
   const [orgs, setOrgs] = useState<Org[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [studyCount, setStudyCount] = useState<number | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (auth.status !== "signedIn") return;
@@ -47,6 +53,13 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
       if (cancelled) return;
       if (error) setLoadError(error.message);
       else setOrgs((data ?? []) as Org[]);
+      if (orgId) {
+        const { count } = await supabase
+          .from("studies")
+          .select("*", { count: "exact", head: true })
+          .eq("org_id", orgId);
+        if (!cancelled) setStudyCount(count ?? 0);
+      }
     })();
     return () => {
       cancelled = true;
@@ -73,6 +86,52 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
           ) : null
         }
       />
+
+      {/* QUICK START — only when admin + few studies */}
+      {isAdmin && studyCount !== null && studyCount < 3 && stages.rows.length > 0 && (
+        <section className="mt-8">
+          <div className="rounded-2xl border-2 border-brand-100 bg-gradient-to-br from-brand-50/60 to-white p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-brand-gradient text-white flex items-center justify-center flex-shrink-0">
+              <Icon name="layers" size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold uppercase tracking-wider text-brand-700 mb-0.5">
+                Quick start
+              </div>
+              <div className="font-display font-bold text-base text-slate-900">
+                {studyCount === 0 ? "Your portfolio is empty." : "Want to see Platypus in motion?"}
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                Load 8 demo studies across every stage of your pipeline. You can edit, advance, or
+                delete them anytime. Existing studies are untouched.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                if (!orgId) return;
+                setSeeding(true);
+                try {
+                  const res = await seedDemoStudies(orgId, stages.rows);
+                  if (res.inserted > 0) {
+                    toast.success(`Added ${res.inserted} demo stud${res.inserted === 1 ? "y" : "ies"}`);
+                  } else {
+                    toast.info("Demo studies already loaded");
+                  }
+                  setStudyCount((c) => (c ?? 0) + res.inserted);
+                } catch (e: any) {
+                  toast.error(e?.message || "Couldn't load demo studies");
+                } finally {
+                  setSeeding(false);
+                }
+              }}
+              disabled={seeding}
+            >
+              {seeding ? "Loading…" : "Load demo studies"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* SETUP HUB */}
       <section className="mt-8">
