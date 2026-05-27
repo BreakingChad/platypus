@@ -37,6 +37,7 @@ const NAV: NavGroup[] = [
   {
     group: "Configure",
     items: [
+      { label: "Organization", hash: "#/settings/org", icon: "settings", adminOnly: true },
       { label: "Study fields", hash: "#/settings/fields", icon: "file", adminOnly: true },
       {
         label: "Pipeline stages",
@@ -239,6 +240,16 @@ export function AppShell({
                   <button
                     onClick={() => {
                       setMenuOpen(false);
+                      onNavigate("#/profile");
+                    }}
+                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <Icon name="users" size={14} className="text-slate-400" />
+                    Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
                       void supabase.auth.signOut();
                     }}
                     className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
@@ -277,7 +288,9 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/studies": { kicker: "Workspace", title: "Studies" },
   "#/pipeline": { kicker: "Workspace", title: "Pipeline" },
   "#/inbox": { kicker: "Workspace", title: "Inbox" },
+  "#/settings/org": { kicker: "Configure", title: "Organization" },
   "#/settings/fields": { kicker: "Configure", title: "Study fields" },
+  "#/profile": { kicker: "You", title: "Profile" },
   "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },

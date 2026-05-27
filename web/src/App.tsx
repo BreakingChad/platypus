@@ -12,6 +12,8 @@ import { TeamBuilder } from "./pages/TeamBuilder";
 import { AccessRoles } from "./pages/AccessRoles";
 import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
+import { OrgSettings } from "./pages/OrgSettings";
+import { Profile } from "./pages/Profile";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -79,6 +81,16 @@ function renderRoute(
         />
       ),
     };
+  }
+
+  // Configure: org
+  if (hash === "#/settings/org") {
+    return { node: <OrgSettings /> };
+  }
+
+  // You: profile
+  if (hash === "#/profile") {
+    return { node: <Profile /> };
   }
 
   // Unknown route — drop to home.
