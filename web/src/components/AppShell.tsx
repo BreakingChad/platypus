@@ -9,8 +9,12 @@ import { Pill } from "./ui/Pill";
 import { CommandPalette } from "./CommandPalette";
 
 /** App shell — persistent left rail + header + content slot.
- *  Owns navigation, current-user/org affordances, and sign-out. Routes are
- *  hash-based; the shell highlights based on `currentHash`. */
+ *
+ *  - On md+ the sidebar is permanently visible.
+ *  - On <md a hamburger button in the header opens the same nav in a
+ *    slide-in drawer. The drawer auto-closes on navigation and on Esc.
+ *  - Mounts the Cmd-K palette globally.
+ */
 
 type NavItem = {
   label: string;
@@ -77,6 +81,7 @@ export function AppShell({
   const { isAdmin, tier } = useCurrentMember();
   const [orgName, setOrgName] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Look up org name once we know the orgId.
   useEffect(() => {
@@ -98,7 +103,7 @@ export function AppShell({
     };
   }, [orgId]);
 
-  // Close the user menu on outside-click / Esc.
+  // Close user menu on outside-click / Esc.
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -116,8 +121,22 @@ export function AppShell({
     };
   }, [menuOpen]);
 
-  const userEmail =
-    auth.status === "signedIn" ? auth.user.email ?? "signed in" : "—";
+  // Close mobile drawer on Esc.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
+
+  // Auto-close mobile drawer on route change.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [currentHash]);
+
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? "signed in" : "—";
 
   const visibleGroups = useMemo(() => {
     return NAV.map((g) => ({
@@ -128,96 +147,61 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
-      {/* LEFT RAIL */}
+      {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
-        <div className="px-4 pt-5 pb-4 flex items-center gap-2.5">
-          <BrandMark size={36} />
-          <div className="flex flex-col leading-tight">
-            <span className="text-lg font-display font-extrabold tracking-tight text-slate-900">
-              Platypus
-            </span>
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-              clinical ops
-            </span>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-2 pb-4 overflow-y-auto">
-          {visibleGroups.map((group) => (
-            <div key={group.group} className="mb-5">
-              <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                {group.group}
-              </div>
-              <ul className="space-y-0.5">
-                {group.items.map((item) => {
-                  const active =
-                    currentHash === item.hash ||
-                    (item.hash === "#/" && (currentHash === "" || currentHash === "#"));
-                  const isComingSoon = item.badge === "soon";
-                  return (
-                    <li key={item.hash}>
-                      <button
-                        onClick={() => onNavigate(item.hash)}
-                        className={
-                          "w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition " +
-                          (active
-                            ? "bg-brand-50 text-brand-700"
-                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900")
-                        }
-                      >
-                        <Icon
-                          name={item.icon}
-                          size={16}
-                          className={active ? "text-brand-600" : "text-slate-400"}
-                        />
-                        <span className="flex-1">{item.label}</span>
-                        {isComingSoon && (
-                          <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
-                            soon
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-
-        <div className="border-t border-slate-200 p-3">
-          <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-0.5">
-              Organization
-            </div>
-            <div className="text-sm font-semibold text-slate-900 truncate">
-              {orgName ?? "Loading…"}
-            </div>
-            {tier && (
-              <div className="mt-1.5">
-                <Pill tone={isAdmin ? "brand" : "neutral"}>{tier}</Pill>
-              </div>
-            )}
-          </div>
-        </div>
+        <SidebarBody
+          groups={visibleGroups}
+          currentHash={currentHash}
+          onNavigate={onNavigate}
+          orgName={orgName}
+          tier={tier}
+          isAdmin={isAdmin}
+        />
       </aside>
+
+      {/* MOBILE DRAWER */}
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col animate-[slideIn_180ms_ease-out]">
+            <SidebarBody
+              groups={visibleGroups}
+              currentHash={currentHash}
+              onNavigate={onNavigate}
+              orgName={orgName}
+              tier={tier}
+              isAdmin={isAdmin}
+              onCloseMobile={() => setMobileNavOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
 
       {/* MAIN COLUMN */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200">
           <div className="h-14 px-4 md:px-6 flex items-center gap-3">
-            {/* Mobile brand mark — visible only when rail is hidden. */}
+            {/* Mobile: hamburger + brand mark */}
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="md:hidden -ml-1 p-1.5 rounded-md text-slate-700 hover:bg-slate-100 transition"
+              title="Open menu"
+            >
+              <HamburgerIcon />
+            </button>
             <div className="md:hidden">
-              <BrandMark size={28} />
+              <BrandMark size={26} />
             </div>
 
-            {/* Breadcrumb / current section */}
+            {/* Breadcrumb + Cmd-K hint */}
             <div className="flex-1 min-w-0 flex items-center gap-3">
               <Breadcrumb hash={currentHash} />
               <button
                 onClick={() => {
-                  // Simulate ⌘K to open palette
                   const evt = new KeyboardEvent("keydown", { key: "k", metaKey: true });
                   window.dispatchEvent(evt);
                 }}
@@ -284,11 +268,122 @@ export function AppShell({
 
       {/* Global Cmd-K palette */}
       <CommandPalette onNavigate={onNavigate} />
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }
 
-/* ---------- helpers ---------- */
+/* ---------- shared sidebar body (desktop + mobile drawer) ---------- */
+
+function SidebarBody({
+  groups,
+  currentHash,
+  onNavigate,
+  orgName,
+  tier,
+  isAdmin,
+  onCloseMobile,
+}: {
+  groups: NavGroup[];
+  currentHash: string;
+  onNavigate: (hash: string) => void;
+  orgName: string | null;
+  tier: string | null;
+  isAdmin: boolean;
+  onCloseMobile?: () => void;
+}) {
+  return (
+    <>
+      <div className="px-4 pt-5 pb-4 flex items-center gap-2.5">
+        <BrandMark size={36} />
+        <div className="flex flex-col leading-tight">
+          <span className="text-lg font-display font-extrabold tracking-tight text-slate-900">
+            Platypus
+          </span>
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+            clinical ops
+          </span>
+        </div>
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="ml-auto p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+            title="Close menu"
+          >
+            <Icon name="x" size={16} />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 px-2 pb-4 overflow-y-auto">
+        {groups.map((group) => (
+          <div key={group.group} className="mb-5">
+            <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              {group.group}
+            </div>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active =
+                  currentHash === item.hash ||
+                  (item.hash === "#/" && (currentHash === "" || currentHash === "#"));
+                const isComingSoon = item.badge === "soon";
+                return (
+                  <li key={item.hash}>
+                    <button
+                      onClick={() => onNavigate(item.hash)}
+                      className={
+                        "w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition " +
+                        (active
+                          ? "bg-brand-50 text-brand-700"
+                          : "text-slate-700 hover:bg-slate-50 hover:text-slate-900")
+                      }
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={16}
+                        className={active ? "text-brand-600" : "text-slate-400"}
+                      />
+                      <span className="flex-1">{item.label}</span>
+                      {isComingSoon && (
+                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+                          soon
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+
+      <div className="border-t border-slate-200 p-3">
+        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-0.5">
+            Organization
+          </div>
+          <div className="text-sm font-semibold text-slate-900 truncate">
+            {orgName ?? "Loading…"}
+          </div>
+          {tier && (
+            <div className="mt-1.5">
+              <Pill tone={isAdmin ? "brand" : "neutral"}>{tier}</Pill>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ---------- small bits ---------- */
 
 function Avatar({ email }: { email: string }) {
   const ch = (email[0] ?? "?").toUpperCase();
@@ -296,6 +391,14 @@ function Avatar({ email }: { email: string }) {
     <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold">
       {ch}
     </div>
+  );
+}
+
+function HamburgerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M3 6h18 M3 12h18 M3 18h18" />
+    </svg>
   );
 }
 
@@ -309,13 +412,25 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/org": { kicker: "Configure", title: "Organization" },
   "#/settings/members": { kicker: "Configure", title: "Members" },
   "#/settings/fields": { kicker: "Configure", title: "Study fields" },
-  "#/profile": { kicker: "You", title: "Profile" },
   "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },
+  "#/profile": { kicker: "You", title: "Profile" },
 };
 
 function Breadcrumb({ hash }: { hash: string }) {
+  // Detail routes — match #/studies/<id> etc.
+  if (hash.startsWith("#/studies/")) {
+    return (
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+          Workspace
+        </span>
+        <Icon name="chevron-right" size={12} className="text-slate-300" />
+        <span className="text-sm font-semibold text-slate-900">Study</span>
+      </div>
+    );
+  }
   const meta = CRUMBS[hash] ?? CRUMBS["#/"];
   return (
     <div className="flex items-baseline gap-2">
