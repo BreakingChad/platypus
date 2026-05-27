@@ -47,6 +47,52 @@ export type PipelineStageRow = {
   created_at: string;
 };
 
+export type TeamRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  color: string;
+  charter: string | null;
+  status: string;
+  position: number;
+  created_at: string;
+};
+
+export type TeamRoleRow = {
+  id: string;
+  team_id: string;
+  title: string;
+  hierarchy_key: HierarchyKey;
+  level: number;
+  position: number;
+  created_at: string;
+};
+
+export type TeamRoleHolderRow = {
+  id: string;
+  team_role_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type AccessRoleRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  builtin: boolean;
+  modules: Record<string, "read" | "edit" | "admin">;
+  portfolio_scope: string;
+  ta_scope: string[];
+  site_scope: string[];
+  function_overrides: Record<string, unknown>;
+  admin_scope: string[];
+  status: string;
+  former_names: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type StudyRow = {
   id: string;
   org_id: string;
@@ -96,6 +142,10 @@ export type Database = {
       field_definitions: { Row: FieldDefinitionRow;  Insert: Partial<FieldDefinitionRow>;  Update: Partial<FieldDefinitionRow>;  Relationships: [] };
       pipeline_stages:   { Row: PipelineStageRow;    Insert: Partial<PipelineStageRow>;    Update: Partial<PipelineStageRow>;    Relationships: [] };
       studies:           { Row: StudyRow;            Insert: Partial<StudyRow>;            Update: Partial<StudyRow>;            Relationships: [] };
+      teams:             { Row: TeamRow;             Insert: Partial<TeamRow>;             Update: Partial<TeamRow>;             Relationships: [] };
+      team_roles:        { Row: TeamRoleRow;         Insert: Partial<TeamRoleRow>;         Update: Partial<TeamRoleRow>;         Relationships: [] };
+      team_role_holders: { Row: TeamRoleHolderRow;   Insert: Partial<TeamRoleHolderRow>;   Update: Partial<TeamRoleHolderRow>;   Relationships: [] };
+      access_roles:      { Row: AccessRoleRow;       Insert: Partial<AccessRoleRow>;       Update: Partial<AccessRoleRow>;       Relationships: [] };
     };
     Views: {};
     Functions: {};

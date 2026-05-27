@@ -8,6 +8,8 @@ import { Home } from "./pages/Home";
 import { FieldsDesigner } from "./pages/FieldsDesigner";
 import { StageDesigner } from "./pages/StageDesigner";
 import { StudiesList } from "./pages/StudiesList";
+import { TeamBuilder } from "./pages/TeamBuilder";
+import { AccessRoles } from "./pages/AccessRoles";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -46,30 +48,10 @@ function renderRoute(
     return { node: <StageDesigner /> };
   }
   if (hash === "#/settings/teams") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Configure"
-          title="Teams & roles"
-          description="Build the teams that own the work. Role slots survive turnover; you swap holders, not workflows."
-          iconName="users"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+    return { node: <TeamBuilder /> };
   }
   if (hash === "#/settings/access") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Configure"
-          title="Access roles"
-          description="Who can see what. Module-level permissions, portfolio scope, function-level grants."
-          iconName="shield"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+    return { node: <AccessRoles /> };
   }
 
   // Workspace stubs
