@@ -374,7 +374,9 @@ function SidebarBody({
           </div>
           {tier && (
             <div className="mt-1.5">
-              <Pill tone={isAdmin ? "brand" : "neutral"}>{tier}</Pill>
+              <Pill tone={tier === "developer" ? "dev" : isAdmin ? "brand" : "neutral"}>
+                {tier}
+              </Pill>
             </div>
           )}
         </div>

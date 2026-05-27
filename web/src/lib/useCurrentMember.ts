@@ -40,7 +40,9 @@ export function useCurrentMember() {
     tier,
     loading,
     isOwner: tier === "owner",
-    isAdmin: tier === "owner" || tier === "admin",
+    isDeveloper: tier === "developer",
+    // Developer is a superset of admin — anything that gates on isAdmin remains true.
+    isAdmin: tier === "owner" || tier === "admin" || tier === "developer",
     isMember: tier !== null,
   };
 }

@@ -11,7 +11,7 @@ export type FieldKind = "standard" | "custom";
 export type FieldEditTier = "admin" | "coordinator" | "any";
 export type HierarchyKey = "director" | "manager" | "coordinator" | "specialist" | "support";
 export type SponsorMode = "site" | "sponsor";
-export type MemberTier = "owner" | "admin" | "member";
+export type MemberTier = "owner" | "admin" | "developer" | "member";
 
 export type FieldDefinitionRow = {
   id: string;

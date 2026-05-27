@@ -102,6 +102,9 @@ export function Members() {
     if (m.user_id === currentUserId && next === "member") {
       if (!window.confirm("You're about to demote yourself to member. You'll lose admin access. Continue?")) return;
     }
+    if (m.user_id === currentUserId && m.tier === "developer" && next !== "developer") {
+      if (!window.confirm("You're about to drop your developer tier. You'll lose dev-level access. Continue?")) return;
+    }
     try {
       const { error } = await supabase
         .from("org_members")
@@ -268,6 +271,17 @@ export function Members() {
                   <div>
                     {isThisOwner ? (
                       <Pill tone="brand">owner</Pill>
+                    ) : m.tier === "developer" ? (
+                      <select
+                        value={m.tier}
+                        onChange={(e) => changeTier(m, e.target.value as MemberTier)}
+                        className="text-xs rounded border border-violet-200 px-2 py-1 bg-gradient-to-r from-fuchsia-50 to-violet-50 text-violet-700 font-semibold focus:outline-none focus:border-violet-500"
+                        title="Developer is a superset of admin"
+                      >
+                        <option value="developer">developer</option>
+                        <option value="admin">admin</option>
+                        <option value="member">member</option>
+                      </select>
                     ) : (
                       <select
                         value={m.tier}
@@ -276,6 +290,7 @@ export function Members() {
                       >
                         <option value="admin">admin</option>
                         <option value="member">member</option>
+                        <option value="developer">developer</option>
                       </select>
                     )}
                   </div>

@@ -33,7 +33,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
-  const { isAdmin, tier } = useCurrentMember();
+  const { isAdmin, tier, isDeveloper } = useCurrentMember();
   const toast = useToast();
 
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", { orderBy: "position" });
@@ -107,8 +107,8 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
         }
         actions={
           tier ? (
-            <Pill tone={isAdmin ? "brand" : "neutral"}>
-              {isAdmin ? "Admin access" : `Tier: ${tier}`}
+            <Pill tone={isDeveloper ? "dev" : isAdmin ? "brand" : "neutral"}>
+              {isDeveloper ? "Developer access" : isAdmin ? "Admin access" : `Tier: ${tier}`}
             </Pill>
           ) : null
         }

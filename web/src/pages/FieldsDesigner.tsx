@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { FieldDefinitionRow, FieldType, FieldEditTier } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -6,41 +6,77 @@ import { useToast } from "../lib/Toast";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
-import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 
-const SECTIONS = ["Organizational", "Per-Site", "Regulatory", "Financial", "Operational"];
+/** FieldsDesigner — admin/developer-only.
+ *
+ *  Same designer, two entity types (study + site). A tab switcher at the top
+ *  toggles between them, and the page repopulates with that entity's field
+ *  set. Every field row supports:
+ *    • toggle on/off
+ *    • mark required
+ *    • mark lock-after-commit
+ *    • change who can edit
+ *    • inline rename (click the label)
+ *    • change the section (dropdown)            <-- NEW
+ *    • change the field type (dropdown)         <-- NEW
+ *    • remove (custom only)
+ */
 
-/** FieldsDesigner — admin-only surface for shaping the study record.
- *  Refactored onto AppShell + design primitives. Non-admins get a read-only
- *  EmptyState so they understand the page exists but isn't theirs to edit. */
+type EntityType = "study" | "site";
+
+const ENTITY_LABEL: Record<EntityType, string> = {
+  study: "Study fields",
+  site: "Site fields",
+};
+
+const STUDY_SECTIONS = ["Organizational", "Per-Site", "Regulatory", "Financial", "Operational"];
+const SITE_SECTIONS = ["Identity", "Location", "Contacts", "Regulatory", "Operations"];
+
+const FIELD_TYPES: FieldType[] = ["text", "date", "number", "dropdown", "boolean", "person"];
+
 export function FieldsDesigner() {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
+
+  // ENTITY TAB STATE
+  const [entityType, setEntityType] = useState<EntityType>("study");
+  const sections = entityType === "study" ? STUDY_SECTIONS : SITE_SECTIONS;
+
+  // DATA
   const { rows, loading, error, update, insert, remove } = useOrgTable<FieldDefinitionRow>(
     "field_definitions",
     { orderBy: "position", realtime: true }
   );
 
-  const studyFields = rows.filter((f) => f.entity_type === "study");
-  const enabled = studyFields.filter((f) => f.enabled).length;
-  const required = studyFields.filter((f) => f.required).length;
-  const customCount = studyFields.filter((f) => f.kind === "custom").length;
+  const visibleFields = useMemo(
+    () => rows.filter((f) => f.entity_type === entityType),
+    [rows, entityType]
+  );
+  const enabled = visibleFields.filter((f) => f.enabled).length;
+  const required = visibleFields.filter((f) => f.required).length;
+  const customCount = visibleFields.filter((f) => f.kind === "custom").length;
 
   const [composer, setComposer] = useState({
     label: "",
-    section: "Organizational",
+    section: sections[0],
     field_type: "text" as FieldType,
     required: false,
   });
   const labelInputRef = useRef<HTMLInputElement>(null);
   const composerCardRef = useRef<HTMLDivElement>(null);
 
+  // Keep composer.section valid when switching entity tabs.
+  if (!sections.includes(composer.section)) {
+    // Update on next tick to avoid a render warning.
+    setTimeout(() => setComposer((c) => ({ ...c, section: sections[0] })), 0);
+  }
+
   const bySection = (section: string) =>
-    studyFields.filter((f) => f.section === section).sort((a, b) => a.position - b.position);
+    visibleFields.filter((f) => f.section === section).sort((a, b) => a.position - b.position);
 
   const startAddInSection = (section: string) => {
     setComposer((c) => ({ ...c, section }));
@@ -56,7 +92,7 @@ export function FieldsDesigner() {
       composer.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40) || "field";
     try {
       await insert({
-        entity_type: "study",
+        entity_type: entityType,
         key: `cf_${Date.now().toString(36)}_${safeKey}`,
         label: composer.label.trim(),
         section: composer.section,
@@ -85,7 +121,7 @@ export function FieldsDesigner() {
   };
 
   const tryRemove = async (id: string, label: string) => {
-    if (!window.confirm(`Remove "${label}"? Existing studies keep their value, but the field disappears from forms.`)) return;
+    if (!window.confirm(`Remove "${label}"? Existing records keep their value, but the field disappears from forms.`)) return;
     try {
       await remove(id);
       toast.success(`Removed "${label}"`);
@@ -109,14 +145,14 @@ export function FieldsDesigner() {
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
         <PageHeader
           kicker="Configure"
-          title="Study fields"
-          subtitle="Decide what every study record captures — which fields are required, which lock after commit, and who can edit each one."
+          title="Field definitions"
+          subtitle="Decide what every record captures — which fields are required, which lock after commit, and who can edit each one."
         />
         <Card className="mt-6">
           <EmptyState
             iconName="lock"
             title="Admin-only surface"
-            sub="Only org admins can change the study record shape. Ask an owner or admin on your team — once they enable a field here, it shows up on every study form."
+            sub="Only org admins can change the field structure. Ask an owner or admin on your team."
           />
         </Card>
       </div>
@@ -129,28 +165,43 @@ export function FieldsDesigner() {
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
-        title="Study fields"
-        subtitle="Decide what every study record captures. Toggle, require, lock after commit, set who can edit. Add custom fields to any section. Every change writes live to Supabase."
+        title="Field definitions"
+        subtitle="Decide what every record captures. Toggle, require, lock after commit, set who can edit. Add custom fields to any section. Every change writes live to Supabase."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
 
+      {/* Study / Site tab switcher */}
+      <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+        {(["study", "site"] as EntityType[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => setEntityType(k)}
+            className={
+              "px-4 py-1.5 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
+              (entityType === k
+                ? "bg-brand-gradient text-white shadow"
+                : "text-slate-600 hover:text-slate-900")
+            }
+          >
+            <Icon name={k === "study" ? "folder" : "hospital"} size={14} />
+            {ENTITY_LABEL[k]}
+          </button>
+        ))}
+      </div>
+
       {/* Summary chips */}
       <div className="grid grid-cols-3 gap-3 mt-6 mb-6">
-        <SummaryCard label="Fields enabled" value={`${enabled}`} sub={`of ${studyFields.length}`} />
+        <SummaryCard label="Fields enabled" value={`${enabled}`} sub={`of ${visibleFields.length}`} />
         <SummaryCard label="Required" value={`${required}`} />
         <SummaryCard label="Custom fields" value={`${customCount}`} />
       </div>
 
-      {/* COMPOSER — top-of-page primary action. */}
-      <Card
-        innerRef={composerCardRef}
-        primary
-        className="mb-8 scroll-mt-24"
-      >
+      {/* COMPOSER */}
+      <Card innerRef={composerCardRef} primary className="mb-8 scroll-mt-24">
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
-              Add a custom field
+              Add a custom field to {ENTITY_LABEL[entityType].toLowerCase()}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
               Pick the section below — available in <strong>every</strong> section.
@@ -170,28 +221,24 @@ export function FieldsDesigner() {
             }}
             placeholder="Field name (e.g. Sponsor portal ID)"
           />
-          <Select
+          <select
             value={composer.section}
             onChange={(e) => setComposer({ ...composer, section: e.target.value })}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition"
           >
-            {SECTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+            {sections.map((s) => (
+              <option key={s} value={s}>{s}</option>
             ))}
-          </Select>
-          <Select
+          </select>
+          <select
             value={composer.field_type}
-            onChange={(e) =>
-              setComposer({ ...composer, field_type: e.target.value as FieldType })
-            }
+            onChange={(e) => setComposer({ ...composer, field_type: e.target.value as FieldType })}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition"
           >
-            {(["text", "date", "number", "dropdown", "boolean"] as FieldType[]).map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
+            {FIELD_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
             ))}
-          </Select>
+          </select>
           <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
             <input
               type="checkbox"
@@ -201,9 +248,7 @@ export function FieldsDesigner() {
             />
             Required
           </label>
-          <Button onClick={addCustom} disabled={!composer.label.trim()}>
-            + Add
-          </Button>
+          <Button onClick={addCustom} disabled={!composer.label.trim()}>+ Add</Button>
         </div>
       </Card>
 
@@ -217,7 +262,21 @@ export function FieldsDesigner() {
         <div className="text-sm text-slate-500 mb-6">Loading fields…</div>
       )}
 
-      {SECTIONS.map((section) => {
+      {!loading && visibleFields.length === 0 && (
+        <Card>
+          <EmptyState
+            iconName="file"
+            title={`No ${entityType} fields configured`}
+            sub={
+              entityType === "site"
+                ? "Site fields seed on a fresh migration. If you just ran 0005, refresh — they should appear."
+                : "Run the seed migration to populate the default study fields."
+            }
+          />
+        </Card>
+      )}
+
+      {sections.map((section) => {
         const fields = bySection(section);
         if (fields.length === 0 && !loading) return null;
         const sectionCustomCount = fields.filter((f) => f.kind === "custom").length;
@@ -245,12 +304,15 @@ export function FieldsDesigner() {
               </button>
             </div>
 
+            {/* Column headers — wider grid to fit the new section + type dropdowns. */}
             <div className="px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
               <span className="w-8">On</span>
               <span className="flex-1">Field</span>
-              <span className="w-16 text-center">Required</span>
-              <span className="w-16 text-center">Locks</span>
-              <span className="w-36">Who can edit</span>
+              <span className="w-32">Section</span>
+              <span className="w-24">Type</span>
+              <span className="w-14 text-center">Required</span>
+              <span className="w-14 text-center">Locks</span>
+              <span className="w-32">Who can edit</span>
               <span className="w-8" />
             </div>
 
@@ -258,6 +320,7 @@ export function FieldsDesigner() {
               <FieldRow
                 key={f.id}
                 field={f}
+                allSections={sections}
                 onUpdate={tryUpdate}
                 onRemove={() => tryRemove(f.id, f.label)}
               />
@@ -267,10 +330,11 @@ export function FieldsDesigner() {
       })}
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
-        <strong>Locks</strong> make a field read-only once a study is committed — use it for
-        regulated identifiers (protocol number, IRB #) that shouldn't drift after activation.
-        <strong> Who can edit</strong> sets the permission tier; every change is captured in
-        the (coming) hash-chained audit trail regardless.
+        <strong>Section</strong> groups fields visually on every form. <strong>Type</strong>
+        determines what input renders downstream (text box / date picker / number / dropdown
+        / yes-no / person picker). <strong>Locks</strong> make a field read-only once a study
+        is committed. <strong>Who can edit</strong> sets the permission tier; every change is
+        captured in the audit trail regardless.
       </p>
     </div>
   );
@@ -280,14 +344,25 @@ export function FieldsDesigner() {
 
 function FieldRow({
   field,
+  allSections,
   onUpdate,
   onRemove,
 }: {
   field: FieldDefinitionRow;
+  allSections: string[];
   onUpdate: (id: string, patch: Partial<FieldDefinitionRow>) => Promise<void>;
   onRemove: () => void;
 }) {
   const isCustom = field.kind === "custom";
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(field.label);
+
+  const commitLabel = () => {
+    const next = labelDraft.trim();
+    if (next && next !== field.label) void onUpdate(field.id, { label: next });
+    setEditingLabel(false);
+  };
+
   return (
     <div
       className={`px-4 py-2.5 border-b border-slate-100 last:border-b-0 flex items-center gap-2 ${
@@ -302,14 +377,84 @@ function FieldRow({
           className="accent-brand-500 w-4 h-4 cursor-pointer"
         />
       </span>
-      <span className="flex-1 text-sm font-semibold text-slate-900 flex items-center gap-2">
-        {field.label}
-        {isCustom && <Pill tone="brand">custom</Pill>}
-        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-mono">
-          {field.field_type}
+
+      <span className="flex-1 min-w-0">
+        {editingLabel ? (
+          <input
+            autoFocus
+            value={labelDraft}
+            onChange={(e) => setLabelDraft(e.target.value)}
+            onBlur={commitLabel}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitLabel();
+              if (e.key === "Escape") {
+                setLabelDraft(field.label);
+                setEditingLabel(false);
+              }
+            }}
+            className="text-sm font-semibold text-slate-900 border border-brand-200 rounded px-1.5 py-0.5 outline-none focus:border-brand-500 w-full"
+          />
+        ) : (
+          <button
+            onClick={() => setEditingLabel(true)}
+            className="text-sm font-semibold text-slate-900 hover:text-brand-700 transition truncate flex items-center gap-2 w-full text-left"
+            title="Click to rename"
+          >
+            {field.label}
+            {isCustom && <Pill tone="brand">custom</Pill>}
+          </button>
+        )}
+        <span className="text-[10px] font-mono text-slate-400 truncate block">
+          {field.key}
         </span>
       </span>
-      <span className="w-16 text-center">
+
+      {/* SECTION dropdown */}
+      <span className="w-32">
+        <select
+          disabled={!field.enabled}
+          value={field.section}
+          onChange={(e) => {
+            if (e.target.value === field.section) return;
+            void onUpdate(field.id, { section: e.target.value, position: 9999 });
+          }}
+          className="w-full text-xs rounded border border-slate-200 px-2 py-1 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed focus:outline-none focus:border-brand-500"
+        >
+          {/* include current value even if not in allSections (defensive) */}
+          {!allSections.includes(field.section) && (
+            <option value={field.section}>{field.section}</option>
+          )}
+          {allSections.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </span>
+
+      {/* FIELD TYPE dropdown */}
+      <span className="w-24">
+        <select
+          disabled={!field.enabled}
+          value={field.field_type}
+          onChange={(e) => {
+            const next = e.target.value as FieldType;
+            if (next === field.field_type) return;
+            if (
+              !window.confirm(
+                `Change "${field.label}" from ${field.field_type} to ${next}? Existing values stay in the database — only how the field renders changes.`
+              )
+            )
+              return;
+            void onUpdate(field.id, { field_type: next });
+          }}
+          className="w-full text-xs rounded border border-slate-200 px-2 py-1 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed focus:outline-none focus:border-brand-500"
+        >
+          {FIELD_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </span>
+
+      <span className="w-14 text-center">
         <input
           type="checkbox"
           disabled={!field.enabled}
@@ -318,7 +463,7 @@ function FieldRow({
           className="accent-brand-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
         />
       </span>
-      <span className="w-16 text-center">
+      <span className="w-14 text-center">
         <input
           type="checkbox"
           disabled={!field.enabled}
@@ -327,7 +472,7 @@ function FieldRow({
           className="accent-brand-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
         />
       </span>
-      <span className="w-36">
+      <span className="w-32">
         <select
           disabled={!field.enabled}
           value={field.edit_tier}
@@ -352,7 +497,7 @@ function FieldRow({
           </button>
         ) : (
           <span
-            title="Standard field — can be disabled with the On toggle, but not removed (other parts of the app reference it)"
+            title="Standard field — can be disabled with the On toggle, but not removed (other parts of the app may reference it)"
             className="inline-flex"
           >
             <Icon name="lock" size={14} className="text-slate-400" />
