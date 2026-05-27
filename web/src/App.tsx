@@ -14,6 +14,7 @@ import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
 import { OrgSettings } from "./pages/OrgSettings";
 import { Profile } from "./pages/Profile";
+import { Members } from "./pages/Members";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -86,6 +87,11 @@ function renderRoute(
   // Configure: org
   if (hash === "#/settings/org") {
     return { node: <OrgSettings /> };
+  }
+
+  // Configure: members
+  if (hash === "#/settings/members") {
+    return { node: <Members /> };
   }
 
   // You: profile

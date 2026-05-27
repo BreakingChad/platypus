@@ -38,6 +38,7 @@ const NAV: NavGroup[] = [
     group: "Configure",
     items: [
       { label: "Organization", hash: "#/settings/org", icon: "settings", adminOnly: true },
+      { label: "Members", hash: "#/settings/members", icon: "users", adminOnly: true },
       { label: "Study fields", hash: "#/settings/fields", icon: "file", adminOnly: true },
       {
         label: "Pipeline stages",
@@ -289,6 +290,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/pipeline": { kicker: "Workspace", title: "Pipeline" },
   "#/inbox": { kicker: "Workspace", title: "Inbox" },
   "#/settings/org": { kicker: "Configure", title: "Organization" },
+  "#/settings/members": { kicker: "Configure", title: "Members" },
   "#/settings/fields": { kicker: "Configure", title: "Study fields" },
   "#/profile": { kicker: "You", title: "Profile" },
   "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
