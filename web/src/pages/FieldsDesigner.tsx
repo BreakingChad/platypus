@@ -28,9 +28,36 @@ import { EmptyState } from "../components/ui/EmptyState";
 
 type EntityType = "study" | "site";
 
-const ENTITY_LABEL: Record<EntityType, string> = {
-  study: "Study fields",
-  site: "Site fields",
+const ENTITY_META: Record<EntityType, {
+  label: string;
+  shortLabel: string;
+  icon: string;
+  noun: string;                  // "study" / "site" — used in copy
+  description: string;
+  accent: string;                // gradient class for the active tab tile
+  ringTint: string;              // soft background tint for the whole section while active
+  pillTone: "brand" | "info";
+}> = {
+  study: {
+    label: "Study fields",
+    shortLabel: "Studies",
+    icon: "folder",
+    noun: "study",
+    description: "What every study record captures across its lifecycle.",
+    accent: "bg-brand-gradient",
+    ringTint: "bg-brand-50/40",
+    pillTone: "brand",
+  },
+  site: {
+    label: "Site fields",
+    shortLabel: "Sites",
+    icon: "hospital",
+    noun: "site",
+    description: "What every site record captures — institution, IRB, contacts, status.",
+    accent: "bg-gradient-to-br from-sky-500 to-cyan-600",
+    ringTint: "bg-sky-50/40",
+    pillTone: "info",
+  },
 };
 
 const STUDY_SECTIONS = ["Organizational", "Per-Site", "Regulatory", "Financial", "Operational"];
@@ -164,29 +191,95 @@ export function FieldsDesigner() {
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
       <PageHeader
-        kicker="Configure"
-        title="Field definitions"
-        subtitle="Decide what every record captures. Toggle, require, lock after commit, set who can edit. Add custom fields to any section. Every change writes live to Supabase."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
+        kicker="Configure · Field definitions"
+        title={ENTITY_META[entityType].label}
+        subtitle={ENTITY_META[entityType].description}
+        actions={<Pill tone={ENTITY_META[entityType].pillTone}>live · admin-driven</Pill>}
       />
 
-      {/* Study / Site tab switcher */}
-      <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-        {(["study", "site"] as EntityType[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => setEntityType(k)}
-            className={
-              "px-4 py-1.5 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
-              (entityType === k
-                ? "bg-brand-gradient text-white shadow"
-                : "text-slate-600 hover:text-slate-900")
-            }
-          >
-            <Icon name={k === "study" ? "folder" : "hospital"} size={14} />
-            {ENTITY_LABEL[k]}
-          </button>
-        ))}
+      {/* BIG SEGMENTED CONTROL — the page's defining choice */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+        {(["study", "site"] as EntityType[]).map((k) => {
+          const meta = ENTITY_META[k];
+          const active = entityType === k;
+          const count = rows.filter((f) => f.entity_type === k && f.enabled).length;
+          return (
+            <button
+              key={k}
+              onClick={() => setEntityType(k)}
+              className={
+                "relative text-left rounded-2xl border-2 p-4 transition flex items-center gap-3 " +
+                (active
+                  ? "border-transparent ring-2 ring-offset-2 ring-slate-300 shadow-md"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:-translate-y-[1px]")
+              }
+            >
+              <div
+                className={
+                  "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white " +
+                  (active ? meta.accent : "bg-slate-200 text-slate-500")
+                }
+                style={active ? undefined : undefined}
+              >
+                <Icon name={meta.icon} size={22} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={
+                    "font-display font-extrabold text-base " +
+                    (active ? "text-slate-900" : "text-slate-700")
+                  }>
+                    {meta.label}
+                  </span>
+                  {active && (
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                      editing
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5 truncate">
+                  {meta.description}
+                </div>
+              </div>
+              <div className="flex flex-col items-end flex-shrink-0">
+                <span className={
+                  "text-xl font-display font-extrabold tracking-tight " +
+                  (active ? "text-slate-900" : "text-slate-400")
+                }>
+                  {count}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                  active
+                </span>
+              </div>
+              {active && (
+                <div
+                  className={"absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl " + meta.accent}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Context banner — reinforces which entity is active right above the editor */}
+      <div
+        className={
+          "mt-4 -mb-2 rounded-lg px-3 py-2 flex items-center gap-2 text-xs " +
+          ENTITY_META[entityType].ringTint
+        }
+      >
+        <div
+          className={
+            "w-1.5 h-4 rounded-full " + ENTITY_META[entityType].accent
+          }
+        />
+        <span className="font-semibold text-slate-700">
+          You're editing <span className="text-slate-900">{ENTITY_META[entityType].label.toLowerCase()}</span>.
+        </span>
+        <span className="text-slate-500">
+          Changes apply to every {ENTITY_META[entityType].noun} record in your org.
+        </span>
       </div>
 
       {/* Summary chips */}
@@ -201,7 +294,7 @@ export function FieldsDesigner() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
-              Add a custom field to {ENTITY_LABEL[entityType].toLowerCase()}
+              Add a custom field to {ENTITY_META[entityType].label.toLowerCase()}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
               Pick the section below — available in <strong>every</strong> section.
@@ -266,7 +359,7 @@ export function FieldsDesigner() {
         <Card>
           <EmptyState
             iconName="file"
-            title={`No ${entityType} fields configured`}
+            title={`No ${ENTITY_META[entityType].noun} fields configured`}
             sub={
               entityType === "site"
                 ? "Site fields seed on a fresh migration. If you just ran 0005, refresh — they should appear."
