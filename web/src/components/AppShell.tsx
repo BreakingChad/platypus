@@ -6,6 +6,7 @@ import { useCurrentMember } from "../lib/useCurrentMember";
 import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
+import { CommandPalette } from "./CommandPalette";
 
 /** App shell — persistent left rail + header + content slot.
  *  Owns navigation, current-user/org affordances, and sign-out. Routes are
@@ -212,8 +213,21 @@ export function AppShell({
             </div>
 
             {/* Breadcrumb / current section */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex items-center gap-3">
               <Breadcrumb hash={currentHash} />
+              <button
+                onClick={() => {
+                  // Simulate ⌘K to open palette
+                  const evt = new KeyboardEvent("keydown", { key: "k", metaKey: true });
+                  window.dispatchEvent(evt);
+                }}
+                className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition px-2 py-1 text-[11px] font-mono text-slate-500"
+                title="Open command palette"
+              >
+                <Icon name="search" size={11} />
+                Search
+                <kbd className="text-[10px] text-slate-400 ml-1">⌘K</kbd>
+              </button>
             </div>
 
             {/* User menu */}
@@ -267,6 +281,9 @@ export function AppShell({
         {/* CONTENT */}
         <main className="flex-1 min-w-0">{children}</main>
       </div>
+
+      {/* Global Cmd-K palette */}
+      <CommandPalette onNavigate={onNavigate} />
     </div>
   );
 }
