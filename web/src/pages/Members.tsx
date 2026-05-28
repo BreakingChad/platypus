@@ -8,6 +8,7 @@ import type { MemberTier } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
+import { Input } from "../components/ui/Input";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -47,6 +48,9 @@ export function Members() {
   const [error, setError] = useState<string | null>(null);
   const [orgOwnerId, setOrgOwnerId] = useState<string | null>(null);
   const [accessRoles, setAccessRoles] = useState<{ id: string; name: string }[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [sendingFor, setSendingFor] = useState<string | null>(null);
 
   const load = async () => {
     if (!orgId) return;
@@ -118,6 +122,49 @@ export function Members() {
     } catch (e: any) {
       toast.error(e?.message || "Couldn't change access role");
     }
+  };
+
+  /** Send a magic-link to the given email. If the email is new it creates
+   *  an auth.user on first click; the handle_new_user trigger then joins
+   *  them to the shared org as 'member'. If the email already exists, this
+   *  acts as a sign-in / "magic link reset" — same flow, different effect. */
+  const sendMagicLink = async (email: string, kind: "invite" | "signin"): Promise<boolean> => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !/.+@.+\..+/.test(trimmed)) {
+      toast.error("Enter a valid email");
+      return false;
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: {
+          emailRedirectTo: window.location.origin + window.location.pathname,
+        },
+      });
+      if (error) throw error;
+      toast.success(
+        kind === "invite"
+          ? `Invite link sent to ${trimmed}`
+          : `Sign-in link sent to ${trimmed}`
+      );
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't send magic link");
+      return false;
+    }
+  };
+
+  const sendInvite = async () => {
+    setSendingInvite(true);
+    const ok = await sendMagicLink(inviteEmail, "invite");
+    setSendingInvite(false);
+    if (ok) setInviteEmail("");
+  };
+
+  const sendSignInLink = async (m: Member) => {
+    setSendingFor(m.id);
+    await sendMagicLink(m.email, "signin");
+    setSendingFor(null);
   };
 
   const changeTier = async (m: Member, next: MemberTier) => {
@@ -194,7 +241,7 @@ export function Members() {
         actions={<Pill tone="brand">admin</Pill>}
       />
 
-      {/* INVITE PANEL */}
+      {/* INVITE PANEL — two-action: send by email OR share link */}
       <Card primary className="mt-6">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
@@ -205,24 +252,57 @@ export function Members() {
               Invite teammates
             </div>
             <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-              Share the URL below. When your teammate signs up at Platypus, their account is
-              created. Come back here and we'll add a quick join flow next phase — for now, ask
-              them to share their email, then promote them once they appear in this list.
+              Send a magic-link invite straight to their inbox. They click it, sign in, and they
+              automatically join this organization as a member — you can promote them right
+              here once they appear.
             </p>
-            <div className="mt-3 flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono bg-white border border-slate-200 rounded-md px-3 py-2 truncate">
-                {inviteUrl}
-              </code>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  void navigator.clipboard.writeText(inviteUrl);
-                  toast.success("Link copied to clipboard");
+
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && inviteEmail.trim()) void sendInvite();
                 }}
+                placeholder="teammate@example.com"
+                autoComplete="off"
+              />
+              <Button
+                variant="primary"
+                onClick={() => void sendInvite()}
+                disabled={!inviteEmail.trim() || sendingInvite}
               >
-                <Icon name="external" size={12} /> Copy
+                {sendingInvite ? "Sending…" : "Send invite"}
               </Button>
             </div>
+
+            {/* Fallback: shareable link for environments where email isn't set up */}
+            <details className="mt-3 group">
+              <summary className="text-[11px] font-semibold text-slate-500 cursor-pointer hover:text-slate-900 inline-flex items-center gap-1">
+                Prefer a shareable link?
+                <Icon name="chevron-down" size={11} className="group-open:rotate-180 transition" />
+              </summary>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="flex-1 text-xs font-mono bg-white border border-slate-200 rounded-md px-3 py-2 truncate">
+                  {inviteUrl}
+                </code>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(inviteUrl);
+                    toast.success("Link copied to clipboard");
+                  }}
+                >
+                  <Icon name="external" size={11} /> Copy
+                </Button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                Share this with anyone — when they sign up at Platypus their account is created
+                automatically and they're attached to this organization as a member.
+              </p>
+            </details>
           </div>
         </div>
       </Card>
@@ -251,12 +331,13 @@ export function Members() {
 
         {members && members.length > 0 && (
           <Card flush>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.3fr_100px_160px_140px_40px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Member</span>
               <span>Title</span>
               <span>Joined</span>
               <span>Access role</span>
               <span>Tier</span>
+              <span>Action</span>
               <span />
             </div>
             {members.map((m) => {
@@ -265,7 +346,7 @@ export function Members() {
               return (
                 <div
                   key={m.id}
-                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[2fr_1.3fr_100px_160px_140px_40px] gap-3 items-center"
+                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
@@ -333,6 +414,16 @@ export function Members() {
                         <option value="developer">developer</option>
                       </select>
                     )}
+                  </div>
+                  <div className="text-center">
+                    <button
+                      onClick={() => void sendSignInLink(m)}
+                      disabled={sendingFor === m.id}
+                      title={`Send a magic sign-in link to ${m.email}`}
+                      className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingFor === m.id ? "…" : "Send link"}
+                    </button>
                   </div>
                   <div className="text-center">
                     {isThisOwner || isMe ? (

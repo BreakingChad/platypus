@@ -163,11 +163,11 @@ export function AppShell({
                   const evt = new KeyboardEvent("keydown", { key: "k", metaKey: true });
                   window.dispatchEvent(evt);
                 }}
-                className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition px-2 py-1 text-[11px] font-mono text-slate-500"
-                title="Open command palette"
+                className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition px-2.5 py-1 text-[11px] font-mono text-slate-500"
+                title="Open universal search"
               >
                 <Icon name="search" size={11} />
-                Search
+                Universal search
                 <kbd className="text-[10px] text-slate-400 ml-1">⌘K</kbd>
               </button>
             </div>

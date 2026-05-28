@@ -147,7 +147,7 @@ export function CommandPalette({
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search studies, jump to a page…"
+            placeholder="Universal search — studies, people, pages…"
             className="flex-1 outline-none text-sm font-medium text-slate-900 placeholder:text-slate-400 bg-transparent"
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {
