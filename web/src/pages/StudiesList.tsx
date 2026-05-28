@@ -11,6 +11,8 @@ import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
+import { HealthDot } from "../components/ui/HealthDot";
+import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
 import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
@@ -23,6 +25,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [healthFilter, setHealthFilter] = useState<"all" | HealthLevel>("all");
   const [showClosed, setShowClosed] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -34,10 +37,15 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return studies.rows
-      .filter((r) => (showClosed ? true : !r.closed))
-      .filter((r) => (stageFilter === "all" ? true : r.stage_key === stageFilter))
-      .filter((r) => {
+    const withHealth = studies.rows.map((r) => ({
+      row: r,
+      health: computeHealth(r, stages.rows),
+    }));
+    return withHealth
+      .filter(({ row }) => (showClosed ? true : !row.closed))
+      .filter(({ row }) => (stageFilter === "all" ? true : row.stage_key === stageFilter))
+      .filter(({ health }) => (healthFilter === "all" ? true : health.level === healthFilter))
+      .filter(({ row: r }) => {
         if (!q) return true;
         return (
           r.title.toLowerCase().includes(q) ||
@@ -47,8 +55,12 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           (r.nct ?? "").toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-  }, [studies.rows, search, stageFilter, showClosed]);
+      .sort((a, b) => {
+        const hw = healthSortWeight(a.health) - healthSortWeight(b.health);
+        if (hw !== 0) return hw;
+        return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
+      });
+  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -132,6 +144,43 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         </div>
       )}
 
+      {/* Health filter chips */}
+      {studies.rows.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+            Health
+          </span>
+          {([
+            ["all",    "All",       "bg-white border-slate-200 text-slate-700"],
+            ["red",    "Overdue",   "bg-red-50 border-red-200 text-red-700"],
+            ["yellow", "At risk",   "bg-amber-50 border-amber-200 text-amber-800"],
+            ["green",  "Healthy",   "bg-emerald-50 border-emerald-200 text-emerald-700"],
+            ["unknown", "Unknown",  "bg-slate-100 border-slate-200 text-slate-600"],
+          ] as const).map(([key, label, cls]) => (
+            <button
+              key={key}
+              onClick={() => setHealthFilter(key as any)}
+              className={
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
+                (healthFilter === key
+                  ? "border-slate-900 shadow-sm scale-[1.02] " + cls
+                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300")
+              }
+            >
+              {key !== "all" && (
+                <span className={
+                  "w-1.5 h-1.5 rounded-full " +
+                  (key === "red" ? "bg-red-500" :
+                   key === "yellow" ? "bg-amber-500" :
+                   key === "green" ? "bg-emerald-500" : "bg-slate-400")
+                } />
+              )}
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search + closed toggle */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
         <Input
@@ -183,22 +232,26 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
         {filtered.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[120px_1fr_160px_160px_120px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[120px_1fr_160px_140px_140px_110px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Code</span>
               <span>Study</span>
               <span>Stage</span>
+              <span>Health</span>
               <span>PI</span>
               <span>Created</span>
             </div>
-            {filtered.map((s) => {
+            {filtered.map(({ row: s, health }) => {
               const stage = s.stage_key ? stageByKey[s.stage_key] : null;
               return (
                 <button
                   key={s.id}
                   onClick={() => onNavigate(`#/studies/${s.id}`)}
-                  className="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-brand-50/30 transition grid grid-cols-[120px_1fr_160px_160px_120px] gap-3 items-center group"
+                  className="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-brand-50/30 transition grid grid-cols-[120px_1fr_160px_140px_140px_110px] gap-3 items-center group"
                 >
-                  <span className="font-mono text-xs text-slate-600">{s.code}</span>
+                  <span className="font-mono text-xs text-slate-600 flex items-center gap-2">
+                    <HealthDot health={health} variant="dot" />
+                    {s.code}
+                  </span>
                   <span className="min-w-0">
                     <div className="font-semibold text-slate-900 truncate">{s.title}</div>
                     <div className="text-[11px] text-slate-500 truncate">
@@ -225,6 +278,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                       <span className="text-xs text-slate-400 italic">unassigned</span>
                     )}
                   </span>
+                  <span className="text-xs text-slate-600 truncate" title={health.summary}>
+                    <HealthDot health={health} variant="pill" />
+                  </span>
                   <span className="text-xs text-slate-700 truncate">
                     {s.pi_name || <span className="text-slate-400 italic">—</span>}
                   </span>
@@ -246,6 +302,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               onClick={() => {
                 setSearch("");
                 setStageFilter("all");
+                setHealthFilter("all");
                 setShowClosed(false);
               }}
               className="mt-3 text-xs font-semibold text-brand-700 hover:underline"

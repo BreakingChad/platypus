@@ -17,6 +17,8 @@ import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
+import { HealthDot } from "../components/ui/HealthDot";
+import { computeHealth, HEALTH_TONE } from "../lib/studyHealth";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -104,6 +106,11 @@ export function StudyDetail({
   const stage = useMemo(
     () => (study?.stage_key ? stages.rows.find((s) => s.key === study.stage_key) : null),
     [stages.rows, study?.stage_key]
+  );
+
+  const health = useMemo(
+    () => (study ? computeHealth(study, stages.rows) : null),
+    [study, stages.rows]
   );
 
   const studyFields = useMemo(
@@ -246,7 +253,7 @@ export function StudyDetail({
           </>
         }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {stage && (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white"
@@ -256,6 +263,7 @@ export function StudyDetail({
                 {stage.label}
               </span>
             )}
+            {health && !study.closed && <HealthDot health={health} variant="pill" />}
             {study.closed && <Pill tone="neutral">closed</Pill>}
             {isAdmin && (
               <Button
@@ -270,6 +278,45 @@ export function StudyDetail({
           </div>
         }
       />
+
+      {/* Health bar — full-width context strip with elapsed / target / projection */}
+      {health && stage && !study.closed && health.level !== "unknown" && (
+        <div
+          className={
+            "mt-6 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap " +
+            HEALTH_TONE[health.level].bg + " " + HEALTH_TONE[health.level].border
+          }
+        >
+          <div className={"w-2 h-8 rounded-full " + HEALTH_TONE[health.level].dot} />
+          <div className="flex-1 min-w-0">
+            <div className={"text-xs font-bold uppercase tracking-wider " + HEALTH_TONE[health.level].text}>
+              {HEALTH_TONE[health.level].label} in {stage.label}
+            </div>
+            <div className="text-xs text-slate-600 mt-0.5">
+              {health.summary}
+            </div>
+          </div>
+          {/* Stage progress bar */}
+          {health.targetDays > 0 && (
+            <div className="w-48 hidden md:block">
+              <div className="h-2 rounded-full bg-white/60 border border-slate-200 overflow-hidden">
+                <div
+                  className={"h-full rounded-full " + HEALTH_TONE[health.level].dot}
+                  style={{
+                    width:
+                      Math.min(100, Math.round((health.daysInStage / health.targetDays) * 100)) +
+                      "%",
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
+                <span>0</span>
+                <span>target {health.targetDays}d</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stage advance bar — admins only */}
       {isAdmin && stages.rows.length > 0 && (

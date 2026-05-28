@@ -9,6 +9,8 @@ import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
+import { HealthDot } from "../components/ui/HealthDot";
+import { computeHealth, healthSortWeight, type HealthInfo } from "../lib/studyHealth";
 
 /** PipelineView — kanban by stage. Columns from pipeline_stages, cards from
  *  studies. Admins can drag cards between columns to advance/regress (writes
@@ -32,14 +34,19 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
   const [hoverStage, setHoverStage] = useState<string | null>(null);
 
   const studiesByStage = useMemo(() => {
-    const m: Record<string, StudyRow[]> = {};
+    const m: Record<string, { row: StudyRow; health: HealthInfo }[]> = {};
     for (const s of studies.rows) {
       if (!showClosed && s.closed) continue;
       const k = s.stage_key ?? "__unassigned__";
-      (m[k] = m[k] ?? []).push(s);
+      const item = { row: s, health: computeHealth(s, stages.rows) };
+      (m[k] = m[k] ?? []).push(item);
+    }
+    // Sort each column: overdue → at risk → healthy → unknown → closed
+    for (const k of Object.keys(m)) {
+      m[k].sort((a, b) => healthSortWeight(a.health) - healthSortWeight(b.health));
     }
     return m;
-  }, [studies.rows, showClosed]);
+  }, [studies.rows, stages.rows, showClosed]);
 
   const unassigned = studiesByStage["__unassigned__"] ?? [];
   const hasStages = stages.rows.length > 0;
@@ -177,10 +184,11 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
                       No studies here.
                     </div>
                   )}
-                  {items.map((s) => (
+                  {items.map(({ row: s, health }) => (
                     <StudyCard
                       key={s.id}
                       study={s}
+                      health={health}
                       stage={stage}
                       draggable={isAdmin}
                       isDragging={draggingId === s.id}
@@ -228,6 +236,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
 
 function StudyCard({
   study,
+  health,
   stage,
   draggable,
   isDragging,
@@ -236,6 +245,7 @@ function StudyCard({
   onClick,
 }: {
   study: StudyRow;
+  health: HealthInfo;
   stage: PipelineStageRow;
   draggable: boolean;
   isDragging: boolean;
@@ -260,12 +270,29 @@ function StudyCard({
       }
       style={{ borderLeft: `4px solid ${stage.color}` }}
     >
-      <div className="flex items-baseline gap-2 mb-0.5">
+      <div className="flex items-center gap-2 mb-0.5">
+        <HealthDot health={health} variant="dot" />
         <span className="text-[10px] font-mono text-slate-500 font-semibold">
           {study.code}
         </span>
         {study.priority === "high" && <Pill tone="warning">P1</Pill>}
         {study.closed && <Pill tone="neutral">closed</Pill>}
+        <span className="flex-1" />
+        {!study.closed && (
+          <span
+            className="text-[10px] font-mono text-slate-500"
+            title={health.summary}
+          >
+            {health.targetDays > 0 && (
+              health.daysToTarget >= 0
+                ? `${health.daysInStage}d / ${health.targetDays}d`
+                : `+${-health.daysToTarget}d over`
+            )}
+            {health.targetDays === 0 && health.level !== "unknown" && (
+              `${health.daysInStage}d`
+            )}
+          </span>
+        )}
       </div>
       <div className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
         {study.title}
