@@ -134,6 +134,31 @@ export type TaskRow = {
   updated_at: string;
 };
 
+export type WorkflowModuleRow = {
+  id: string;
+  org_id: string;
+  stage_key: string;
+  owner_team_id: string | null;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkflowTaskTemplateRow = {
+  id: string;
+  module_id: string;
+  kind: TaskKind;
+  title: string;
+  description: string | null;
+  due_offset_days: number | null;
+  assigned_to_role_id: string | null;
+  position: number;
+  created_at: string;
+};
+
 export type StudyRow = {
   id: string;
   org_id: string;
@@ -190,6 +215,8 @@ export type Database = {
       access_roles:      { Row: AccessRoleRow;       Insert: Partial<AccessRoleRow>;       Update: Partial<AccessRoleRow>;       Relationships: [] };
       audit_events:      { Row: AuditEventRow;       Insert: Partial<AuditEventRow>;       Update: Partial<AuditEventRow>;       Relationships: [] };
       tasks:             { Row: TaskRow;             Insert: Partial<TaskRow>;             Update: Partial<TaskRow>;             Relationships: [] };
+      workflow_modules:        { Row: WorkflowModuleRow;       Insert: Partial<WorkflowModuleRow>;       Update: Partial<WorkflowModuleRow>;       Relationships: [] };
+      workflow_task_templates: { Row: WorkflowTaskTemplateRow; Insert: Partial<WorkflowTaskTemplateRow>; Update: Partial<WorkflowTaskTemplateRow>; Relationships: [] };
     };
     Views: {};
     Functions: {};

@@ -72,6 +72,7 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "nav",         label: "Nav designer",     icon: "layers",    hash: "#/settings/nav",       adminOnly: true, description: "Sidebar layout by role." },
   { key: "pages",       label: "Page designer",    icon: "workflow",  hash: "#/settings/pages",     adminOnly: true, description: "Drag-drop page layouts." },
   { key: "audit",       label: "Audit feed",       icon: "shield",    hash: "#/audit",              adminOnly: true, description: "Org-wide audit trail with CSV export." },
+  { key: "work-streams", label: "Work Streams",    icon: "workflow",  hash: "#/settings/work-streams", adminOnly: true, description: "Pattern Builder — auto-spawn tasks per stage." },
 ];
 
 export function navEntry(key: string): NavRegistryEntry | undefined {
@@ -105,6 +106,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
       { key: "nav" },
       { key: "pages" },
       { key: "audit" },
+      { key: "work-streams" },
     ],
   },
 ];
