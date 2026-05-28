@@ -11,6 +11,7 @@ import { Icon } from "../components/ui/Icon";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useStickyState } from "../lib/useStickyState";
 import { EmptyState } from "../components/ui/EmptyState";
 
 /** AuditFeed — org-wide chronological audit log. Admin-only. Surfaces every
@@ -25,11 +26,13 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
 
   const [events, setEvents] = useState<AuditEventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [entityFilter, setEntityFilter] = useState<string>("all");
-  const [actorFilter, setActorFilter] = useState<string>("");
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
-  const [limit, setLimit] = useState<number>(200);
+  const [entityFilter, setEntityFilter] = useStickyState<string>("audit/entity", "all");
+  const [actionFilter, setActionFilter] = useStickyState<string>("audit/action", "all");
+  const [actorFilter, setActorFilter] = useStickyState<string>("audit/actor", "");
+  const [fromDate, setFromDate] = useStickyState<string>("audit/from", "");
+  const [toDate, setToDate] = useStickyState<string>("audit/to", "");
+  const [limit, setLimit] = useStickyState<number>("audit/limit", 200);
+  const [dateRangePreset, setDateRangePreset] = useStickyState<string>("audit/dateRangePreset", "all");
 
   // Load events
   useEffect(() => {
@@ -68,6 +71,30 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
     };
   }, [orgId, isAdmin, limit]);
 
+  // Apply date-range preset → from/to dates.
+  useEffect(() => {
+    if (dateRangePreset === "all") return;
+    const now = new Date();
+    const yyyy = (d: Date) => d.toISOString().slice(0, 10);
+    if (dateRangePreset === "today") {
+      setFromDate(yyyy(now));
+      setToDate(yyyy(now));
+    } else if (dateRangePreset === "7d") {
+      const start = new Date(now.getTime() - 6 * 86400000);
+      setFromDate(yyyy(start));
+      setToDate(yyyy(now));
+    } else if (dateRangePreset === "30d") {
+      const start = new Date(now.getTime() - 29 * 86400000);
+      setFromDate(yyyy(start));
+      setToDate(yyyy(now));
+    } else if (dateRangePreset === "this_month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      setFromDate(yyyy(start));
+      setToDate(yyyy(now));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRangePreset]);
+
   // Pre-build study code lookup for clickable entity refs
   const studyById = useMemo(() => {
     const m: Record<string, StudyRow> = {};
@@ -83,18 +110,26 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return events.filter((e) => {
       if (entityFilter !== "all" && e.entity_type !== entityFilter) return false;
+      if (actionFilter !== "all" && e.action !== actionFilter) return false;
       if (aq && !(e.actor_email ?? "").toLowerCase().includes(aq)) return false;
       const ts = e.created_at ? new Date(e.created_at).getTime() : 0;
       if (from !== null && ts < from) return false;
       if (to !== null && ts > to) return false;
       return true;
     });
-  }, [events, entityFilter, actorFilter, fromDate, toDate]);
+  }, [events, entityFilter, actionFilter, actorFilter, fromDate, toDate]);
 
   // Unique entity types present in current data
   const entityTypes = useMemo(() => {
     const set = new Set<string>();
     (events ?? []).forEach((e) => set.add(e.entity_type));
+    return Array.from(set).sort();
+  }, [events]);
+
+  // Unique actions present in current data
+  const actionTypes = useMemo(() => {
+    const set = new Set<string>();
+    (events ?? []).forEach((e) => set.add(e.action));
     return Array.from(set).sort();
   }, [events]);
 
@@ -169,8 +204,76 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
         }
       />
 
+      {/* Date-range preset chips */}
+      <div className="mt-6 flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+          When
+        </span>
+        {([
+          ["all", "All time"],
+          ["today", "Today"],
+          ["7d", "Last 7 days"],
+          ["30d", "Last 30 days"],
+          ["this_month", "This month"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => {
+              if (key === "all") {
+                setFromDate("");
+                setToDate("");
+              }
+              setDateRangePreset(key);
+            }}
+            className={
+              "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition " +
+              (dateRangePreset === key
+                ? "bg-brand-50 border-brand-200 text-brand-700"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Action chips (visible only when at least 2 action types exist) */}
+      {actionTypes.length > 1 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+            Action
+          </span>
+          <button
+            onClick={() => setActionFilter("all")}
+            className={
+              "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition " +
+              (actionFilter === "all"
+                ? "bg-brand-50 border-brand-200 text-brand-700"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300")
+            }
+          >
+            All actions
+          </button>
+          {actionTypes.map((a) => (
+            <button
+              key={a}
+              onClick={() => setActionFilter(a)}
+              className={
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition " +
+                (actionFilter === a
+                  ? "bg-brand-50 border-brand-200 text-brand-700"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300")
+              }
+              title={a}
+            >
+              {a.replace(/_/g, " ")}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Filters */}
-      <Card primary className="mt-6">
+      <Card primary className="mt-4">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-end">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
