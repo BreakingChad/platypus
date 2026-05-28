@@ -21,6 +21,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, HEALTH_TONE } from "../lib/studyHealth";
 import { writeAuditEvent } from "../lib/auditLog";
+import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
@@ -290,6 +291,20 @@ export function StudyDetail({
             to_label: stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey,
           },
         });
+        // Fire the work stream engine — spawn tasks per configured module.
+        try {
+          const res = await spawnTasksForStageEntry({
+            orgId,
+            studyId: study.id,
+            stageKey: nextKey,
+            actorUserId: userId,
+          });
+          if (res.spawned > 0) {
+            toast.info(`Spawned ${res.spawned} task${res.spawned === 1 ? "" : "s"} from ${res.modules} module${res.modules === 1 ? "" : "s"}`);
+          }
+        } catch (e: any) {
+          toast.error(`Stage advanced but task spawn failed: ${e?.message ?? "unknown"}`);
+        }
       }
       toast.success(`Moved to ${stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey}`);
     } catch (e: any) {

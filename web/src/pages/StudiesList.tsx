@@ -18,6 +18,7 @@ import { useStarredStudies } from "../lib/useStarred";
 import { toCsv, downloadCsv } from "../lib/csv";
 import { useAuth } from "../auth/useAuth";
 import { writeAuditEvent } from "../lib/auditLog";
+import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { NewStudyModal } from "../components/NewStudyModal";
@@ -98,6 +99,18 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               bulk: true,
             },
           });
+          // Fire the work stream engine for each study independently.
+          try {
+            await spawnTasksForStageEntry({
+              orgId,
+              studyId: id,
+              stageKey: nextStageKey,
+              actorUserId: userId,
+            });
+          } catch {
+            // Audit + study update succeeded — don't let a per-row spawn
+            // failure halt the bulk run. The user can re-trigger manually.
+          }
         })
       );
       toast.success(`Moved ${ids.length} stud${ids.length === 1 ? "y" : "ies"} to ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`);

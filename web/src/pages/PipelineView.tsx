@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
+import { useCurrentOrg } from "../lib/OrgContext";
+import { writeAuditEvent } from "../lib/auditLog";
+import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { useToast } from "../lib/Toast";
 import type { StudyRow, PipelineStageRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
@@ -24,6 +27,8 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
   const { isAdmin } = useCurrentMember();
   const auth = useAuth();
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const { orgId } = useCurrentOrg();
   const starred = useStarredStudies(userEmail);
   const toast = useToast();
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", {
@@ -74,6 +79,33 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
       const { error } = await supabase.from("studies").update(patch as any).eq("id", studyId);
       if (error) throw error;
       const stageLabel = stages.rows.find((s) => s.key === stageKey)?.label ?? stageKey;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: studyId,
+          action: "stage_changed",
+          payload: {
+            from: study.stage_key ?? null,
+            to: stageKey,
+            from_label: stages.rows.find((s) => s.key === study.stage_key)?.label ?? null,
+            to_label: stageLabel,
+            source: "pipeline_dnd",
+          },
+        });
+        try {
+          const res = await spawnTasksForStageEntry({
+            orgId,
+            studyId,
+            stageKey,
+            actorUserId: userId,
+          });
+          if (res.spawned > 0) {
+            toast.info(`+${res.spawned} task${res.spawned === 1 ? "" : "s"} spawned for ${stageLabel}`);
+          }
+        } catch (e: any) {
+          toast.error(`Stage advanced but task spawn failed: ${e?.message ?? "unknown"}`);
+        }
+      }
       toast.success(`Moved ${study.code} to ${stageLabel}`);
     } catch (e: any) {
       toast.error(e?.message || "Move failed");
