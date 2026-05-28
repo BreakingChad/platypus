@@ -15,6 +15,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { EmptyState } from "../components/ui/EmptyState";
+import { WorkStreamPanel } from "./StudyDetail.workstream";
 
 /** TasksTab — per-study task list inside StudyDetail. Shares semantics with
  *  Inbox (complete, skip, reopen, manual add) but filtered to this study. */
@@ -22,10 +23,12 @@ export function TasksTab({
   studyId,
   stages,
   stageKey,
+  onNavigate,
 }: {
   studyId: string;
   stages: PipelineStageRow[];
   stageKey: string | null;
+  onNavigate?: (h: string) => void;
 }) {
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
@@ -178,6 +181,13 @@ export function TasksTab({
 
   return (
     <div>
+      {/* What's configured for this stage */}
+      <WorkStreamPanel
+        stageKey={stageKey}
+        stage={stages.find((s) => s.key === stageKey) ?? null}
+        onNavigate={onNavigate}
+      />
+
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">

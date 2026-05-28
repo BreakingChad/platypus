@@ -554,7 +554,7 @@ export function StudyDetail({
         )}
 
         {tab === "tasks" && (
-          <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} />
+          <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} onNavigate={(h) => { window.location.hash = h; }} />
         )}
 
         {tab === "documents" && (
