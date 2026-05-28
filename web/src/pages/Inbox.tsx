@@ -5,6 +5,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
+import { writeAuditEvent } from "../lib/auditLog";
 import type {
   TaskRow,
   TaskStatus,
@@ -35,6 +36,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const { isAdmin } = useCurrentMember();
   const toast = useToast();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
 
   const tasks = useOrgTable<TaskRow>("tasks", { orderBy: "due_at", realtime: true });
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at" });
@@ -131,6 +133,14 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
         })
         .eq("id", t.id);
       if (error) throw error;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "task", entityId: t.id,
+          action: "task_completed",
+          payload: { title: t.title, study_id: t.study_id, stage_key: t.stage_key },
+        });
+      }
       toast.success(`Completed: ${t.title}`);
     } catch (e: any) {
       toast.error(e?.message || "Couldn't complete task");
@@ -145,6 +155,14 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
         .update({ status: "skipped" })
         .eq("id", t.id);
       if (error) throw error;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "task", entityId: t.id,
+          action: "task_skipped",
+          payload: { title: t.title, study_id: t.study_id },
+        });
+      }
       toast.success(`Skipped: ${t.title}`);
     } catch (e: any) {
       toast.error(e?.message || "Couldn't skip task");
@@ -158,6 +176,14 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
         .update({ status: "open", completed_at: null, completed_by: null })
         .eq("id", t.id);
       if (error) throw error;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "task", entityId: t.id,
+          action: "task_reopened",
+          payload: { title: t.title },
+        });
+      }
       toast.success(`Reopened: ${t.title}`);
     } catch (e: any) {
       toast.error(e?.message || "Couldn't reopen");

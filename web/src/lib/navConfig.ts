@@ -158,6 +158,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     description: "The dashboard everyone lands on. Mix and match KPI strips, stage breakdowns, recent activity, work tiles.",
     allowedBlocks: [
       "quick-start",
+      "setup-checklist",
       "kpi-strip",
       "stage-breakdown",
       "recent-activity",
@@ -166,6 +167,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     ],
     defaultLayout: [
       { id: "blk-quick-start", block: "quick-start" },
+      { id: "blk-setup-checklist", block: "setup-checklist" },
       { id: "blk-kpi-strip", block: "kpi-strip" },
       { id: "blk-stage-breakdown", block: "stage-breakdown" },
       { id: "blk-recent-activity", block: "recent-activity", settings: { limit: 5 } },

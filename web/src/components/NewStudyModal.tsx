@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
+import { useAuth } from "../auth/useAuth";
+import { writeAuditEvent } from "../lib/auditLog";
 import { useOrgTable } from "../lib/useOrgTable";
 import type {
   FieldDefinitionRow,
@@ -62,6 +64,9 @@ export function NewStudyModal({
   onCreated: (s: StudyRow) => void;
 }) {
   const { orgId } = useCurrentOrg();
+  const auth = useAuth();
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
   });
@@ -195,7 +200,20 @@ export function NewStudyModal({
         .select("*")
         .single();
       if (error) throw error;
-      onCreated(data as unknown as StudyRow);
+      const newStudy = data as unknown as StudyRow;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: newStudy.id,
+          action: "created",
+          payload: {
+            code: newStudy.code,
+            title: newStudy.title,
+            stage_key: newStudy.stage_key,
+          },
+        });
+      }
+      onCreated(newStudy);
     } catch (e: any) {
       setError(e?.message || "Couldn't create the study.");
     } finally {

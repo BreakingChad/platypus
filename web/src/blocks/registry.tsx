@@ -5,6 +5,7 @@ import { StageBreakdownBlock } from "./StageBreakdownBlock";
 import { RecentActivityBlock } from "./RecentActivityBlock";
 import { SetupHubBlock } from "./SetupHubBlock";
 import { WorkTilesBlock } from "./WorkTilesBlock";
+import { SetupChecklistBlock } from "./SetupChecklistBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -51,6 +52,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Visible only when the org has <3 studies. Loads 8 demo studies in one click.",
     icon: "layers",
     component: QuickStartBlock,
+  },
+  "setup-checklist": {
+    key: "setup-checklist",
+    label: "Setup checklist",
+    description: "Admin-only walkthrough — org name, stages, fields, teams, access roles, first study. Hides once everything's done.",
+    icon: "check",
+    component: SetupChecklistBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",

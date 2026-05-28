@@ -4,6 +4,7 @@ import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
+import { writeAuditEvent } from "../lib/auditLog";
 import type { MemberTier } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -43,6 +44,7 @@ export function Members() {
   const { isAdmin, isOwner, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
   const currentUserId = auth.status === "signedIn" ? auth.user.id : null;
+  const currentUserEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
 
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +119,19 @@ export function Members() {
         .eq("id", m.id);
       if (error) throw error;
       const roleName = accessRoles.find((r) => r.id === next)?.name || "(none)";
+      if (orgId && currentUserId) {
+        void writeAuditEvent({
+          orgId, actorId: currentUserId, actorEmail: currentUserEmail,
+          entityType: "member", entityId: m.id,
+          action: "access_role_changed",
+          payload: {
+            target_email: m.email,
+            from: m.access_role_id,
+            to: next,
+            to_label: roleName,
+          },
+        });
+      }
       toast.success(`${m.email}: access role → ${roleName}`);
       load();
     } catch (e: any) {
@@ -184,6 +199,14 @@ export function Members() {
         .update({ tier: next })
         .eq("id", m.id);
       if (error) throw error;
+      if (orgId && currentUserId) {
+        void writeAuditEvent({
+          orgId, actorId: currentUserId, actorEmail: currentUserEmail,
+          entityType: "member", entityId: m.id,
+          action: "tier_changed",
+          payload: { target_email: m.email, from: m.tier, to: next },
+        });
+      }
       toast.success(`${m.email} is now ${next}`);
       load();
     } catch (e: any) {
@@ -204,6 +227,14 @@ export function Members() {
     try {
       const { error } = await supabase.from("org_members").delete().eq("id", m.id);
       if (error) throw error;
+      if (orgId && currentUserId) {
+        void writeAuditEvent({
+          orgId, actorId: currentUserId, actorEmail: currentUserEmail,
+          entityType: "member", entityId: m.id,
+          action: "member_removed",
+          payload: { target_email: m.email, target_user_id: m.user_id },
+        });
+      }
       toast.success(`Removed ${m.email}`);
       load();
     } catch (e: any) {
