@@ -71,6 +71,7 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "access",      label: "Access roles",     icon: "shield",    hash: "#/settings/access",    adminOnly: true, description: "Module permissions per role." },
   { key: "nav",         label: "Nav designer",     icon: "layers",    hash: "#/settings/nav",       adminOnly: true, description: "Sidebar layout by role." },
   { key: "pages",       label: "Page designer",    icon: "workflow",  hash: "#/settings/pages",     adminOnly: true, description: "Drag-drop page layouts." },
+  { key: "audit",       label: "Audit feed",       icon: "shield",    hash: "#/audit",              adminOnly: true, description: "Org-wide audit trail with CSV export." },
 ];
 
 export function navEntry(key: string): NavRegistryEntry | undefined {
@@ -103,6 +104,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
       { key: "access" },
       { key: "nav" },
       { key: "pages" },
+      { key: "audit" },
     ],
   },
 ];

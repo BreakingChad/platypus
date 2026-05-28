@@ -23,6 +23,7 @@ const OrgSettings          = lazy(() => import("./pages/OrgSettings").then(m => 
 const Members              = lazy(() => import("./pages/Members").then(m => ({ default: m.Members })));
 const NavDesigner          = lazy(() => import("./pages/NavDesigner").then(m => ({ default: m.NavDesigner })));
 const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").then(m => ({ default: m.PageLayoutDesigner })));
+const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({ default: m.AuditFeed })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -89,6 +90,11 @@ function renderRoute(
   // Configure: members
   if (hash === "#/settings/members") {
     return { node: <Members /> };
+  }
+
+  // Audit feed (org-wide, admin-only)
+  if (hash === "#/audit") {
+    return { node: <AuditFeed onNavigate={navigate} /> };
   }
 
   // Configure: nav designer

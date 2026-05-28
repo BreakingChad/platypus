@@ -9,6 +9,7 @@ import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
 import { CommandPalette } from "./CommandPalette";
 import { QuickAddFab } from "./QuickAddFab";
+import { HelpOverlay } from "./HelpOverlay";
 
 /** App shell — persistent left rail + header + content slot.
  *
@@ -231,6 +232,9 @@ export function AppShell({
       {/* Global Quick-add FAB */}
       <QuickAddFab onNavigate={onNavigate} />
 
+      {/* Global help overlay (press ?) */}
+      <HelpOverlay />
+
       <style>{`
         @keyframes slideIn {
           from { transform: translateX(-100%); }
@@ -375,6 +379,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },
+  "#/audit": { kicker: "Audit", title: "Audit feed" },
   "#/profile": { kicker: "You", title: "Profile" },
 };
 
