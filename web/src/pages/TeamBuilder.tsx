@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -237,7 +238,7 @@ export function TeamBuilder() {
                 .catch((e: any) => toast.error(e?.message || "Update failed"))
             }
             onRemove={async () => {
-              if (!window.confirm(`Remove "${team.name}"? Its roles and assignments go with it.`))
+              if (!(await confirmDialog({ title: "Remove team", message: `Remove "${team.name}"? Its roles and assignments go with it.`, confirmLabel: "Remove", danger: true })))
                 return;
               try {
                 await teams.remove(team.id);
@@ -267,7 +268,7 @@ export function TeamBuilder() {
                 .catch((e: any) => toast.error(e?.message || "Update failed"))
             }
             onRemoveRole={async (roleId, title) => {
-              if (!window.confirm(`Remove role "${title}"?`)) return;
+              if (!(await confirmDialog({ title: "Remove role", message: `Remove role "${title}"?`, confirmLabel: "Remove", danger: true }))) return;
               try {
                 await roles.remove(roleId);
                 toast.success(`Removed role "${title}"`);

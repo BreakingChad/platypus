@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -172,7 +173,7 @@ export function AccessRoles() {
                 toast.error("Built-in roles can't be removed — rename or clone them instead");
                 return;
               }
-              if (!window.confirm(`Remove "${role.name}"?`)) return;
+              if (!(await confirmDialog({ title: "Remove role", message: `Remove "${role.name}"? This can\u2019t be undone.`, confirmLabel: "Remove", danger: true }))) return;
               try {
                 await roles.remove(role.id);
                 toast.success(`Removed "${role.name}"`);

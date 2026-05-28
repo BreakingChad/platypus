@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { FieldDefinitionRow, FieldType, FieldEditTier } from "../lib/types";
@@ -148,7 +149,7 @@ export function FieldsDesigner() {
   };
 
   const tryRemove = async (id: string, label: string) => {
-    if (!window.confirm(`Remove "${label}"? Existing records keep their value, but the field disappears from forms.`)) return;
+    if (!(await confirmDialog({ title: "Remove field", message: `Remove "${label}"? Existing records keep their value, but the field disappears from forms.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       await remove(id);
       toast.success(`Removed "${label}"`);
@@ -528,13 +529,15 @@ function FieldRow({
         <select
           disabled={!field.enabled}
           value={field.field_type}
-          onChange={(e) => {
+          onChange={async (e) => {
             const next = e.target.value as FieldType;
             if (next === field.field_type) return;
             if (
-              !window.confirm(
-                `Change "${field.label}" from ${field.field_type} to ${next}? Existing values stay in the database — only how the field renders changes.`
-              )
+              !(await confirmDialog({
+                title: "Change field type",
+                message: `Change "${field.label}" from ${field.field_type} to ${next}? Existing values stay in the database — only how the field renders changes.`,
+                confirmLabel: "Change type",
+              }))
             )
               return;
             void onUpdate(field.id, { field_type: next });

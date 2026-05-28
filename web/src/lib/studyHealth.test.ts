@@ -36,6 +36,7 @@ function mkStudy(over: Partial<StudyRow> = {}): StudyRow {
     priority: "standard",
     intake_status: "submitted",
     committed_at: null,
+    stage_entered_at: null,
     intake_date: "2026-05-01T00:00:00Z",
     closed: false,
     closed_at: null,
@@ -48,6 +49,20 @@ function mkStudy(over: Partial<StudyRow> = {}): StudyRow {
 }
 
 describe("computeHealth", () => {
+  it("anchors on stage_entered_at (time in current stage), not commit date", () => {
+    const h = computeHealth(
+      mkStudy({
+        stage_entered_at: "2026-05-25T00:00:00Z",
+        committed_at: "2026-05-01T00:00:00Z",
+      }),
+      [mkStage({ target_days: 14 })],
+      new Date("2026-05-30T00:00:00Z")
+    );
+    // 5d since entering the stage (not 29d since commit) -> healthy
+    expect(h.daysInStage).toBe(5);
+    expect(h.level).toBe("green");
+  });
+
   it("returns 'closed' for closed studies regardless of dates", () => {
     const h = computeHealth(
       mkStudy({ closed: true, closed_at: "2026-05-02T00:00:00Z" }),

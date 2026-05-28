@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -240,8 +241,8 @@ export function NavDesigner() {
     }
   };
 
-  const resetToDefault = () => {
-    if (!window.confirm("Reset this role's nav to the system default? Unsaved changes will be lost.")) return;
+  const resetToDefault = async () => {
+    if (!(await confirmDialog({ title: "Reset nav", message: "Reset this role's nav to the system default? Unsaved changes will be lost.", confirmLabel: "Reset" }))) return;
     const clone = JSON.parse(JSON.stringify(DEFAULT_NAV));
     setWorking(clone);
   };

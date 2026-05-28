@@ -1,3 +1,6 @@
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -149,14 +152,14 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           payload: { title: t.title, study_id: t.study_id, stage_key: t.stage_key },
         });
       }
-      toast.success(`Completed: ${t.title}`);
+      toast.success(stamped(`Completed: ${t.title}`));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't complete task");
     }
   };
 
   const skipTask = async (t: TaskRow) => {
-    if (!window.confirm(`Skip "${t.title}"? Mark it as not-applicable.`)) return;
+    if (!(await confirmDialog({ title: "Skip task", message: `Skip "${t.title}"? It will be marked not-applicable.`, confirmLabel: "Skip" }))) return;
     try {
       const { error } = await supabase
         .from("tasks")
@@ -171,7 +174,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           payload: { title: t.title, study_id: t.study_id },
         });
       }
-      toast.success(`Skipped: ${t.title}`);
+      toast.success(stamped(`Skipped: ${t.title}`));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't skip task");
     }
@@ -192,7 +195,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           payload: { title: t.title },
         });
       }
-      toast.success(`Reopened: ${t.title}`);
+      toast.success(stamped(`Reopened: ${t.title}`));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't reopen");
     }
@@ -285,7 +288,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
         )}
 
         {tasks.loading && filtered.length === 0 && (
-          <div className="p-6 text-sm text-slate-500">Loading tasks…</div>
+          <div className="p-6"><Loader label="Loading tasks…" /></div>
         )}
 
         {filtered.length > 0 && (
@@ -435,6 +438,7 @@ function NewTaskModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [studyId, setStudyId] = useState<string>("");
   const [stageKey, setStageKey] = useState<string>("");
@@ -466,7 +470,7 @@ function NewTaskModal({
       if (error) throw error;
       onCreated();
     } catch (e: any) {
-      alert(e?.message || "Couldn't create task");
+      toast.error(e?.message || "Couldn't create task");
     } finally {
       setSaving(false);
     }
@@ -479,6 +483,9 @@ function NewTaskModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="New task"
         className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
       >
         <div className="px-5 py-4 border-b border-slate-200">

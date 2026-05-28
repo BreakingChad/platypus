@@ -211,6 +211,7 @@ export type StudyRow = {
   priority: string;
   intake_status: string;
   committed_at: string | null;
+  stage_entered_at: string | null;
   intake_date: string | null;
   closed: boolean;
   closed_at: string | null;

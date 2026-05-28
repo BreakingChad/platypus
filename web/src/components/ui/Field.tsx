@@ -12,7 +12,7 @@ export function Field({ label, hint, required, children }: Props) {
     <div>
       {label && (
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-          {label} {required && <span className="text-brand-700">*</span>}
+          {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
       {children}

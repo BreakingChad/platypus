@@ -1,3 +1,4 @@
+import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -292,7 +293,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
                           versionLabel,
                           file,
                         });
-                        toast.success(`Uploaded ${versionLabel} of ${d.title}`);
+                        toast.success(stamped(`Uploaded ${versionLabel} of ${d.title}`));
                       } catch (e: any) {
                         toast.error(e?.message || "Upload failed");
                       } finally {
@@ -309,7 +310,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
                           actorEmail: userEmail,
                           archived: !d.archived,
                         });
-                        toast.success(d.archived ? "Restored" : "Archived");
+                        toast.success(stamped(d.archived ? "Restored" : "Archived"));
                       } catch (e: any) {
                         toast.error(e?.message || "Archive failed");
                       }
@@ -331,7 +332,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
           initialCategory={selectedCategory === "all" ? "protocol" : selectedCategory}
           onClose={() => setUploadModalOpen(false)}
           onUploaded={() => {
-            toast.success("Document uploaded");
+            toast.success(stamped("Document uploaded"));
             setUploadModalOpen(false);
           }}
         />

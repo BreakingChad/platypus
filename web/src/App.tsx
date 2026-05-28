@@ -4,6 +4,7 @@ import { OrgProvider } from "./lib/OrgContext";
 import { ToastProvider } from "./lib/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppShell } from "./components/AppShell";
+import { ConfirmRoot } from "./lib/confirm";
 
 // Eager — surfaces every signed-in user hits on landing.
 import { Home } from "./pages/Home";
@@ -138,6 +139,7 @@ export function App() {
             </AppShell>
           </AuthGate>
         </OrgProvider>
+        <ConfirmRoot />
       </ToastProvider>
     </ErrorBoundary>
   );

@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -188,10 +189,10 @@ export function Members() {
       return;
     }
     if (m.user_id === currentUserId && next === "member") {
-      if (!window.confirm("You're about to demote yourself to member. You'll lose admin access. Continue?")) return;
+      if (!(await confirmDialog({ title: "Demote yourself?", message: "You're about to demote yourself to member. You'll lose admin access.", confirmLabel: "Demote", danger: true }))) return;
     }
     if (m.user_id === currentUserId && m.tier === "developer" && next !== "developer") {
-      if (!window.confirm("You're about to drop your developer tier. You'll lose dev-level access. Continue?")) return;
+      if (!(await confirmDialog({ title: "Drop developer tier?", message: "You're about to drop your developer tier. You'll lose dev-level access.", confirmLabel: "Continue", danger: true }))) return;
     }
     try {
       const { error } = await supabase
@@ -223,7 +224,7 @@ export function Members() {
       toast.error("Use sign-out instead of removing yourself");
       return;
     }
-    if (!window.confirm(`Remove ${m.email} from the org? They'll keep their account but lose access.`)) return;
+    if (!(await confirmDialog({ title: "Remove member", message: `Remove ${m.email} from the org? They'll keep their account but lose access.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       const { error } = await supabase.from("org_members").delete().eq("id", m.id);
       if (error) throw error;

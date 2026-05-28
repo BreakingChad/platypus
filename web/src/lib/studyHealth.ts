@@ -39,7 +39,7 @@ function daysBetween(from: Date, to: Date): number {
 }
 
 function anchorDate(s: StudyRow): Date | null {
-  const candidates = [s.committed_at, s.intake_date, s.created_at];
+  const candidates = [s.stage_entered_at, s.committed_at, s.intake_date, s.created_at];
   for (const c of candidates) {
     if (c) {
       const d = new Date(c);

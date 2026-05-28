@@ -18,12 +18,10 @@ import type { StudyRow, PipelineStageRow } from "../lib/types";
  */
 export function ActivityTab({
   studyId,
-  showChain = false,
   study,
   stages,
 }: {
   studyId: string;
-  showChain?: boolean;
   /** Optional — when provided, renders a lifecycle timeline at the top. */
   study?: StudyRow;
   /** Optional — needed alongside `study` to color the stage bands. */
@@ -32,6 +30,7 @@ export function ActivityTab({
   const [events, setEvents] = useState<AuditEventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<string | null>(null);
+  const [showChain, setShowChain] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +114,21 @@ export function ActivityTab({
 
   return (
     <div>
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => setShowChain((v) => !v)}
+          aria-pressed={showChain}
+          className={
+            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition " +
+            (showChain
+              ? "border-brand-300 bg-brand-50 text-brand-700"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+          }
+        >
+          <Icon name="shield" size={12} />
+          {showChain ? "Hide hash chain" : "Show hash chain"}
+        </button>
+      </div>
       {study && stages && events.length > 0 && (
         <StudyTimeline study={study} events={events} stages={stages} />
       )}

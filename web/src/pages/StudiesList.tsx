@@ -1,3 +1,6 @@
+import { confirmDialog } from "../lib/confirm";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { StudyRow, PipelineStageRow } from "../lib/types";
@@ -66,6 +69,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const bulkAdvance = async (nextStageKey: string) => {
     if (!isAdmin || !orgId || !userId) return;
     if (selected.size === 0) return;
+    const moveLabel = stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey;
+    if (!(await confirmDialog({ title: "Move studies", message: `Move ${selected.size} stud${selected.size === 1 ? "y" : "ies"} to ${moveLabel}? Each study advances and may spawn workflow tasks.`, confirmLabel: "Move" }))) return;
     const ids = Array.from(selected);
     const studyMap = new Map(studies.rows.map((s) => [s.id, s]));
     setBulkBusy(true);
@@ -87,6 +92,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             .update(patch as any)
             .eq("id", id);
           if (error) throw error;
+          // Stamp stage-entry time (best-effort; no-op until migration 0010 runs).
+          void supabase.from("studies").update({ stage_entered_at: new Date().toISOString() } as any).eq("id", id);
           void writeAuditEvent({
             orgId, actorId: userId, actorEmail: userEmail,
             entityType: "study", entityId: id,
@@ -113,7 +120,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           }
         })
       );
-      toast.success(`Moved ${ids.length} stud${ids.length === 1 ? "y" : "ies"} to ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`);
+      toast.success(stamped(`Moved ${ids.length} stud${ids.length === 1 ? "y" : "ies"} to ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`));
       clearSel();
     } catch (e: any) {
       toast.error(e?.message || "Bulk advance failed");
@@ -125,6 +132,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const bulkSetClosed = async (closed: boolean) => {
     if (!isAdmin || !orgId || !userId) return;
     if (selected.size === 0) return;
+    if (closed && !(await confirmDialog({ title: "Close studies", message: `Close ${selected.size} stud${selected.size === 1 ? "y" : "ies"}? They drop out of active views.`, confirmLabel: "Close", danger: true }))) return;
     const ids = Array.from(selected);
     const studyMap = new Map(studies.rows.map((s) => [s.id, s]));
     setBulkBusy(true);
@@ -150,7 +158,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           });
         })
       );
-      toast.success(`${closed ? "Closed" : "Reopened"} ${ids.length} stud${ids.length === 1 ? "y" : "ies"}`);
+      toast.success(stamped(`${closed ? "Closed" : "Reopened"} ${ids.length} stud${ids.length === 1 ? "y" : "ies"}`));
       clearSel();
     } catch (e: any) {
       toast.error(e?.message || "Bulk update failed");
@@ -212,7 +220,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   }, [studies.rows]);
 
   if (memberLoading) {
-    return <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-6xl mx-auto px-6 py-8"><Loader label="Checking permissions…" /></div>;
   }
 
   return (
@@ -432,7 +440,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         )}
 
         {studies.loading && studies.rows.length === 0 && (
-          <div className="p-6 text-sm text-slate-500">Loading studies…</div>
+          <div className="p-6"><Loader label="Loading studies…" /></div>
         )}
 
         {!studies.loading && studies.rows.length === 0 && (
@@ -491,8 +499,17 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               return (
                 <div
                   key={s.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open ${s.code}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onNavigate(`#/studies/${s.id}`);
+                    }
+                  }}
                   className={
-                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center group " +
+                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:bg-brand-50/40 " +
                     (selected.has(s.id) ? "bg-brand-50/60" : "hover:bg-brand-50/30")
                   }
                 >

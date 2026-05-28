@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { PipelineStageRow } from "../lib/types";
@@ -87,7 +88,7 @@ export function StageDesigner() {
       toast.error("Core stages can't be removed — disable them in the lifecycle instead");
       return;
     }
-    if (!window.confirm(`Remove "${stage.label}"? Studies already in this stage will keep the value but no new studies will enter it.`)) return;
+    if (!(await confirmDialog({ title: "Remove stage", message: `Remove "${stage.label}"? Studies already in this stage keep the value but no new studies will enter it.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       await remove(stage.id);
       toast.success(`Removed "${stage.label}"`);

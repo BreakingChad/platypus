@@ -1,3 +1,5 @@
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
@@ -53,7 +55,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "activity" | "tasks" | "documents" | "audit";
+type Tab = "overview" | "activity" | "tasks" | "documents";
 
 export function StudyDetail({
   studyId,
@@ -234,7 +236,7 @@ export function StudyDetail({
 
   if (!study) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-8 text-sm text-slate-500">Loading study…</div>
+      <div className="max-w-5xl mx-auto px-6 py-8"><Loader label="Loading study…" /></div>
     );
   }
 
@@ -276,7 +278,7 @@ export function StudyDetail({
           },
         });
       }
-      toast.success(`Updated ${f.label}`);
+      toast.success(stamped(`Updated ${f.label}`));
     } catch (e: any) {
       toast.error(e?.message || "Update failed");
     }
@@ -296,6 +298,8 @@ export function StudyDetail({
       }
       const { error } = await supabase.from("studies").update(patch as any).eq("id", study.id);
       if (error) throw error;
+      // Stamp stage-entry time (best-effort; no-op until migration 0010 runs).
+      void supabase.from("studies").update({ stage_entered_at: new Date().toISOString() } as any).eq("id", study.id);
       if (orgId && userId) {
         void writeAuditEvent({
           orgId, actorId: userId, actorEmail: userEmail,
@@ -323,7 +327,7 @@ export function StudyDetail({
           toast.error(`Stage advanced but task spawn failed: ${e?.message ?? "unknown"}`);
         }
       }
-      toast.success(`Moved to ${stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey}`);
+      toast.success(stamped(`Moved to ${stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey}`));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't advance stage");
     } finally {
@@ -352,7 +356,7 @@ export function StudyDetail({
           payload: {},
         });
       }
-      toast.success(study.closed ? "Reopened study" : "Closed study");
+      toast.success(stamped(study.closed ? "Reopened study" : "Closed study"));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't update");
     } finally {
@@ -492,7 +496,6 @@ export function StudyDetail({
           ["activity", "Activity", activityCount],
           ["tasks", "Tasks", openTaskCount],
           ["documents", "Documents", documentCount],
-          ["audit", "Audit", activityCount],
         ] as [Tab, string, number | null][]).map(([key, label, count]) => (
           <button
             key={key}
@@ -578,9 +581,6 @@ export function StudyDetail({
           <DocumentsTab study={study} />
         )}
 
-        {tab === "audit" && (
-          <ActivityTab studyId={study.id} showChain study={study} stages={stages.rows} />
-        )}
       </div>
     </div>
   );

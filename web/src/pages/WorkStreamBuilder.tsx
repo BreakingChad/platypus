@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -130,7 +131,7 @@ export function WorkStreamBuilder() {
   };
 
   const removeModule = async (id: string, name: string) => {
-    if (!window.confirm(`Remove module "${name}"? Its task templates go with it.`)) return;
+    if (!(await confirmDialog({ title: "Remove module", message: `Remove module "${name}"? Its task templates go with it.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       const { error } = await supabase.from("workflow_modules").delete().eq("id", id);
       if (error) throw error;

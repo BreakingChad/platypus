@@ -168,7 +168,7 @@ export function AppShell({
 
             {/* Breadcrumb + Cmd-K hint */}
             <div className="flex-1 min-w-0 flex items-center gap-3">
-              <Breadcrumb hash={currentHash} />
+              <Breadcrumb hash={currentHash} groups={navGroups} onNavigate={onNavigate} />
               <button
                 onClick={() => {
                   const evt = new KeyboardEvent("keydown", { key: "k", metaKey: true });
@@ -398,27 +398,63 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/profile": { kicker: "You", title: "Profile" },
 };
 
-function Breadcrumb({ hash }: { hash: string }) {
-  // Detail routes — match #/studies/<id> etc.
+function Breadcrumb({
+  hash,
+  groups,
+  onNavigate,
+}: {
+  hash: string;
+  groups: ResolvedNavGroup[];
+  onNavigate: (h: string) => void;
+}) {
+  // Study detail — no sidebar entry; link the kicker back to the list.
   if (hash.startsWith("#/studies/")) {
     return (
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-          Workspace
-        </span>
+      <nav aria-label="Breadcrumb" className="flex items-baseline gap-2">
+        <button
+          onClick={() => onNavigate("#/studies")}
+          className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hover:text-brand-700 transition"
+        >
+          Studies
+        </button>
         <Icon name="chevron-right" size={12} className="text-slate-300" />
-        <span className="text-sm font-semibold text-slate-900">Study</span>
-      </div>
+        <span className="text-sm font-semibold text-slate-900">Study record</span>
+      </nav>
     );
   }
-  const meta = CRUMBS[hash] ?? CRUMBS["#/"];
+
+  // Prefer the resolved (admin-configurable) nav so renamed items stay in sync.
+  let kicker = "";
+  let title = "";
+  let groupHash = "#/";
+  for (const g of groups) {
+    const item = g.items.find(
+      (it) => it.hash === hash || (it.hash === "#/" && (hash === "" || hash === "#"))
+    );
+    if (item) {
+      kicker = g.group;
+      title = item.label;
+      groupHash = g.items[0]?.hash ?? item.hash;
+      break;
+    }
+  }
+  // Fall back to the static map for routes outside the sidebar (e.g. Profile).
+  if (!title) {
+    const meta = CRUMBS[hash] ?? CRUMBS["#/"];
+    kicker = meta.kicker;
+    title = meta.title;
+  }
+
   return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-        {meta.kicker}
-      </span>
+    <nav aria-label="Breadcrumb" className="flex items-baseline gap-2">
+      <button
+        onClick={() => onNavigate(groupHash)}
+        className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hover:text-brand-700 transition"
+      >
+        {kicker}
+      </button>
       <Icon name="chevron-right" size={12} className="text-slate-300" />
-      <span className="text-sm font-semibold text-slate-900">{meta.title}</span>
-    </div>
+      <span className="text-sm font-semibold text-slate-900">{title}</span>
+    </nav>
   );
 }

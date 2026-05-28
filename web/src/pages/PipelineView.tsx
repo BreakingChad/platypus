@@ -1,3 +1,5 @@
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -78,6 +80,8 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
     try {
       const { error } = await supabase.from("studies").update(patch as any).eq("id", studyId);
       if (error) throw error;
+      // Stamp stage-entry time (best-effort; no-op until migration 0010 runs).
+      void supabase.from("studies").update({ stage_entered_at: new Date().toISOString() } as any).eq("id", studyId);
       const stageLabel = stages.rows.find((s) => s.key === stageKey)?.label ?? stageKey;
       if (orgId && userId) {
         void writeAuditEvent({
@@ -106,14 +110,14 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
           toast.error(`Stage advanced but task spawn failed: ${e?.message ?? "unknown"}`);
         }
       }
-      toast.success(`Moved ${study.code} to ${stageLabel}`);
+      toast.success(stamped(`Moved ${study.code} to ${stageLabel}`));
     } catch (e: any) {
       toast.error(e?.message || "Move failed");
     }
   };
 
   if (!hasStages && stages.loading) {
-    return <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-slate-500">Loading pipeline…</div>;
+    return <div className="max-w-6xl mx-auto px-6 py-8"><Loader label="Loading pipeline…" /></div>;
   }
 
   if (!hasStages) {
@@ -333,8 +337,17 @@ function StudyCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${study.code}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       className={
-        "group bg-white rounded-lg border border-slate-200 px-3 py-2.5 hover:border-brand-300 hover:shadow-sm transition cursor-pointer select-none " +
+        "group bg-white rounded-lg border border-slate-200 px-3 py-2.5 hover:border-brand-300 hover:shadow-sm transition cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-brand-500/30 " +
         (isDragging ? "opacity-40" : "") +
         (draggable ? " cursor-grab active:cursor-grabbing" : "")
       }

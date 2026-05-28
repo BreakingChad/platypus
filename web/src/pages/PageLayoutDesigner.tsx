@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -135,8 +136,8 @@ export function PageLayoutDesigner() {
     );
   };
 
-  const resetToDefault = () => {
-    if (!window.confirm("Reset this page to its default layout? Unsaved changes will be lost.")) return;
+  const resetToDefault = async () => {
+    if (!(await confirmDialog({ title: "Reset layout", message: "Reset this page to its default layout? Unsaved changes will be lost.", confirmLabel: "Reset" }))) return;
     const def = pageEntry(selectedPageKey)?.defaultLayout ?? [];
     setWorking(JSON.parse(JSON.stringify(def)));
     setSelectedBlockId(null);
