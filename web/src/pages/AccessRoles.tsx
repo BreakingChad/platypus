@@ -26,7 +26,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 const MODULES = [
   { key: "studies",      label: "Studies",       desc: "Study records and lifecycle" },
   { key: "documents",    label: "Documents",     desc: "TMF / ISF document management" },
-  { key: "workflows",    label: "Workflows",     desc: "Pattern Builder and pipelines" },
+  { key: "workflows",    label: "Workflows",     desc: "Work Stream Builder and pipelines" },
   { key: "approvals",    label: "Approvals",     desc: "Approval queues and e-signatures" },
   { key: "analytics",    label: "Analytics",     desc: "Reports, dashboards, audit logs" },
   { key: "admin",        label: "Admin",         desc: "Org configuration surfaces" },

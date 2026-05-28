@@ -21,7 +21,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 
 /** Team Builder — admin-only.
  *
- *  Teams own modules in the Pattern Builder. Roles live inside teams; people
+ *  Teams own modules in the Work Stream Builder. Roles live inside teams; people
  *  fill roles. Studies inherit role-driven task assignment — that's why this
  *  page is foundational. The structure here is what "person fills role" hangs
  *  off of in every downstream surface.
@@ -163,7 +163,7 @@ export function TeamBuilder() {
               Add a team
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              Teams own one or more process modules in the Pattern Builder.
+              Teams own one or more process modules in the Work Stream Builder.
             </div>
           </div>
         </div>
