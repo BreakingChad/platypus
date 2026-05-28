@@ -48,6 +48,13 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "open_only">("open_only");
   const [addingTask, setAddingTask] = useState(false);
 
+  // Listen for the global quick-add FAB action.
+  useEffect(() => {
+    const onAdd = () => { if (isAdmin) setAddingTask(true); };
+    window.addEventListener("platypus:new-task", onAdd);
+    return () => window.removeEventListener("platypus:new-task", onAdd);
+  }, [isAdmin]);
+
   // Which roles does the current user hold?
   const myRoleIds = useMemo(() => {
     if (!userId) return new Set<string>();

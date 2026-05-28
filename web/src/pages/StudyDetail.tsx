@@ -79,6 +79,8 @@ export function StudyDetail({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [advancing, setAdvancing] = useState(false);
+  const [activityCount, setActivityCount] = useState<number | null>(null);
+  const [openTaskCount, setOpenTaskCount] = useState<number | null>(null);
   const [savingClose, setSavingClose] = useState(false);
 
   // Load + realtime-subscribe to this single study.
@@ -115,6 +117,52 @@ export function StudyDetail({
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+    };
+  }, [studyId]);
+
+  // Tab badge counts (audit events + open tasks). Cheap COUNT queries.
+  useEffect(() => {
+    let cancelled = false;
+    const reload = async () => {
+      const [{ count: aCount }, { count: tCount }] = await Promise.all([
+        supabase
+          .from("audit_events")
+          .select("*", { count: "exact", head: true })
+          .eq("entity_type", "study")
+          .eq("entity_id", studyId),
+        supabase
+          .from("tasks")
+          .select("*", { count: "exact", head: true })
+          .eq("study_id", studyId)
+          .in("status", ["open", "in_progress"]),
+      ]);
+      if (cancelled) return;
+      setActivityCount(aCount ?? 0);
+      setOpenTaskCount(tCount ?? 0);
+    };
+    void reload();
+
+    // Refresh counts when realtime fires on either table for this study.
+    const ch1 = supabase
+      .channel(`badge-audit-${studyId}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "audit_events", filter: `entity_id=eq.${studyId}` },
+        () => void reload()
+      )
+      .subscribe();
+    const ch2 = supabase
+      .channel(`badge-tasks-${studyId}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "tasks", filter: `study_id=eq.${studyId}` },
+        () => void reload()
+      )
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
     };
   }, [studyId]);
 
@@ -407,23 +455,35 @@ export function StudyDetail({
       {/* Tabs */}
       <div className="mt-6 border-b border-slate-200 flex items-center gap-1">
         {([
-          ["overview", "Overview"],
-          ["activity", "Activity"],
-          ["tasks", "Tasks"],
-          ["documents", "Documents"],
-          ["audit", "Audit"],
-        ] as [Tab, string][]).map(([key, label]) => (
+          ["overview", "Overview", null],
+          ["activity", "Activity", activityCount],
+          ["tasks", "Tasks", openTaskCount],
+          ["documents", "Documents", null],
+          ["audit", "Audit", activityCount],
+        ] as [Tab, string, number | null][]).map(([key, label, count]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={
-              "px-3 py-2 text-sm font-semibold transition border-b-2 -mb-px " +
+              "px-3 py-2 text-sm font-semibold transition border-b-2 -mb-px flex items-center gap-1.5 " +
               (tab === key
                 ? "border-brand-600 text-brand-700"
                 : "border-transparent text-slate-500 hover:text-slate-900")
             }
           >
             {label}
+            {count !== null && count > 0 && (
+              <span
+                className={
+                  "text-[10px] font-mono px-1.5 py-0.5 rounded-full " +
+                  (tab === key
+                    ? "bg-brand-100 text-brand-700"
+                    : "bg-slate-100 text-slate-500")
+                }
+              >
+                {count}
+              </span>
+            )}
           </button>
         ))}
       </div>

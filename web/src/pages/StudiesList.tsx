@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { StudyRow, PipelineStageRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -28,6 +28,13 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const [healthFilter, setHealthFilter] = useState<"all" | HealthLevel>("all");
   const [showClosed, setShowClosed] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Listen for the global quick-add FAB action.
+  useEffect(() => {
+    const onAdd = () => { if (isAdmin) setCreating(true); };
+    window.addEventListener("platypus:new-study", onAdd);
+    return () => window.removeEventListener("platypus:new-study", onAdd);
+  }, [isAdmin]);
 
   const stageByKey = useMemo(() => {
     const m: Record<string, PipelineStageRow> = {};
