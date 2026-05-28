@@ -362,17 +362,31 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
                 <span>
                   <button
                     onClick={() => {
-                      if (study) onNavigate(`#/studies/${study.id}`);
+                      // Route per entity type. Study events go to detail; task
+                      // events open the related study (or fall back to inbox);
+                      // member events open the Members page.
+                      if (e.entity_type === "study" && study) {
+                        onNavigate(`#/studies/${study.id}`);
+                      } else if (e.entity_type === "task") {
+                        const sid = e.payload?.study_id as string | undefined;
+                        if (sid) onNavigate(`#/studies/${sid}`);
+                        else onNavigate("#/inbox");
+                      } else if (e.entity_type === "member") {
+                        onNavigate("#/settings/members");
+                      }
                     }}
-                    disabled={!study}
                     className={
                       "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition " +
-                      (study
+                      (e.entity_type === "study" && study
                         ? "bg-brand-50 text-brand-700 border border-brand-100 hover:bg-brand-100"
-                        : "bg-slate-100 text-slate-600 border border-slate-200 cursor-default")
+                        : e.entity_type === "task"
+                        ? "bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100"
+                        : e.entity_type === "member"
+                        ? "bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100"
+                        : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200")
                     }
                   >
-                    {study ? study.code : e.entity_type}
+                    {e.entity_type === "study" && study ? study.code : e.entity_type}
                   </button>
                 </span>
                 <span className="min-w-0">
