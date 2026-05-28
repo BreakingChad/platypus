@@ -11,6 +11,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthInfo } from "../lib/studyHealth";
+import { useStickyState } from "../lib/useStickyState";
 
 /** PipelineView — kanban by stage. Columns from pipeline_stages, cards from
  *  studies. Admins can drag cards between columns to advance/regress (writes
@@ -29,7 +30,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
     realtime: true,
   });
 
-  const [showClosed, setShowClosed] = useState(false);
+  const [showClosed, setShowClosed] = useStickyState<boolean>("pipeline/showClosed", false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
 

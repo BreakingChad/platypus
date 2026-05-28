@@ -107,6 +107,14 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
+      {/* Skip link for keyboard / screen-reader users */}
+      <a
+        href="#platypus-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-brand-700 focus:text-white focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
         <SidebarBody
@@ -150,6 +158,7 @@ export function AppShell({
               onClick={() => setMobileNavOpen(true)}
               className="md:hidden -ml-1 p-1.5 rounded-md text-slate-700 hover:bg-slate-100 transition"
               title="Open menu"
+              aria-label="Open navigation menu"
             >
               <HamburgerIcon />
             </button>
@@ -167,8 +176,9 @@ export function AppShell({
                 }}
                 className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition px-2.5 py-1 text-[11px] font-mono text-slate-500"
                 title="Open universal search"
+                aria-label="Open universal search (Cmd K)"
               >
-                <Icon name="search" size={11} />
+                <Icon name="search" size={11} aria-hidden="true" />
                 Universal search
                 <kbd className="text-[10px] text-slate-400 ml-1">⌘K</kbd>
               </button>
@@ -179,6 +189,9 @@ export function AppShell({
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-slate-100 transition"
+                aria-label="Open user menu"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
               >
                 <Avatar email={userEmail} />
                 <span className="hidden sm:inline text-sm font-medium text-slate-700 max-w-[160px] truncate">
@@ -223,7 +236,7 @@ export function AppShell({
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 min-w-0">{children}</main>
+        <main id="platypus-main" role="main" tabIndex={-1} className="flex-1 min-w-0">{children}</main>
       </div>
 
       {/* Global Cmd-K palette */}
@@ -281,13 +294,14 @@ function SidebarBody({
             onClick={onCloseMobile}
             className="ml-auto p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
             title="Close menu"
+            aria-label="Close navigation menu"
           >
             <Icon name="x" size={16} />
           </button>
         )}
       </div>
 
-      <nav className="flex-1 px-2 pb-4 overflow-y-auto">
+      <nav className="flex-1 px-2 pb-4 overflow-y-auto" aria-label="Primary navigation">
         {groups.map((group) => (
           <div key={group.group} className="mb-5">
             <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">

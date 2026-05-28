@@ -13,6 +13,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
+import { useStickyState } from "../lib/useStickyState";
 import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
@@ -23,10 +24,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
 
-  const [search, setSearch] = useState("");
-  const [stageFilter, setStageFilter] = useState<string>("all");
-  const [healthFilter, setHealthFilter] = useState<"all" | HealthLevel>("all");
-  const [showClosed, setShowClosed] = useState(false);
+  const [search, setSearch] = useState("");                                                // search resets per session
+  const [stageFilter, setStageFilter] = useStickyState<string>("studies/stageFilter", "all");
+  const [healthFilter, setHealthFilter] = useStickyState<"all" | HealthLevel>("studies/healthFilter", "all");
+  const [showClosed, setShowClosed] = useStickyState<boolean>("studies/showClosed", false);
   const [creating, setCreating] = useState(false);
 
   // Listen for the global quick-add FAB action.

@@ -30,6 +30,9 @@ export function HelpOverlay() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Keyboard shortcuts"
+        aria-modal="true"
         className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]"
       >
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">

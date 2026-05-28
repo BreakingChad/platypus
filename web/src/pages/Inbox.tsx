@@ -6,6 +6,7 @@ import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
+import { useStickyState } from "../lib/useStickyState";
 import type {
   TaskRow,
   TaskStatus,
@@ -44,8 +45,8 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const roles = useOrgTable<TeamRoleRow>("team_roles");
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders");
 
-  const [tab, setTab] = useState<Tab>("mine");
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | "open_only">("open_only");
+  const [tab, setTab] = useStickyState<Tab>("inbox/tab", "mine");
+  const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
 
   // Listen for the global quick-add FAB action.

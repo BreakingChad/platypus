@@ -112,6 +112,9 @@ export function QuickAddFab({ onNavigate }: { onNavigate: (h: string) => void })
       <button
         onClick={() => setOpen((o) => !o)}
         title="Quick add (press N)"
+        aria-label="Quick add menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={
           "w-14 h-14 rounded-full bg-brand-gradient text-white shadow-lg shadow-brand-500/40 hover:scale-105 active:scale-95 transition flex items-center justify-center " +
           (open ? "rotate-45" : "")

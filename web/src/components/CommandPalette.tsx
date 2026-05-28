@@ -165,6 +165,9 @@ export function CommandPalette({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Universal search"
+        aria-modal="true"
         className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[70vh]"
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200">
