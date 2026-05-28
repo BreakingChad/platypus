@@ -95,6 +95,45 @@ export type AccessRoleRow = {
   updated_at: string;
 };
 
+export type AuditEventRow = {
+  id: string;
+  org_id: string;
+  entity_type: string;
+  entity_id: string | null;
+  action: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  payload: Record<string, unknown>;
+  prev_hash: string | null;
+  event_hash: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export type TaskStatus = "open" | "in_progress" | "done" | "skipped" | "cancelled";
+export type TaskKind = "date" | "handoff" | "escalation" | "external_handoff" | "manual";
+
+export type TaskRow = {
+  id: string;
+  org_id: string;
+  study_id: string | null;
+  stage_key: string | null;
+  kind: TaskKind;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  due_at: string | null;
+  assigned_to_user_id: string | null;
+  assigned_to_role_id: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_by: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StudyRow = {
   id: string;
   org_id: string;
@@ -149,6 +188,8 @@ export type Database = {
       team_roles:        { Row: TeamRoleRow;         Insert: Partial<TeamRoleRow>;         Update: Partial<TeamRoleRow>;         Relationships: [] };
       team_role_holders: { Row: TeamRoleHolderRow;   Insert: Partial<TeamRoleHolderRow>;   Update: Partial<TeamRoleHolderRow>;   Relationships: [] };
       access_roles:      { Row: AccessRoleRow;       Insert: Partial<AccessRoleRow>;       Update: Partial<AccessRoleRow>;       Relationships: [] };
+      audit_events:      { Row: AuditEventRow;       Insert: Partial<AuditEventRow>;       Update: Partial<AuditEventRow>;       Relationships: [] };
+      tasks:             { Row: TaskRow;             Insert: Partial<TaskRow>;             Update: Partial<TaskRow>;             Relationships: [] };
     };
     Views: {};
     Functions: {};

@@ -19,6 +19,10 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, HEALTH_TONE } from "../lib/studyHealth";
+import { writeAuditEvent } from "../lib/auditLog";
+import { useCurrentOrg } from "../lib/OrgContext";
+import { useAuth } from "../auth/useAuth";
+import { ActivityTab } from "./StudyDetail.activity";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -39,6 +43,12 @@ const KEY_TO_COLUMN: Record<string, keyof StudyRow> = {
   priority: "priority",
 };
 
+function studyValueFor(key: string, study: StudyRow): unknown {
+  const col = KEY_TO_COLUMN[key];
+  if (col) return (study as any)[col] ?? null;
+  return (study.custom_field_values ?? {})[key] ?? null;
+}
+
 type Tab = "overview" | "activity" | "documents" | "audit";
 
 export function StudyDetail({
@@ -49,7 +59,11 @@ export function StudyDetail({
   onBack: () => void;
 }) {
   const { isAdmin } = useCurrentMember();
+  const auth = useAuth();
+  const { orgId } = useCurrentOrg();
   const toast = useToast();
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
 
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", {
     orderBy: "position",
@@ -180,6 +194,20 @@ export function StudyDetail({
     try {
       const { error } = await supabase.from("studies").update(patch as any).eq("id", study.id);
       if (error) throw error;
+      // Audit log
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: study.id,
+          action: "field_updated",
+          payload: {
+            field_key: f.key,
+            field_label: f.label,
+            from: studyValueFor(f.key, study),
+            to: v,
+          },
+        });
+      }
       toast.success(`Updated ${f.label}`);
     } catch (e: any) {
       toast.error(e?.message || "Update failed");
@@ -200,6 +228,19 @@ export function StudyDetail({
       }
       const { error } = await supabase.from("studies").update(patch as any).eq("id", study.id);
       if (error) throw error;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: study.id,
+          action: "stage_changed",
+          payload: {
+            from: study.stage_key ?? null,
+            to: nextKey,
+            from_label: stages.rows.find((s) => s.key === study.stage_key)?.label ?? null,
+            to_label: stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey,
+          },
+        });
+      }
       toast.success(`Moved to ${stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey}`);
     } catch (e: any) {
       toast.error(e?.message || "Couldn't advance stage");
@@ -221,6 +262,14 @@ export function StudyDetail({
       };
       const { error } = await supabase.from("studies").update(patch as any).eq("id", study.id);
       if (error) throw error;
+      if (orgId && userId) {
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: study.id,
+          action: study.closed ? "reopened" : "closed",
+          payload: {},
+        });
+      }
       toast.success(study.closed ? "Reopened study" : "Closed study");
     } catch (e: any) {
       toast.error(e?.message || "Couldn't update");
@@ -423,13 +472,7 @@ export function StudyDetail({
         )}
 
         {tab === "activity" && (
-          <Card>
-            <EmptyState
-              iconName="info"
-              title="Activity timeline — coming soon"
-              sub="A chronological feed of every change to this study: stage advances, field edits, document uploads, role assignments, e-signatures. Will be driven by the (next-phase) audit trail."
-            />
-          </Card>
+          <ActivityTab studyId={study.id} />
         )}
 
         {tab === "documents" && (
@@ -443,13 +486,7 @@ export function StudyDetail({
         )}
 
         {tab === "audit" && (
-          <Card>
-            <EmptyState
-              iconName="shield"
-              title="Audit trail — coming next phase"
-              sub="Hash-chained record of every action: who, what, when, IP. Exportable per study for regulatory review."
-            />
-          </Card>
+          <ActivityTab studyId={study.id} showChain />
         )}
       </div>
     </div>
