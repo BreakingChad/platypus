@@ -482,3 +482,39 @@ export function formatFileSize(bytes: number): string {
   }
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+
+/** Archive (or restore) a single document VERSION. Used from the document
+ *  detail panel for binder hygiene on superseded versions. The current head
+ *  version is never archived from here (guarded in the UI). Logs the action
+ *  against the parent document so it lands in the document's audit chain. */
+export async function setVersionArchived(opts: {
+  orgId: string;
+  document: DocumentRow;
+  version: DocumentVersionRow;
+  actorUserId: string;
+  actorEmail: string | null;
+  archived: boolean;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("document_versions")
+    .update({
+      archived: opts.archived,
+      archived_at: opts.archived ? new Date().toISOString() : null,
+      archived_by: opts.archived ? opts.actorUserId : null,
+    } as any)
+    .eq("id", opts.version.id);
+  if (error) throw error;
+  void writeAuditEvent({
+    orgId: opts.orgId,
+    actorId: opts.actorUserId,
+    actorEmail: opts.actorEmail,
+    entityType: "document",
+    entityId: opts.document.id,
+    action: opts.archived ? "version_archived" : "version_restored",
+    payload: {
+      version_id: opts.version.id,
+      version_label: opts.version.version_label,
+    },
+  });
+}

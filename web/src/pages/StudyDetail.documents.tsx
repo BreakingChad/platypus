@@ -30,6 +30,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { EmptyState } from "../components/ui/EmptyState";
+import { DocumentDetailPanel } from "./StudyDetail.documentDetail";
 
 /** DocumentsTab — per-study binder. Sidebar of categories + main pane with
  *  the filtered document list. Admin opens the upload modal from the
@@ -49,6 +50,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
   const [showArchived, setShowArchived] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [detailDocId, setDetailDocId] = useState<string | null>(null);
 
   // Load + realtime-subscribe to documents for this study.
   useEffect(() => {
@@ -141,6 +143,13 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
       .filter((d) => (showArchived ? true : !d.archived))
       .filter((d) => selectedCategory === "all" || d.category === selectedCategory);
   }, [docs, selectedCategory, showArchived]);
+
+  // The doc shown in the detail drawer — resolved live from `docs` so the
+  // header (status / current version) tracks realtime updates.
+  const detailDoc = useMemo(
+    () => (detailDocId ? docs?.find((d) => d.id === detailDocId) ?? null : null),
+    [detailDocId, docs]
+  );
 
   if (!isAdmin && (docs?.length ?? 0) === 0) {
     return (
@@ -257,6 +266,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
                 return (
                   <DocumentRowView
                     key={d.id}
+                    onOpenDetail={() => setDetailDocId(d.id)}
                     doc={d}
                     version={v}
                     typeMeta={typeMeta}
@@ -326,6 +336,18 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
           }}
         />
       )}
+
+      {detailDoc && orgId && (
+        <DocumentDetailPanel
+          document={detailDoc}
+          study={study}
+          orgId={orgId}
+          actorUserId={userId}
+          actorEmail={userEmail}
+          canEdit={isAdmin}
+          onClose={() => setDetailDocId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -378,6 +400,7 @@ function DocumentRowView({
   version,
   typeMeta,
   canEdit,
+  onOpenDetail,
   onDownload,
   onNewVersion,
   onToggleArchive,
@@ -386,6 +409,7 @@ function DocumentRowView({
   version: DocumentVersionRow | null;
   typeMeta: DocType | undefined;
   canEdit: boolean;
+  onOpenDetail: () => void;
   onDownload: () => Promise<void> | void;
   onNewVersion: (file: File, versionLabel: string) => Promise<void>;
   onToggleArchive: () => Promise<void>;
@@ -397,9 +421,13 @@ function DocumentRowView({
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Icon name="file" size={14} className="text-slate-400 flex-shrink-0" />
-            <span className="text-sm font-semibold text-slate-900 truncate">
+            <button
+              onClick={onOpenDetail}
+              className="text-sm font-semibold text-slate-900 truncate text-left hover:text-brand-700 hover:underline transition"
+              title="Open document detail"
+            >
               {doc.title}
-            </span>
+            </button>
             <Pill tone={doc.archived ? "neutral" : "brand"}>
               {doc.archived ? "archived" : doc.status}
             </Pill>
@@ -431,6 +459,14 @@ function DocumentRowView({
           {version?.original_filename ?? <span className="italic text-slate-400">no file</span>}
         </div>
         <div className="flex items-center gap-1 justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onOpenDetail}
+            title="Version history & audit trail"
+          >
+            <Icon name="layers" size={12} /> History
+          </Button>
           <Button
             size="sm"
             variant="ghost"
