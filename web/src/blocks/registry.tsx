@@ -11,6 +11,7 @@ import { AtRiskStudiesBlock } from "./AtRiskStudiesBlock";
 import { DirectorsPulseBlock } from "./DirectorsPulseBlock";
 import { CycleTimeBlock } from "./CycleTimeBlock";
 import { WorkloadBlock } from "./WorkloadBlock";
+import { MyStudiesBlock } from "./MyStudiesBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -99,6 +100,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Per-user open task count and overdue count. Admin-only. Hides when no one has open work.",
     icon: "users",
     component: WorkloadBlock,
+  },
+  "my-studies": {
+    key: "my-studies",
+    label: "My studies",
+    description: "Studies relevant to the signed-in user — where you're PI or hold roles with open tasks. Hides when nothing matches.",
+    icon: "folder",
+    component: MyStudiesBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",
