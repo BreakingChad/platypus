@@ -17,6 +17,7 @@ import { Profile } from "./pages/Profile";
 import { Members } from "./pages/Members";
 import { NavDesigner } from "./pages/NavDesigner";
 import { PageLayoutDesigner } from "./pages/PageLayoutDesigner";
+import { Inbox } from "./pages/Inbox";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -73,17 +74,7 @@ function renderRoute(
     return { node: <PipelineView onNavigate={navigate} /> };
   }
   if (hash === "#/inbox") {
-    return {
-      node: (
-        <ComingSoon
-          kicker="Workspace"
-          title="Inbox"
-          description="Tasks routed to you, plus the send-for-action items waiting on your sign or acknowledge."
-          iconName="inbox"
-          onBackToHome={() => navigate("#/")}
-        />
-      ),
-    };
+    return { node: <Inbox onNavigate={navigate} /> };
   }
 
   // Configure: org

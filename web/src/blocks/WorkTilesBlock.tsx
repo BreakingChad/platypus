@@ -10,7 +10,7 @@ export function WorkTilesBlock({ ctx }: { ctx: BlockContext }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <WorkTile icon="folder" label="Studies" onClick={() => ctx.navigate("#/studies")} />
         <WorkTile icon="layers" label="Pipeline" onClick={() => ctx.navigate("#/pipeline")} />
-        <WorkTile icon="inbox" label="Inbox" onClick={() => ctx.navigate("#/inbox")} dimmed />
+        <WorkTile icon="inbox" label="Inbox" onClick={() => ctx.navigate("#/inbox")} />
         <WorkTile icon="users" label="Members" onClick={() => ctx.navigate("#/settings/members")} />
       </div>
     </section>
