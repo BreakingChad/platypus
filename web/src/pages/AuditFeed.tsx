@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { uniqueChannelName } from "../lib/uniqueChannel";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -52,7 +53,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
 
     // Subscribe — new events stream in
     const ch = supabase
-      .channel(`audit-org-${orgId}`)
+      .channel(uniqueChannelName(`audit-org-${orgId}`))
       .on(
         "postgres_changes" as any,
         { event: "INSERT", schema: "public", table: "audit_events", filter: `org_id=eq.${orgId}` },

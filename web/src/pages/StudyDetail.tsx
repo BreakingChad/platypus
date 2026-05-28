@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { uniqueChannelName } from "../lib/uniqueChannel";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
@@ -99,7 +100,7 @@ export function StudyDetail({
 
     // Subscribe to changes on this specific row.
     const channel = supabase
-      .channel(`study-${studyId}`)
+      .channel(uniqueChannelName(`study-${studyId}`))
       .on(
         "postgres_changes" as any,
         {
@@ -144,7 +145,7 @@ export function StudyDetail({
 
     // Refresh counts when realtime fires on either table for this study.
     const ch1 = supabase
-      .channel(`badge-audit-${studyId}`)
+      .channel(uniqueChannelName(`badge-audit-${studyId}`))
       .on(
         "postgres_changes" as any,
         { event: "*", schema: "public", table: "audit_events", filter: `entity_id=eq.${studyId}` },
@@ -152,7 +153,7 @@ export function StudyDetail({
       )
       .subscribe();
     const ch2 = supabase
-      .channel(`badge-tasks-${studyId}`)
+      .channel(uniqueChannelName(`badge-tasks-${studyId}`))
       .on(
         "postgres_changes" as any,
         { event: "*", schema: "public", table: "tasks", filter: `study_id=eq.${studyId}` },

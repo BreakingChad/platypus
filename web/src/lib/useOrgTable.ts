@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import { uniqueChannelName } from "./uniqueChannel";
 import { useCurrentOrg } from "./OrgContext";
 
 type Opts = {
@@ -69,7 +70,7 @@ export function useOrgTable<T extends { id: string }>(
   useEffect(() => {
     if (!orgId || !opts.realtime) return;
     const ch = sb
-      .channel(`${table}:${orgId}`)
+      .channel(uniqueChannelName(`${table}:${orgId}`))
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table, filter: `org_id=eq.${orgId}` },

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
+import { uniqueChannelName } from "./uniqueChannel";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "./OrgContext";
 import { useCurrentMember } from "./useCurrentMember";
@@ -57,7 +58,7 @@ export function useResolvedConfig() {
 
     // Subscribe to changes on this member row (admin reassigning my role).
     const channel = supabase
-      .channel(`member-config-${userId}-${orgId}`)
+      .channel(uniqueChannelName(`member-config-${userId}-${orgId}`))
       .on(
         "postgres_changes" as any,
         {
@@ -117,7 +118,7 @@ export function useResolvedConfig() {
 
     // Subscribe to changes on this access role (admin edits the designer).
     const channel = supabase
-      .channel(`access-role-${accessRoleId}`)
+      .channel(uniqueChannelName(`access-role-${accessRoleId}`))
       .on(
         "postgres_changes" as any,
         {

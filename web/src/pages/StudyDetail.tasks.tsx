@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { uniqueChannelName } from "../lib/uniqueChannel";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -56,7 +57,7 @@ export function TasksTab({
     })();
 
     const ch = supabase
-      .channel(`tasks-${studyId}`)
+      .channel(uniqueChannelName(`tasks-${studyId}`))
       .on(
         "postgres_changes" as any,
         { event: "*", schema: "public", table: "tasks", filter: `study_id=eq.${studyId}` },

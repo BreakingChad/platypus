@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { uniqueChannelName } from "../lib/uniqueChannel";
 import type { AuditEventRow } from "../lib/types";
 import { verifyChain } from "../lib/auditLog";
 import { Card } from "../components/ui/Card";
@@ -41,7 +42,7 @@ export function ActivityTab({
 
     // Subscribe to new events on this study so the timeline self-updates.
     const ch = supabase
-      .channel(`audit-${studyId}`)
+      .channel(uniqueChannelName(`audit-${studyId}`))
       .on(
         "postgres_changes" as any,
         {
