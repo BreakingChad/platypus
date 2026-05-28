@@ -17,6 +17,9 @@ import { useStickyState } from "../lib/useStickyState";
 import { useStarredStudies } from "../lib/useStarred";
 import { toCsv, downloadCsv } from "../lib/csv";
 import { useAuth } from "../auth/useAuth";
+import { writeAuditEvent } from "../lib/auditLog";
+import { supabase } from "../lib/supabase";
+import { useCurrentOrg } from "../lib/OrgContext";
 import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
@@ -25,7 +28,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const auth = useAuth();
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const { orgId } = useCurrentOrg();
   const starred = useStarredStudies(userEmail);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const toast = useToast();
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
@@ -34,6 +41,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const [stageFilter, setStageFilter] = useStickyState<string>("studies/stageFilter", "all");
   const [healthFilter, setHealthFilter] = useStickyState<"all" | HealthLevel>("studies/healthFilter", "all");
   const [showClosed, setShowClosed] = useStickyState<boolean>("studies/showClosed", false);
+  const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
   const [creating, setCreating] = useState(false);
 
   // Listen for the global quick-add FAB action.
@@ -42,6 +50,101 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
     window.addEventListener("platypus:new-study", onAdd);
     return () => window.removeEventListener("platypus:new-study", onAdd);
   }, [isAdmin]);
+
+  const toggleSel = (id: string) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSel = () => setSelected(new Set());
+
+  const bulkAdvance = async (nextStageKey: string) => {
+    if (!isAdmin || !orgId || !userId) return;
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    const studyMap = new Map(studies.rows.map((s) => [s.id, s]));
+    setBulkBusy(true);
+    try {
+      // For each study, build a patch that also stamps committed_at on first
+      // exit from intake. We do these as parallel single-row updates to keep
+      // audit logging consistent.
+      await Promise.all(
+        ids.map(async (id) => {
+          const study = studyMap.get(id);
+          if (!study) return;
+          if (study.stage_key === nextStageKey) return;
+          const patch: Partial<StudyRow> = { stage_key: nextStageKey };
+          if (study.stage_key === "intake" && nextStageKey !== "intake" && !study.committed_at) {
+            patch.committed_at = new Date().toISOString();
+          }
+          const { error } = await supabase
+            .from("studies")
+            .update(patch as any)
+            .eq("id", id);
+          if (error) throw error;
+          void writeAuditEvent({
+            orgId, actorId: userId, actorEmail: userEmail,
+            entityType: "study", entityId: id,
+            action: "stage_changed",
+            payload: {
+              from: study.stage_key ?? null,
+              to: nextStageKey,
+              from_label: stages.rows.find((s) => s.key === study.stage_key)?.label ?? null,
+              to_label: stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey,
+              bulk: true,
+            },
+          });
+        })
+      );
+      toast.success(`Moved ${ids.length} stud${ids.length === 1 ? "y" : "ies"} to ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`);
+      clearSel();
+    } catch (e: any) {
+      toast.error(e?.message || "Bulk advance failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkSetClosed = async (closed: boolean) => {
+    if (!isAdmin || !orgId || !userId) return;
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    const studyMap = new Map(studies.rows.map((s) => [s.id, s]));
+    setBulkBusy(true);
+    try {
+      await Promise.all(
+        ids.map(async (id) => {
+          const study = studyMap.get(id);
+          if (!study) return;
+          if (study.closed === closed) return;
+          const { error } = await supabase
+            .from("studies")
+            .update({
+              closed,
+              closed_at: closed ? new Date().toISOString() : null,
+            } as any)
+            .eq("id", id);
+          if (error) throw error;
+          void writeAuditEvent({
+            orgId, actorId: userId, actorEmail: userEmail,
+            entityType: "study", entityId: id,
+            action: closed ? "closed" : "reopened",
+            payload: { bulk: true },
+          });
+        })
+      );
+      toast.success(`${closed ? "Closed" : "Reopened"} ${ids.length} stud${ids.length === 1 ? "y" : "ies"}`);
+      clearSel();
+    } catch (e: any) {
+      toast.error(e?.message || "Bulk update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const stageByKey = useMemo(() => {
     const m: Record<string, PipelineStageRow> = {};
@@ -59,6 +162,12 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       .filter(({ row }) => (showClosed ? true : !row.closed))
       .filter(({ row }) => (stageFilter === "all" ? true : row.stage_key === stageFilter))
       .filter(({ health }) => (healthFilter === "all" ? true : health.level === healthFilter))
+      .filter(({ row }) => {
+        if (!staleOnly) return true;
+        if (!row.updated_at) return false;
+        const days = Math.floor((Date.now() - new Date(row.updated_at).getTime()) / 86400000);
+        return days > 14 && !row.closed;
+      })
       .filter(({ row: r }) => {
         if (!q) return true;
         return (
@@ -238,16 +347,68 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by title, code, sponsor, PI, NCT…"
         />
-        <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap px-2">
-          <input
-            type="checkbox"
-            checked={showClosed}
-            onChange={(e) => setShowClosed(e.target.checked)}
-            className="accent-brand-500 w-4 h-4"
-          />
-          Show closed
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap px-2">
+            <input
+              type="checkbox"
+              checked={staleOnly}
+              onChange={(e) => setStaleOnly(e.target.checked)}
+              className="accent-brand-500 w-4 h-4"
+            />
+            Stale only (&gt;14d)
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap px-2">
+            <input
+              type="checkbox"
+              checked={showClosed}
+              onChange={(e) => setShowClosed(e.target.checked)}
+              className="accent-brand-500 w-4 h-4"
+            />
+            Show closed
+          </label>
+        </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div
+          className="sticky top-14 z-10 mt-4 rounded-xl border-2 border-brand-200 bg-brand-50/95 backdrop-blur px-4 py-2.5 flex items-center gap-3 shadow-sm"
+          role="region"
+          aria-label="Bulk actions"
+        >
+          <span className="text-sm font-semibold text-brand-700">
+            {selected.size} selected
+          </span>
+          <span className="flex-1" />
+          {isAdmin && (
+            <>
+              <Select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) void bulkAdvance(e.target.value);
+                }}
+                disabled={bulkBusy}
+                className="text-xs py-1 px-2 max-w-[180px]"
+                aria-label="Move selected studies to stage"
+              >
+                <option value="">Move to stage…</option>
+                {stages.rows.map((st) => (
+                  <option key={st.key} value={st.key}>{st.label}</option>
+                ))}
+              </Select>
+              <Button size="sm" variant="ghost" onClick={() => bulkSetClosed(true)} disabled={bulkBusy}>
+                Close
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => bulkSetClosed(false)} disabled={bulkBusy}>
+                Reopen
+              </Button>
+            </>
+          )}
+          <Button size="sm" variant="ghost" onClick={clearSel} disabled={bulkBusy}>
+            Clear selection
+          </Button>
+        </div>
+      )}
 
       {/* List */}
       <Card flush className="mt-4 overflow-hidden">
@@ -282,7 +443,29 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
         {filtered.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[120px_1fr_160px_140px_140px_110px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+              <span className="flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible studies"
+                  checked={filtered.length > 0 && filtered.every(({ row }) => selected.has(row.id))}
+                  ref={(el) => {
+                    if (el) {
+                      const some = filtered.some(({ row }) => selected.has(row.id));
+                      const all = filtered.length > 0 && filtered.every(({ row }) => selected.has(row.id));
+                      el.indeterminate = some && !all;
+                    }
+                  }}
+                  onChange={(e) => {
+                    setSelected(
+                      e.target.checked
+                        ? new Set(filtered.map(({ row }) => row.id))
+                        : new Set()
+                    );
+                  }}
+                  className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+                />
+              </span>
               <span>Code</span>
               <span>Study</span>
               <span>Stage</span>
@@ -293,12 +476,26 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             {filtered.map(({ row: s, health }) => {
               const stage = s.stage_key ? stageByKey[s.stage_key] : null;
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => onNavigate(`#/studies/${s.id}`)}
-                  className="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-brand-50/30 transition grid grid-cols-[120px_1fr_160px_140px_140px_110px] gap-3 items-center group"
+                  className={
+                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center group " +
+                    (selected.has(s.id) ? "bg-brand-50/60" : "hover:bg-brand-50/30")
+                  }
                 >
-                  <span className="font-mono text-xs text-slate-600 flex items-center gap-1.5">
+                  <span className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${s.code}`}
+                      checked={selected.has(s.id)}
+                      onChange={() => toggleSel(s.id)}
+                      className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                  </span>
+                  <span
+                    className="font-mono text-xs text-slate-600 flex items-center gap-1.5 cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
                     <button
                       onClick={(e) => { e.stopPropagation(); starred.toggle(s.id); }}
                       className={
@@ -315,7 +512,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                     <HealthDot health={health} variant="dot" />
                     {s.code}
                   </span>
-                  <span className="min-w-0">
+                  <span
+                    className="min-w-0 cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
                     <div className="font-semibold text-slate-900 truncate">{s.title}</div>
                     <div className="text-[11px] text-slate-500 truncate">
                       {[s.sponsor, s.nct, s.therapeutic_area, s.phase]
@@ -326,9 +526,18 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                           <Pill tone="neutral">closed</Pill>
                         </span>
                       )}
+                      {!s.closed && s.updated_at && (() => {
+                        const days = Math.floor((Date.now() - new Date(s.updated_at).getTime()) / 86400000);
+                        if (days <= 14) return null;
+                        return (
+                          <span className="ml-2 inline-flex">
+                            <Pill tone="warning">stale {days}d</Pill>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </span>
-                  <span>
+                  <span className="cursor-pointer" onClick={() => onNavigate(`#/studies/${s.id}`)}>
                     {stage ? (
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
@@ -341,16 +550,26 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                       <span className="text-xs text-slate-400 italic">unassigned</span>
                     )}
                   </span>
-                  <span className="text-xs text-slate-600 truncate" title={health.summary}>
+                  <span
+                    className="text-xs text-slate-600 truncate cursor-pointer"
+                    title={health.summary}
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
                     <HealthDot health={health} variant="pill" />
                   </span>
-                  <span className="text-xs text-slate-700 truncate">
+                  <span
+                    className="text-xs text-slate-700 truncate cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
                     {s.pi_name || <span className="text-slate-400 italic">—</span>}
                   </span>
-                  <span className="text-xs text-slate-500 font-mono">
+                  <span
+                    className="text-xs text-slate-500 font-mono cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
                     {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
                   </span>
-                </button>
+                </div>
               );
             })}
           </>
@@ -367,6 +586,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                 setStageFilter("all");
                 setHealthFilter("all");
                 setShowClosed(false);
+                setStaleOnly(false);
               }}
               className="mt-3 text-xs font-semibold text-brand-700 hover:underline"
             >

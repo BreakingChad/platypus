@@ -9,6 +9,7 @@ import { SetupChecklistBlock } from "./SetupChecklistBlock";
 import { TasksDueBlock } from "./TasksDueBlock";
 import { AtRiskStudiesBlock } from "./AtRiskStudiesBlock";
 import { DirectorsPulseBlock } from "./DirectorsPulseBlock";
+import { CycleTimeBlock } from "./CycleTimeBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -83,6 +84,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Auto-generated one-paragraph state-of-the-portfolio with sentiment tone and drill-through chips.",
     icon: "info",
     component: DirectorsPulseBlock,
+  },
+  "cycle-time": {
+    key: "cycle-time",
+    label: "Cycle time by stage",
+    description: "Per-stage average dwell time vs target, computed from audit_events stage_changed entries.",
+    icon: "workflow",
+    component: CycleTimeBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",
