@@ -89,6 +89,7 @@ export function CommandPalette({
         { id: "nav-stages", kind: "nav", title: "Pipeline stages", subtitle: "Design the lifecycle", icon: "workflow", navigateTo: "#/settings/stages" },
         { id: "nav-teams", kind: "nav", title: "Teams & roles", subtitle: "Org structure", icon: "users", navigateTo: "#/settings/teams" },
         { id: "nav-access", kind: "nav", title: "Access roles", subtitle: "Module permissions", icon: "shield", navigateTo: "#/settings/access" },
+        { id: "nav-setup", kind: "nav", title: "Guided setup", subtitle: "First-run configuration", icon: "check", navigateTo: "#/setup" },
       );
     }
     return baseNav.map((n) => ({ ...n, score: 0 }));

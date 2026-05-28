@@ -11,6 +11,7 @@ import type {
   AccessRoleRow,
 } from "../lib/types";
 import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
 import type { BlockContext } from "./registry";
 
@@ -117,12 +118,17 @@ export function SetupChecklistBlock({ ctx }: { ctx: BlockContext }) {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-3">
         <h2 className="text-lg font-display font-bold text-slate-900">
           Set up your workspace
         </h2>
-        <div className="text-xs font-mono text-slate-500">
-          {completed} / {total} complete
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono text-slate-500">
+            {completed} / {total} complete
+          </span>
+          <Button size="sm" variant="primary" onClick={() => ctx.navigate("#/setup")}>
+            Guided setup
+          </Button>
         </div>
       </div>
       <Card flush className="overflow-hidden">

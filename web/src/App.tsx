@@ -26,6 +26,7 @@ const NavDesigner          = lazy(() => import("./pages/NavDesigner").then(m => 
 const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").then(m => ({ default: m.PageLayoutDesigner })));
 const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({ default: m.AuditFeed })));
 const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
+const GuidedSetup          = lazy(() => import("./pages/GuidedSetup").then(m => ({ default: m.GuidedSetup })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -112,6 +113,11 @@ function renderRoute(
   // Configure: page layout designer
   if (hash === "#/settings/pages") {
     return { node: <PageLayoutDesigner /> };
+  }
+
+  // Guided setup (admin onboarding)
+  if (hash === "#/setup") {
+    return { node: <GuidedSetup onNavigate={navigate} /> };
   }
 
   // You: profile
