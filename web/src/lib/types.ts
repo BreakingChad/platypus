@@ -159,6 +159,44 @@ export type WorkflowTaskTemplateRow = {
   created_at: string;
 };
 
+export type DocumentStatus = "draft" | "active" | "superseded" | "archived";
+
+export type DocumentRow = {
+  id: string;
+  org_id: string;
+  study_id: string;
+  category: string;
+  doc_type: string;
+  doc_type_code: string | null;
+  title: string;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  current_version_id: string | null;
+  status: DocumentStatus | string;
+  archived: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentVersionRow = {
+  id: string;
+  document_id: string;
+  version_label: string;
+  file_path: string;
+  original_filename: string | null;
+  file_size: number;
+  mime_type: string | null;
+  metadata: Record<string, unknown>;
+  uploaded_by: string | null;
+  uploaded_at: string;
+  archived: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
+};
+
 export type StudyRow = {
   id: string;
   org_id: string;
@@ -217,6 +255,8 @@ export type Database = {
       tasks:             { Row: TaskRow;             Insert: Partial<TaskRow>;             Update: Partial<TaskRow>;             Relationships: [] };
       workflow_modules:        { Row: WorkflowModuleRow;       Insert: Partial<WorkflowModuleRow>;       Update: Partial<WorkflowModuleRow>;       Relationships: [] };
       workflow_task_templates: { Row: WorkflowTaskTemplateRow; Insert: Partial<WorkflowTaskTemplateRow>; Update: Partial<WorkflowTaskTemplateRow>; Relationships: [] };
+      documents:               { Row: DocumentRow;             Insert: Partial<DocumentRow>;             Update: Partial<DocumentRow>;             Relationships: [] };
+      document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
     };
     Views: {};
     Functions: {};

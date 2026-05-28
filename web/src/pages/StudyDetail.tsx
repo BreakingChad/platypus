@@ -26,6 +26,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { TasksTab } from "./StudyDetail.tasks";
+import { DocumentsTab } from "./StudyDetail.documents";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -83,6 +84,7 @@ export function StudyDetail({
   const [advancing, setAdvancing] = useState(false);
   const [activityCount, setActivityCount] = useState<number | null>(null);
   const [openTaskCount, setOpenTaskCount] = useState<number | null>(null);
+  const [documentCount, setDocumentCount] = useState<number | null>(null);
   const [savingClose, setSavingClose] = useState(false);
 
   // Load + realtime-subscribe to this single study.
@@ -126,7 +128,7 @@ export function StudyDetail({
   useEffect(() => {
     let cancelled = false;
     const reload = async () => {
-      const [{ count: aCount }, { count: tCount }] = await Promise.all([
+      const [{ count: aCount }, { count: tCount }, { count: dCount }] = await Promise.all([
         supabase
           .from("audit_events")
           .select("*", { count: "exact", head: true })
@@ -137,10 +139,16 @@ export function StudyDetail({
           .select("*", { count: "exact", head: true })
           .eq("study_id", studyId)
           .in("status", ["open", "in_progress"]),
+        supabase
+          .from("documents")
+          .select("*", { count: "exact", head: true })
+          .eq("study_id", studyId)
+          .eq("archived", false),
       ]);
       if (cancelled) return;
       setActivityCount(aCount ?? 0);
       setOpenTaskCount(tCount ?? 0);
+      setDocumentCount(dCount ?? 0);
     };
     void reload();
 
@@ -161,10 +169,19 @@ export function StudyDetail({
         () => void reload()
       )
       .subscribe();
+    const ch3 = supabase
+      .channel(uniqueChannelName(`badge-docs-${studyId}`))
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "documents", filter: `study_id=eq.${studyId}` },
+        () => void reload()
+      )
+      .subscribe();
     return () => {
       cancelled = true;
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
+      supabase.removeChannel(ch3);
     };
   }, [studyId]);
 
@@ -474,7 +491,7 @@ export function StudyDetail({
           ["overview", "Overview", null],
           ["activity", "Activity", activityCount],
           ["tasks", "Tasks", openTaskCount],
-          ["documents", "Documents", null],
+          ["documents", "Documents", documentCount],
           ["audit", "Audit", activityCount],
         ] as [Tab, string, number | null][]).map(([key, label, count]) => (
           <button
@@ -558,13 +575,7 @@ export function StudyDetail({
         )}
 
         {tab === "documents" && (
-          <Card>
-            <EmptyState
-              iconName="folder"
-              title="Documents — coming with TMF/ISF"
-              sub="The integrated binder lands in a later phase. Every doc with required metadata, hash-chained audit, 21 CFR Part 11 e-signatures, and EML drag-drop."
-            />
-          </Card>
+          <DocumentsTab study={study} />
         )}
 
         {tab === "audit" && (
