@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
+import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
@@ -16,56 +17,18 @@ import { CommandPalette } from "./CommandPalette";
  *  - Mounts the Cmd-K palette globally.
  */
 
-type NavItem = {
+/** Resolved nav shape — what SidebarBody actually renders. */
+type ResolvedNavItem = {
+  key: string;
   label: string;
-  hash: string;
   icon: string;
-  badge?: string;
-  adminOnly?: boolean;
+  hash: string;
 };
 
-type NavGroup = {
+type ResolvedNavGroup = {
   group: string;
-  items: NavItem[];
+  items: ResolvedNavItem[];
 };
-
-const NAV: NavGroup[] = [
-  {
-    group: "Workspace",
-    items: [
-      { label: "Home", hash: "#/", icon: "home" },
-      { label: "Studies", hash: "#/studies", icon: "folder" },
-      { label: "Pipeline", hash: "#/pipeline", icon: "layers" },
-      { label: "Inbox", hash: "#/inbox", icon: "inbox", badge: "soon" },
-    ],
-  },
-  {
-    group: "Configure",
-    items: [
-      { label: "Organization", hash: "#/settings/org", icon: "settings", adminOnly: true },
-      { label: "Members", hash: "#/settings/members", icon: "users", adminOnly: true },
-      { label: "Study fields", hash: "#/settings/fields", icon: "file", adminOnly: true },
-      {
-        label: "Pipeline stages",
-        hash: "#/settings/stages",
-        icon: "workflow",
-        adminOnly: true,
-      },
-      {
-        label: "Teams & roles",
-        hash: "#/settings/teams",
-        icon: "users",
-        adminOnly: true,
-      },
-      {
-        label: "Access roles",
-        hash: "#/settings/access",
-        icon: "shield",
-        adminOnly: true,
-      },
-    ],
-  },
-];
 
 export function AppShell({
   currentHash,
@@ -138,19 +101,14 @@ export function AppShell({
 
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? "signed in" : "—";
 
-  const visibleGroups = useMemo(() => {
-    return NAV.map((g) => ({
-      ...g,
-      items: g.items.filter((it) => !it.adminOnly || isAdmin),
-    })).filter((g) => g.items.length > 0);
-  }, [isAdmin]);
+  const { navGroups } = useResolvedConfig();
 
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
         <SidebarBody
-          groups={visibleGroups}
+          groups={navGroups}
           currentHash={currentHash}
           onNavigate={onNavigate}
           orgName={orgName}
@@ -168,7 +126,7 @@ export function AppShell({
           />
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col animate-[slideIn_180ms_ease-out]">
             <SidebarBody
-              groups={visibleGroups}
+              groups={navGroups}
               currentHash={currentHash}
               onNavigate={onNavigate}
               orgName={orgName}
@@ -290,7 +248,7 @@ function SidebarBody({
   isAdmin,
   onCloseMobile,
 }: {
-  groups: NavGroup[];
+  groups: ResolvedNavGroup[];
   currentHash: string;
   onNavigate: (hash: string) => void;
   orgName: string | null;
@@ -332,9 +290,8 @@ function SidebarBody({
                 const active =
                   currentHash === item.hash ||
                   (item.hash === "#/" && (currentHash === "" || currentHash === "#"));
-                const isComingSoon = item.badge === "soon";
                 return (
-                  <li key={item.hash}>
+                  <li key={item.key}>
                     <button
                       onClick={() => onNavigate(item.hash)}
                       className={
@@ -350,11 +307,6 @@ function SidebarBody({
                         className={active ? "text-brand-600" : "text-slate-400"}
                       />
                       <span className="flex-1">{item.label}</span>
-                      {isComingSoon && (
-                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
-                          soon
-                        </span>
-                      )}
                     </button>
                   </li>
                 );
@@ -413,6 +365,8 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/inbox": { kicker: "Workspace", title: "Inbox" },
   "#/settings/org": { kicker: "Configure", title: "Organization" },
   "#/settings/members": { kicker: "Configure", title: "Members" },
+  "#/settings/nav": { kicker: "Configure", title: "Nav designer" },
+  "#/settings/pages": { kicker: "Configure", title: "Page designer" },
   "#/settings/fields": { kicker: "Configure", title: "Study fields" },
   "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },

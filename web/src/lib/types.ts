@@ -89,6 +89,8 @@ export type AccessRoleRow = {
   admin_scope: string[];
   status: string;
   former_names: string[];
+  nav: unknown;            // NavGroupConfig[] — typed at use sites
+  page_layouts: unknown;   // PageLayoutsConfig — typed at use sites
   created_at: string;
   updated_at: string;
 };
@@ -130,6 +132,7 @@ export type ProfileRow = {
 export type OrgMemberRow = {
   id: string; org_id: string; user_id: string;
   tier: MemberTier; created_at: string;
+  access_role_id?: string | null;
 };
 
 /** Lightweight Database type. Add tables as we go. */
