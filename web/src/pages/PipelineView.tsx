@@ -12,6 +12,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthInfo } from "../lib/studyHealth";
 import { useStickyState } from "../lib/useStickyState";
+import { useStarredStudies } from "../lib/useStarred";
+import { useAuth } from "../auth/useAuth";
 
 /** PipelineView — kanban by stage. Columns from pipeline_stages, cards from
  *  studies. Admins can drag cards between columns to advance/regress (writes
@@ -20,6 +22,9 @@ import { useStickyState } from "../lib/useStickyState";
  */
 export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }) {
   const { isAdmin } = useCurrentMember();
+  const auth = useAuth();
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const starred = useStarredStudies(userEmail);
   const toast = useToast();
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", {
     orderBy: "position",
@@ -219,6 +224,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
                       key={s.id}
                       study={s}
                       health={health}
+                      starred={starred.isStarred(s.id)}
                       stage={stage}
                       draggable={isAdmin}
                       isDragging={draggingId === s.id}
@@ -267,6 +273,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
 function StudyCard({
   study,
   health,
+  starred,
   stage,
   draggable,
   isDragging,
@@ -276,6 +283,7 @@ function StudyCard({
 }: {
   study: StudyRow;
   health: HealthInfo;
+  starred: boolean;
   stage: PipelineStageRow;
   draggable: boolean;
   isDragging: boolean;
@@ -302,6 +310,11 @@ function StudyCard({
     >
       <div className="flex items-center gap-2 mb-0.5">
         <HealthDot health={health} variant="dot" />
+        {starred && (
+          <span title="Pinned" className="text-amber-500 flex-shrink-0">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+          </span>
+        )}
         <span className="text-[10px] font-mono text-slate-500 font-semibold">
           {study.code}
         </span>

@@ -14,12 +14,18 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
 import { useStickyState } from "../lib/useStickyState";
+import { useStarredStudies } from "../lib/useStarred";
+import { toCsv, downloadCsv } from "../lib/csv";
+import { useAuth } from "../auth/useAuth";
 import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
  *  Live on the studies table. Admin can create; everyone can read. */
 export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void }) {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
+  const auth = useAuth();
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const starred = useStarredStudies(userEmail);
   const toast = useToast();
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
@@ -64,6 +70,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         );
       })
       .sort((a, b) => {
+        const aStar = starred.isStarred(a.row.id);
+        const bStar = starred.isStarred(b.row.id);
+        if (aStar !== bStar) return aStar ? -1 : 1;
         const hw = healthSortWeight(a.health) - healthSortWeight(b.health);
         if (hw !== 0) return hw;
         return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
@@ -91,13 +100,46 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         title="Studies"
         subtitle="Every study you're running. Sorted newest first. Click into a study to see its full record."
         actions={
-          isAdmin ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Icon name="plus" size={14} /> New study
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const rows: (string | number | null | undefined)[][] = [
+                  ["code", "title", "sponsor", "nct", "therapeutic_area", "phase", "pi", "stage", "priority", "health", "days_in_stage", "days_to_target", "created_at", "updated_at", "closed"],
+                  ...filtered.map(({ row: s, health }) => [
+                    s.code,
+                    s.title,
+                    s.sponsor ?? "",
+                    s.nct ?? "",
+                    s.therapeutic_area ?? "",
+                    s.phase ?? "",
+                    s.pi_name ?? "",
+                    health.stageLabel ?? "",
+                    s.priority ?? "",
+                    health.level,
+                    health.daysInStage,
+                    health.daysToTarget,
+                    s.created_at ?? "",
+                    s.updated_at ?? "",
+                    s.closed ? "yes" : "no",
+                  ]),
+                ];
+                downloadCsv(`platypus-studies-${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+              }}
+              disabled={filtered.length === 0}
+              title={`Export ${filtered.length} stud${filtered.length === 1 ? "y" : "ies"} (current filter) to CSV`}
+            >
+              <Icon name="external" size={12} /> Export CSV
             </Button>
-          ) : (
-            <Pill tone="neutral">read-only</Pill>
-          )
+            {isAdmin ? (
+              <Button variant="primary" onClick={() => setCreating(true)}>
+                <Icon name="plus" size={14} /> New study
+              </Button>
+            ) : (
+              <Pill tone="neutral">read-only</Pill>
+            )}
+          </div>
         }
       />
 
@@ -256,7 +298,20 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                   onClick={() => onNavigate(`#/studies/${s.id}`)}
                   className="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-brand-50/30 transition grid grid-cols-[120px_1fr_160px_140px_140px_110px] gap-3 items-center group"
                 >
-                  <span className="font-mono text-xs text-slate-600 flex items-center gap-2">
+                  <span className="font-mono text-xs text-slate-600 flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); starred.toggle(s.id); }}
+                      className={
+                        "transition flex-shrink-0 " +
+                        (starred.isStarred(s.id)
+                          ? "text-amber-500 hover:text-amber-600"
+                          : "text-slate-300 hover:text-amber-500")
+                      }
+                      title={starred.isStarred(s.id) ? "Unpin study" : "Pin study"}
+                      aria-label={starred.isStarred(s.id) ? "Unpin study" : "Pin study"}
+                    >
+                      <StarIcon filled={starred.isStarred(s.id)} />
+                    </button>
                     <HealthDot health={health} variant="dot" />
                     {s.code}
                   </span>
@@ -334,5 +389,22 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         />
       )}
     </div>
+  );
+}
+
+/** Tiny star icon (inline so we don't bloat the shared Icon component). */
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinejoin="round"
+    >
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
   );
 }
