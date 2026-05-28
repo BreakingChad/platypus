@@ -7,6 +7,7 @@ import { SetupHubBlock } from "./SetupHubBlock";
 import { WorkTilesBlock } from "./WorkTilesBlock";
 import { SetupChecklistBlock } from "./SetupChecklistBlock";
 import { TasksDueBlock } from "./TasksDueBlock";
+import { AtRiskStudiesBlock } from "./AtRiskStudiesBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -67,6 +68,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Your assigned + role-tasks that are due today or overdue. Hides when empty.",
     icon: "alert",
     component: TasksDueBlock,
+  },
+  "at-risk-studies": {
+    key: "at-risk-studies",
+    label: "At-risk studies",
+    description: "Every yellow / red study across the portfolio, sorted by urgency. Hides when nothing is at risk.",
+    icon: "alert",
+    component: AtRiskStudiesBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",

@@ -162,19 +162,48 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
                 style={{ scrollSnapAlign: "start" }}
               >
                 {/* Column header */}
-                <div className="px-3 py-2.5 border-b border-slate-200 flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: stage.color }}
-                  />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 truncate">
-                    {stage.label}
-                  </span>
-                  <div className="flex-1" />
-                  <span className="text-[10px] font-mono text-slate-500">
-                    {items.length}
-                  </span>
-                  {stage.terminal && <Pill tone="neutral">end</Pill>}
+                <div className="px-3 py-2.5 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: stage.color }}
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 truncate">
+                      {stage.label}
+                    </span>
+                    <div className="flex-1" />
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {items.length}
+                    </span>
+                    {stage.terminal && <Pill tone="neutral">end</Pill>}
+                  </div>
+                  {/* Health distribution micro-bar */}
+                  {items.length > 0 && (() => {
+                    const counts = { red: 0, yellow: 0, green: 0, other: 0 };
+                    for (const it of items) {
+                      if (it.health.level === "red") counts.red += 1;
+                      else if (it.health.level === "yellow") counts.yellow += 1;
+                      else if (it.health.level === "green") counts.green += 1;
+                      else counts.other += 1;
+                    }
+                    const total = items.length;
+                    const pct = (n: number) => (n / total) * 100;
+                    return (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <div className="flex-1 h-1 rounded-full bg-slate-100 overflow-hidden flex">
+                          {counts.red > 0 && <div className="bg-red-500" style={{ width: pct(counts.red) + "%" }} />}
+                          {counts.yellow > 0 && <div className="bg-amber-500" style={{ width: pct(counts.yellow) + "%" }} />}
+                          {counts.green > 0 && <div className="bg-emerald-500" style={{ width: pct(counts.green) + "%" }} />}
+                          {counts.other > 0 && <div className="bg-slate-300" style={{ width: pct(counts.other) + "%" }} />}
+                        </div>
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-slate-500">
+                          {counts.red > 0 && <span className="text-red-600">{counts.red}</span>}
+                          {counts.yellow > 0 && <span className="text-amber-700">{counts.yellow}</span>}
+                          {counts.green > 0 && <span className="text-emerald-700">{counts.green}</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Cards */}
