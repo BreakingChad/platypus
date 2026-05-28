@@ -29,6 +29,7 @@ type Member = {
   id: string;            // org_members.id
   user_id: string;
   tier: MemberTier;
+  access_role_id: string | null;
   created_at: string;
   email: string;
   full_name: string | null;
@@ -45,13 +46,14 @@ export function Members() {
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [orgOwnerId, setOrgOwnerId] = useState<string | null>(null);
+  const [accessRoles, setAccessRoles] = useState<{ id: string; name: string }[]>([]);
 
   const load = async () => {
     if (!orgId) return;
     setError(null);
     const { data: mems, error: e1 } = await supabase
       .from("org_members")
-      .select("id, user_id, tier, created_at")
+      .select("id, user_id, tier, access_role_id, created_at")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
     if (e1) {
@@ -73,6 +75,7 @@ export function Members() {
       id: m.id,
       user_id: m.user_id,
       tier: m.tier,
+      access_role_id: m.access_role_id ?? null,
       created_at: m.created_at,
       email: byId[m.user_id]?.email ?? "(unknown)",
       full_name: byId[m.user_id]?.full_name ?? null,
@@ -87,12 +90,35 @@ export function Members() {
       .eq("id", orgId)
       .maybeSingle();
     setOrgOwnerId((orgRow as any)?.owner_id ?? null);
+
+    // access_roles for the assignment dropdown
+    const { data: roles } = await supabase
+      .from("access_roles")
+      .select("id, name")
+      .eq("org_id", orgId)
+      .order("name", { ascending: true });
+    setAccessRoles((roles ?? []) as any);
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId]);
+
+  const changeAccessRole = async (m: Member, next: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .update({ access_role_id: next })
+        .eq("id", m.id);
+      if (error) throw error;
+      const roleName = accessRoles.find((r) => r.id === next)?.name || "(none)";
+      toast.success(`${m.email}: access role → ${roleName}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change access role");
+    }
+  };
 
   const changeTier = async (m: Member, next: MemberTier) => {
     if (m.user_id === orgOwnerId) {
@@ -225,10 +251,11 @@ export function Members() {
 
         {members && members.length > 0 && (
           <Card flush>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.5fr_120px_140px_40px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.3fr_100px_160px_140px_40px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Member</span>
               <span>Title</span>
               <span>Joined</span>
+              <span>Access role</span>
               <span>Tier</span>
               <span />
             </div>
@@ -238,7 +265,7 @@ export function Members() {
               return (
                 <div
                   key={m.id}
-                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[2fr_1.5fr_120px_140px_40px] gap-3 items-center"
+                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[2fr_1.3fr_100px_160px_140px_40px] gap-3 items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
@@ -267,6 +294,20 @@ export function Members() {
                   </div>
                   <div className="text-xs text-slate-500 font-mono">
                     {new Date(m.created_at).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <select
+                      value={m.access_role_id ?? ""}
+                      onChange={(e) => changeAccessRole(m, e.target.value || null)}
+                      className="text-xs rounded border border-slate-200 px-2 py-1 bg-white font-semibold focus:outline-none focus:border-brand-500 w-full"
+                    >
+                      <option value="">— Unassigned —</option>
+                      {accessRoles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex flex-col gap-1 items-start">
                     {isThisOwner && <Pill tone="brand">owner</Pill>}

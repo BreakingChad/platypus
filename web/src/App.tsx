@@ -16,6 +16,7 @@ import { OrgSettings } from "./pages/OrgSettings";
 import { Profile } from "./pages/Profile";
 import { Members } from "./pages/Members";
 import { NavDesigner } from "./pages/NavDesigner";
+import { PageLayoutDesigner } from "./pages/PageLayoutDesigner";
 import { ComingSoon } from "./pages/ComingSoon";
 
 /** Simple hash-based router. We'll graduate to react-router when route count
@@ -98,6 +99,11 @@ function renderRoute(
   // Configure: nav designer
   if (hash === "#/settings/nav") {
     return { node: <NavDesigner /> };
+  }
+
+  // Configure: page layout designer
+  if (hash === "#/settings/pages") {
+    return { node: <PageLayoutDesigner /> };
   }
 
   // You: profile
