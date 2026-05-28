@@ -535,7 +535,7 @@ export function StudyDetail({
         )}
 
         {tab === "activity" && (
-          <ActivityTab studyId={study.id} />
+          <ActivityTab studyId={study.id} study={study} stages={stages.rows} />
         )}
 
         {tab === "tasks" && (
@@ -553,7 +553,7 @@ export function StudyDetail({
         )}
 
         {tab === "audit" && (
-          <ActivityTab studyId={study.id} showChain />
+          <ActivityTab studyId={study.id} showChain study={study} stages={stages.rows} />
         )}
       </div>
     </div>

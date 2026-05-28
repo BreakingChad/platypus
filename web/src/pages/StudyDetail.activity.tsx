@@ -8,6 +8,8 @@ import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { EmptyState } from "../components/ui/EmptyState";
+import { StudyTimeline } from "./StudyDetail.timeline";
+import type { StudyRow, PipelineStageRow } from "../lib/types";
 
 /** ActivityTab — renders audit_events for a single study as a chronological
  *  timeline. When showChain is true, it also exposes the hash-chain verifier
@@ -17,9 +19,15 @@ import { EmptyState } from "../components/ui/EmptyState";
 export function ActivityTab({
   studyId,
   showChain = false,
+  study,
+  stages,
 }: {
   studyId: string;
   showChain?: boolean;
+  /** Optional — when provided, renders a lifecycle timeline at the top. */
+  study?: StudyRow;
+  /** Optional — needed alongside `study` to color the stage bands. */
+  stages?: PipelineStageRow[];
 }) {
   const [events, setEvents] = useState<AuditEventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +115,10 @@ export function ActivityTab({
 
   return (
     <div>
+      {study && stages && events.length > 0 && (
+        <StudyTimeline study={study} events={events} stages={stages} />
+      )}
+
       {showChain && (
         <Card className="mb-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
