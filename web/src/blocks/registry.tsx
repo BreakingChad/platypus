@@ -8,6 +8,7 @@ import { WorkTilesBlock } from "./WorkTilesBlock";
 import { SetupChecklistBlock } from "./SetupChecklistBlock";
 import { TasksDueBlock } from "./TasksDueBlock";
 import { AtRiskStudiesBlock } from "./AtRiskStudiesBlock";
+import { DirectorsPulseBlock } from "./DirectorsPulseBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -75,6 +76,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Every yellow / red study across the portfolio, sorted by urgency. Hides when nothing is at risk.",
     icon: "alert",
     component: AtRiskStudiesBlock,
+  },
+  "directors-pulse": {
+    key: "directors-pulse",
+    label: "Director's pulse",
+    description: "Auto-generated one-paragraph state-of-the-portfolio with sentiment tone and drill-through chips.",
+    icon: "info",
+    component: DirectorsPulseBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",
