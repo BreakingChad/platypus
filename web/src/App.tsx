@@ -1,24 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { AuthGate } from "./auth/AuthGate";
 import { OrgProvider } from "./lib/OrgContext";
 import { ToastProvider } from "./lib/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppShell } from "./components/AppShell";
+
+// Eager — surfaces every signed-in user hits on landing.
 import { Home } from "./pages/Home";
-import { FieldsDesigner } from "./pages/FieldsDesigner";
-import { StageDesigner } from "./pages/StageDesigner";
 import { StudiesList } from "./pages/StudiesList";
-import { TeamBuilder } from "./pages/TeamBuilder";
-import { AccessRoles } from "./pages/AccessRoles";
 import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
-import { OrgSettings } from "./pages/OrgSettings";
-import { Profile } from "./pages/Profile";
-import { Members } from "./pages/Members";
-import { NavDesigner } from "./pages/NavDesigner";
-import { PageLayoutDesigner } from "./pages/PageLayoutDesigner";
 import { Inbox } from "./pages/Inbox";
+import { Profile } from "./pages/Profile";
 import { ComingSoon } from "./pages/ComingSoon";
+
+// Lazy — admin-only designers + management surfaces.
+const FieldsDesigner       = lazy(() => import("./pages/FieldsDesigner").then(m => ({ default: m.FieldsDesigner })));
+const StageDesigner        = lazy(() => import("./pages/StageDesigner").then(m => ({ default: m.StageDesigner })));
+const TeamBuilder          = lazy(() => import("./pages/TeamBuilder").then(m => ({ default: m.TeamBuilder })));
+const AccessRoles          = lazy(() => import("./pages/AccessRoles").then(m => ({ default: m.AccessRoles })));
+const OrgSettings          = lazy(() => import("./pages/OrgSettings").then(m => ({ default: m.OrgSettings })));
+const Members              = lazy(() => import("./pages/Members").then(m => ({ default: m.Members })));
+const NavDesigner          = lazy(() => import("./pages/NavDesigner").then(m => ({ default: m.NavDesigner })));
+const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").then(m => ({ default: m.PageLayoutDesigner })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -116,11 +120,22 @@ export function App() {
         <OrgProvider>
           <AuthGate>
             <AppShell currentHash={hash} onNavigate={navigate}>
-              {route.node}
+              <Suspense fallback={<LazyFallback />}>
+                {route.node}
+              </Suspense>
             </AppShell>
           </AuthGate>
         </OrgProvider>
       </ToastProvider>
     </ErrorBoundary>
+  );
+}
+
+function LazyFallback() {
+  return (
+    <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 text-sm text-slate-500 flex items-center gap-2">
+      <div className="w-3 h-3 rounded-full bg-brand-500 animate-pulse" />
+      Loading…
+    </div>
   );
 }
