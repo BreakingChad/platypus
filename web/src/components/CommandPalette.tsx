@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
-import type { StudyRow, PipelineStageRow } from "../lib/types";
+import type { StudyRow, PipelineStageRow, TaskRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { Icon } from "./ui/Icon";
 
@@ -16,7 +16,7 @@ import { Icon } from "./ui/Icon";
 
 type Result = {
   id: string;
-  kind: "study" | "nav";
+  kind: "study" | "nav" | "task";
   title: string;
   subtitle?: string;
   icon: string;
@@ -32,6 +32,7 @@ export function CommandPalette({
 }) {
   const { isAdmin } = useCurrentMember();
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at" });
+  const tasksTable = useOrgTable<TaskRow>("tasks", { orderBy: "due_at" });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position" });
 
   const [open, setOpen] = useState(false);
@@ -94,14 +95,29 @@ export function CommandPalette({
   // Ranking
   const results = useMemo<Result[]>(() => {
     const query = q.trim().toLowerCase();
+    const openTasks = tasksTable.rows.filter(
+      (t) => t.status === "open" || t.status === "in_progress"
+    );
+    const studyById = new Map(studies.rows.map((s) => [s.id, s]));
+
     if (!query) {
-      // Empty query: show a few suggested studies + all nav commands.
+      // Empty query: recent studies + my open tasks + all nav commands.
       const recent = [...studies.rows]
         .filter((s) => !s.closed)
         .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
         .slice(0, 5)
         .map((s) => studyToResult(s, stageByKey, 0));
-      return [...recent, ...navCommands];
+      const recentTasks = [...openTasks]
+        .sort((a, b) => {
+          const aDue = a.due_at ? new Date(a.due_at).getTime() : Infinity;
+          const bDue = b.due_at ? new Date(b.due_at).getTime() : Infinity;
+          return aDue - bDue;
+        })
+        .slice(0, 5)
+        .map((t) =>
+          taskToResult(t, t.study_id ? studyById.get(t.study_id) : undefined, 0)
+        );
+      return [...recent, ...recentTasks, ...navCommands];
     }
 
     const studyResults = studies.rows
@@ -111,15 +127,26 @@ export function CommandPalette({
       })
       .filter(Boolean) as Result[];
 
-    const navResults = navCommands
-      .map((n) => {
-        const score = rankNav(n, query);
-        return score === 0 ? null : { ...n, score: score + 0.5 }; // small nav boost
+    const taskResults = openTasks
+      .map((t) => {
+        const score = rankTask(t, query);
+        return score === 0
+          ? null
+          : taskToResult(t, t.study_id ? studyById.get(t.study_id) : undefined, score);
       })
       .filter(Boolean) as Result[];
 
-    return [...studyResults, ...navResults].sort((a, b) => b.score - a.score).slice(0, 30);
-  }, [q, studies.rows, stageByKey, navCommands]);
+    const navResults = navCommands
+      .map((n) => {
+        const score = rankNav(n, query);
+        return score === 0 ? null : { ...n, score: score + 0.5 };
+      })
+      .filter(Boolean) as Result[];
+
+    return [...studyResults, ...taskResults, ...navResults]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 40);
+  }, [q, studies.rows, tasksTable.rows, stageByKey, navCommands]);
 
   // Reset active index when results change
   useEffect(() => setActiveIdx(0), [q]);
@@ -204,7 +231,7 @@ export function CommandPalette({
                 )}
               </div>
               <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
-                {r.kind === "study" ? "study" : "go to"}
+                {r.kind === "study" ? "study" : r.kind === "task" ? "task" : "go to"}
               </span>
             </button>
           ))}
@@ -225,6 +252,16 @@ export function CommandPalette({
 }
 
 /* ---------- ranking helpers ---------- */
+
+function rankTask(t: TaskRow, q: string): number {
+  const lower = (t.title ?? "").toLowerCase();
+  if (!lower) return 0;
+  if (lower === q) return 25;
+  if (lower.startsWith(q)) return 12;
+  if (lower.includes(" " + q)) return 6;
+  if (lower.includes(q)) return 3;
+  return 0;
+}
 
 function rankStudy(s: StudyRow, q: string): number {
   const fields: [string, number][] = [
@@ -258,6 +295,22 @@ function rankNav(n: Result, q: string): number {
     if (lower.includes(q)) return 2;
   }
   return 0;
+}
+
+function taskToResult(t: TaskRow, study: StudyRow | undefined, score: number): Result {
+  return {
+    id: `task-${t.id}`,
+    kind: "task",
+    title: t.title,
+    subtitle: [
+      study?.code,
+      t.kind,
+      t.due_at ? `due ${new Date(t.due_at).toLocaleDateString()}` : null,
+    ].filter(Boolean).join(" · ") || undefined,
+    icon: "check",
+    score,
+    navigateTo: study ? `#/studies/${study.id}` : "#/inbox",
+  };
 }
 
 function studyToResult(
