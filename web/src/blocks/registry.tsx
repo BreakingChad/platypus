@@ -10,6 +10,7 @@ import { TasksDueBlock } from "./TasksDueBlock";
 import { AtRiskStudiesBlock } from "./AtRiskStudiesBlock";
 import { DirectorsPulseBlock } from "./DirectorsPulseBlock";
 import { CycleTimeBlock } from "./CycleTimeBlock";
+import { WorkloadBlock } from "./WorkloadBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -91,6 +92,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Per-stage average dwell time vs target, computed from audit_events stage_changed entries.",
     icon: "workflow",
     component: CycleTimeBlock,
+  },
+  "workload": {
+    key: "workload",
+    label: "Coordinator workload",
+    description: "Per-user open task count and overdue count. Admin-only. Hides when no one has open work.",
+    icon: "users",
+    component: WorkloadBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",
