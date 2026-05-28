@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { writeAuditEvent } from "./auditLog";
-import type { DocumentRow, DocumentVersionRow, StudyRow } from "./types";
+import type { DocumentRow, DocumentVersionRow, StudyRow, TaskRow } from "./types";
 
 /** Documents catalog — CDISC-aligned categories + a document-type registry
  *  that drives the upload modal's required-metadata fields.
@@ -154,6 +154,17 @@ export const DOC_TYPES: DocType[] = [
     defaultCategory: "safety",
     metadataFields: [
       { key: "report_date", label: "Report date", kind: "date", required: false },
+    ],
+  },
+  {
+    key: "email",
+    code: "EML",
+    label: "Email / correspondence",
+    defaultCategory: "administrative",
+    metadataFields: [
+      { key: "email_from", label: "From", kind: "text" },
+      { key: "email_subject", label: "Subject", kind: "text" },
+      { key: "email_date", label: "Date", kind: "text" },
     ],
   },
   {
@@ -517,4 +528,134 @@ export async function setVersionArchived(opts: {
       version_label: opts.version.version_label,
     },
   });
+}
+
+
+/* ============================================================================
+ * Send-for-action + Part 11 e-signature (LL5)
+ * ========================================================================== */
+
+export type DocActionType = "review" | "sign" | "acknowledge" | "training";
+
+export const ACTION_TYPES: {
+  key: DocActionType;
+  label: string;
+  verb: string;
+  /** Audit action recorded when completed. */
+  action: string;
+  /** Attestation meaning captured with the e-signature (21 CFR Part 11). */
+  statement: string;
+}[] = [
+  { key: "review",      label: "Review",               verb: "Review",      action: "reviewed",     statement: "I have reviewed this document." },
+  { key: "sign",        label: "Signature",            verb: "Sign",        action: "signed",       statement: "I am electronically signing this document. I understand this signature is the legal equivalent of my handwritten signature." },
+  { key: "acknowledge", label: "Acknowledgement",      verb: "Acknowledge", action: "acknowledged", statement: "I acknowledge that I have read and understood this document." },
+  { key: "training",    label: "Training attestation", verb: "Attest",      action: "attested",     statement: "I attest that I have completed the required training associated with this document." },
+];
+
+export function actionTypeByKey(
+  key: string | null | undefined
+): (typeof ACTION_TYPES)[number] | undefined {
+  return ACTION_TYPES.find((a) => a.key === key);
+}
+
+/** Send a document for action — files a task into the recipient's inbox and
+ *  logs it on the document's audit chain. (Email delivery is a server-side
+ *  follow-up; the in-app task is the source of truth.) */
+export async function sendForAction(opts: {
+  orgId: string;
+  document: DocumentRow;
+  actionType: DocActionType;
+  assigneeUserId: string;
+  assigneeLabel?: string | null;
+  dueAt?: string | null;
+  note?: string | null;
+  actorUserId: string;
+  actorEmail: string | null;
+}): Promise<void> {
+  const at = actionTypeByKey(opts.actionType);
+  const { error } = await supabase.from("tasks").insert({
+    org_id: opts.orgId,
+    study_id: opts.document.study_id,
+    kind: "manual",
+    document_id: opts.document.id,
+    action_type: opts.actionType,
+    title: `${at?.label ?? opts.actionType}: ${opts.document.title}`,
+    description: opts.note ?? null,
+    status: "open",
+    due_at: opts.dueAt ?? null,
+    assigned_to_user_id: opts.assigneeUserId,
+    created_by: opts.actorUserId,
+  } as any);
+  if (error) throw error;
+  void writeAuditEvent({
+    orgId: opts.orgId,
+    actorId: opts.actorUserId,
+    actorEmail: opts.actorEmail,
+    entityType: "document",
+    entityId: opts.document.id,
+    action: "sent_for_action",
+    payload: {
+      action_type: opts.actionType,
+      assignee: opts.assigneeLabel ?? opts.assigneeUserId,
+      due_at: opts.dueAt ?? null,
+    },
+  });
+}
+
+/** Record a 21 CFR Part 11-style electronic signature as a hash-chained audit
+ *  event on the document, then complete the originating action task. The app
+ *  is passwordless (magic-link), so the signature is a typed-name attestation;
+ *  the audit event captures who, what, when, and the meaning. */
+export async function recordDocumentSignature(opts: {
+  orgId: string;
+  document: DocumentRow;
+  task?: TaskRow | null;
+  actionType: DocActionType;
+  signerName: string;
+  signerUserId: string;
+  signerEmail: string | null;
+  versionLabel?: string | null;
+}): Promise<void> {
+  const at = actionTypeByKey(opts.actionType);
+  await writeAuditEvent({
+    orgId: opts.orgId,
+    actorId: opts.signerUserId,
+    actorEmail: opts.signerEmail,
+    entityType: "document",
+    entityId: opts.document.id,
+    action: at?.action ?? "signed",
+    payload: {
+      action_type: opts.actionType,
+      meaning: at?.statement ?? "",
+      signer_name: opts.signerName,
+      signed_at: new Date().toISOString(),
+      version_label: opts.versionLabel ?? null,
+    },
+  });
+  if (opts.task) {
+    await supabase
+      .from("tasks")
+      .update({
+        status: "done",
+        completed_at: new Date().toISOString(),
+        completed_by: opts.signerUserId,
+      } as any)
+      .eq("id", opts.task.id);
+  }
+}
+
+/** Parse the headers of an .eml file so the binder can prefill title +
+ *  metadata when a coordinator drags an email straight in. */
+export function parseEmlMetadata(text: string): {
+  subject?: string;
+  from?: string;
+  to?: string;
+  date?: string;
+} {
+  const headerBlock = text.split(/\r?\n\r?\n/)[0] ?? text.slice(0, 8000);
+  const get = (name: string): string | undefined => {
+    const m = headerBlock.match(new RegExp("^" + name + ":\\s*(.+)$", "im"));
+    return m ? m[1].trim() : undefined;
+  };
+  return { subject: get("Subject"), from: get("From"), to: get("To"), date: get("Date") };
 }

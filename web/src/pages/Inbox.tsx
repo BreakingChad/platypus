@@ -9,6 +9,7 @@ import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
+import { actionTypeByKey, recordDocumentSignature } from "../lib/documents";
 import { useStickyState } from "../lib/useStickyState";
 import type {
   TaskRow,
@@ -17,6 +18,7 @@ import type {
   PipelineStageRow,
   TeamRoleRow,
   TeamRoleHolderRow,
+  DocumentRow,
 } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -47,10 +49,12 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position" });
   const roles = useOrgTable<TeamRoleRow>("team_roles");
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders");
+  const documents = useOrgTable<DocumentRow>("documents", { realtime: true });
 
   const [tab, setTab] = useStickyState<Tab>("inbox/tab", "mine");
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
+  const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
 
   // Listen for the global quick-add FAB action.
   useEffect(() => {
@@ -82,6 +86,12 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
     for (const r of roles.rows) m[r.id] = r;
     return m;
   }, [roles.rows]);
+
+  const docById = useMemo(() => {
+    const m: Record<string, DocumentRow> = {};
+    for (const d of documents.rows) m[d.id] = d;
+    return m;
+  }, [documents.rows]);
 
   const filtered = useMemo(() => {
     let xs = tasks.rows;
@@ -297,6 +307,8 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
               const study = t.study_id ? studyById[t.study_id] : null;
               const stage = t.stage_key ? stageByKey[t.stage_key] : null;
               const role = t.assigned_to_role_id ? roleById[t.assigned_to_role_id] : null;
+              const doc = t.document_id ? docById[t.document_id] : null;
+              const at = actionTypeByKey(t.action_type);
               const due = t.due_at ? new Date(t.due_at) : null;
               const overdue = due ? due.getTime() < Date.now() && t.status !== "done" : false;
               return (
@@ -314,9 +326,9 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
                     {t.status === "open" || t.status === "in_progress" ? (
                       <input
                         type="checkbox"
-                        onChange={() => completeTask(t)}
+                        onChange={() => (doc && at ? setSigning({ task: t, doc }) : completeTask(t))}
                         className="accent-brand-500 w-4 h-4 cursor-pointer"
-                        title="Complete"
+                        title={doc && at ? at.label : "Complete"}
                       />
                     ) : t.status === "done" ? (
                       <Icon name="check" size={14} className="text-emerald-600" />
@@ -361,7 +373,11 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
                   </div>
                   {/* Kind */}
                   <div>
-                    <Pill tone={t.kind === "escalation" ? "danger" : "neutral"}>{t.kind}</Pill>
+                    {at ? (
+                      <Pill tone="info">{at.label}</Pill>
+                    ) : (
+                      <Pill tone={t.kind === "escalation" ? "danger" : "neutral"}>{t.kind}</Pill>
+                    )}
                   </div>
                   {/* Due */}
                   <div className="text-xs">
@@ -383,9 +399,15 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
                   <div className="flex items-center gap-1.5 justify-end opacity-50 group-hover:opacity-100 transition">
                     {(t.status === "open" || t.status === "in_progress") && (
                       <>
-                        <Button size="sm" variant="primary" onClick={() => completeTask(t)}>
-                          Complete
-                        </Button>
+                        {doc && at ? (
+                          <Button size="sm" variant="primary" onClick={() => setSigning({ task: t, doc })}>
+                            {at.verb}
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="primary" onClick={() => completeTask(t)}>
+                            Complete
+                          </Button>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => skipTask(t)}>
                           Skip
                         </Button>
@@ -414,6 +436,20 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           onCreated={() => {
             toast.success("Task added");
             setAddingTask(false);
+          }}
+        />
+      )}
+
+      {signing && orgId && userId && (
+        <AttestationModal
+          signing={signing}
+          orgId={orgId}
+          signerUserId={userId}
+          signerEmail={userEmail}
+          onClose={() => setSigning(null)}
+          onDone={() => {
+            setSigning(null);
+            toast.success(stamped("Signature recorded"));
           }}
         />
       )}
@@ -555,6 +591,138 @@ function NewTaskModal({
           <Button variant="primary" onClick={submit} disabled={!title.trim() || saving}>
             {saving ? "Adding…" : "Add task"}
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ---------- Part 11 e-signature / attestation modal ---------- */
+
+function AttestationModal({
+  signing,
+  orgId,
+  signerUserId,
+  signerEmail,
+  onClose,
+  onDone,
+}: {
+  signing: { task: TaskRow; doc: DocumentRow };
+  orgId: string;
+  signerUserId: string;
+  signerEmail: string | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const at = actionTypeByKey(signing.task.action_type);
+  const [name, setName] = useState("");
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setError(null);
+    if (!name.trim()) {
+      setError("Type your full name to sign.");
+      return;
+    }
+    if (!agree) {
+      setError("Check the attestation box to continue.");
+      return;
+    }
+    if (!at) {
+      setError("Unknown action type.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await recordDocumentSignature({
+        orgId,
+        document: signing.doc,
+        task: signing.task,
+        actionType: at.key,
+        signerName: name.trim(),
+        signerUserId,
+        signerEmail,
+      });
+      onDone();
+    } catch (e: any) {
+      setError(e?.message || "Couldn't record signature");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Electronic signature"
+        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+      >
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-2">
+          <Icon name="shield" size={16} className="text-brand-600" />
+          <div className="min-w-0">
+            <h2 className="text-lg font-display font-bold text-slate-900">
+              {at?.label ?? "Sign"}
+            </h2>
+            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+              {signing.doc.title}
+            </div>
+          </div>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm text-slate-700 leading-relaxed">
+            {at?.statement}
+          </div>
+          <label className="block">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Your full legal name
+            </span>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Type your name to sign"
+              autoFocus
+            />
+          </label>
+          <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              className="accent-brand-500 w-4 h-4 mt-0.5"
+            />
+            <span>
+              I, {name.trim() || "the signer"}, attest to the statement above. This electronic
+              signature is recorded with my identity, the date, and time on the document&rsquo;s
+              audit trail.
+            </span>
+          </label>
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[160px]">
+            {signerEmail ?? ""}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={submit} disabled={busy || !name.trim() || !agree}>
+              {busy ? "Recording…" : at?.verb ?? "Sign"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

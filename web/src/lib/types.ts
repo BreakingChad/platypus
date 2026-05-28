@@ -120,6 +120,8 @@ export type TaskRow = {
   study_id: string | null;
   stage_key: string | null;
   kind: TaskKind;
+  document_id: string | null;
+  action_type: string | null;
   title: string;
   description: string | null;
   status: TaskStatus;

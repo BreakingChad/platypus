@@ -16,6 +16,7 @@ import {
   uploadNewDocument,
   uploadNewVersion,
   setDocumentArchived,
+  parseEmlMetadata,
   type DocType,
 } from "../lib/documents";
 import type {
@@ -630,6 +631,7 @@ function UploadDocumentModal({
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [metadata, setMetadata] = useState<Record<string, string>>({});
+  const [pendingEml, setPendingEml] = useState<Record<string, string> | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -639,6 +641,13 @@ function UploadDocumentModal({
     setCategory(docType.defaultCategory);
     setMetadata({});
   }, [docTypeKey]);
+
+  // Apply parsed .eml header metadata after the doc-type reset above runs.
+  useEffect(() => {
+    if (!pendingEml) return;
+    setMetadata((m) => ({ ...m, ...pendingEml }));
+    setPendingEml(null);
+  }, [pendingEml]);
 
   const onSubmit = async () => {
     setError(null);
@@ -798,7 +807,24 @@ function UploadDocumentModal({
             </span>
             <input
               type="file"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={async (e) => {
+                const f = e.target.files?.[0] ?? null;
+                setFile(f);
+                if (f && f.name.toLowerCase().endsWith(".eml")) {
+                  try {
+                    const meta = parseEmlMetadata(await f.text());
+                    setDocTypeKey("email");
+                    if (meta.subject && !title.trim()) setTitle(meta.subject);
+                    setPendingEml({
+                      ...(meta.from ? { email_from: meta.from } : {}),
+                      ...(meta.subject ? { email_subject: meta.subject } : {}),
+                      ...(meta.date ? { email_date: meta.date } : {}),
+                    });
+                  } catch {
+                    /* best-effort header parse */
+                  }
+                }
+              }}
               className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:text-brand-700 file:font-semibold file:px-3 file:py-1.5 file:text-xs hover:file:bg-brand-100"
             />
             {file && (

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
-import type { StudyRow, PipelineStageRow, TaskRow } from "../lib/types";
+import type { StudyRow, PipelineStageRow, TaskRow, DocumentRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
+import { categoryByKey } from "../lib/documents";
 import { Icon } from "./ui/Icon";
 
 /** CommandPalette — Cmd-K / Ctrl-K search across studies + nav shortcuts.
@@ -16,7 +17,7 @@ import { Icon } from "./ui/Icon";
 
 type Result = {
   id: string;
-  kind: "study" | "nav" | "task";
+  kind: "study" | "nav" | "task" | "document";
   title: string;
   subtitle?: string;
   icon: string;
@@ -34,6 +35,7 @@ export function CommandPalette({
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at" });
   const tasksTable = useOrgTable<TaskRow>("tasks", { orderBy: "due_at" });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position" });
+  const docs = useOrgTable<DocumentRow>("documents", { orderBy: "created_at" });
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -143,10 +145,19 @@ export function CommandPalette({
       })
       .filter(Boolean) as Result[];
 
-    return [...studyResults, ...taskResults, ...navResults]
+    const docResults = docs.rows
+      .map((dd) => {
+        const score = rankDoc(dd, query);
+        return score === 0
+          ? null
+          : docToResult(dd, dd.study_id ? studyById.get(dd.study_id) : undefined, score);
+      })
+      .filter(Boolean) as Result[];
+
+    return [...studyResults, ...taskResults, ...docResults, ...navResults]
       .sort((a, b) => b.score - a.score)
       .slice(0, 40);
-  }, [q, studies.rows, tasksTable.rows, stageByKey, navCommands]);
+  }, [q, studies.rows, tasksTable.rows, docs.rows, stageByKey, navCommands]);
 
   // Reset active index when results change
   useEffect(() => setActiveIdx(0), [q]);
@@ -234,7 +245,7 @@ export function CommandPalette({
                 )}
               </div>
               <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
-                {r.kind === "study" ? "study" : r.kind === "task" ? "task" : "go to"}
+                {r.kind === "study" ? "study" : r.kind === "task" ? "task" : r.kind === "document" ? "doc" : "go to"}
               </span>
             </button>
           ))}
@@ -255,6 +266,35 @@ export function CommandPalette({
 }
 
 /* ---------- ranking helpers ---------- */
+
+function rankDoc(d: DocumentRow, q: string): number {
+  const lower = (d.title ?? "").toLowerCase();
+  if (!lower) return 0;
+  if (lower === q) return 18;
+  if (lower.startsWith(q)) return 9;
+  if (lower.includes(" " + q)) return 5;
+  if (lower.includes(q)) return 2;
+  return 0;
+}
+
+function docToResult(d: DocumentRow, study: StudyRow | undefined, score: number): Result {
+  return {
+    id: `doc-${d.id}`,
+    kind: "document",
+    title: d.title,
+    subtitle:
+      [study?.code, categoryByKey(d.category)?.label ?? d.category]
+        .filter(Boolean)
+        .join(" · ") || undefined,
+    icon: "file",
+    score,
+    navigateTo: study
+      ? `#/studies/${study.id}`
+      : d.study_id
+      ? `#/studies/${d.study_id}`
+      : "#/studies",
+  };
+}
 
 function rankTask(t: TaskRow, q: string): number {
   const lower = (t.title ?? "").toLowerCase();

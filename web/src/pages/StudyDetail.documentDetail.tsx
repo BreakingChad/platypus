@@ -3,11 +3,14 @@ import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
 import { verifyChain } from "../lib/auditLog";
 import {
+  ACTION_TYPES,
   categoryByKey,
   docTypeByKey,
   formatFileSize,
   getDocumentSignedUrl,
+  sendForAction,
   setVersionArchived,
+  type DocActionType,
 } from "../lib/documents";
 import { useToast } from "../lib/Toast";
 import type {
@@ -20,6 +23,9 @@ import type {
 import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
+import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
+import { stamped } from "../lib/stamp";
 
 /** DocumentDetailPanel (LL4) — right-side drawer for a single document.
  *
@@ -55,6 +61,7 @@ export function DocumentDetailPanel({
   const [events, setEvents] = useState<AuditEventRow[] | null>(null);
   const [verifyResult, setVerifyResult] = useState<string | null>(null);
   const [busyVersionId, setBusyVersionId] = useState<string | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
 
   // Esc closes the drawer.
   useEffect(() => {
@@ -190,6 +197,7 @@ export function DocumentDetailPanel({
   );
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm"
       onClick={onClose}
@@ -240,6 +248,13 @@ export function DocumentDetailPanel({
 
         {/* BODY */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {canEdit && !doc.archived && (
+            <div className="flex justify-end">
+              <Button size="sm" variant="primary" onClick={() => setSendOpen(true)}>
+                <Icon name="inbox" size={12} /> Send for action
+              </Button>
+            </div>
+          )}
           {doc.description && (
             <p className="text-sm text-slate-600 leading-relaxed">{doc.description}</p>
           )}
@@ -413,6 +428,20 @@ export function DocumentDetailPanel({
         </div>
       </div>
     </div>
+    {sendOpen && actorUserId && (
+      <SendForActionModal
+        orgId={orgId}
+        document={doc}
+        actorUserId={actorUserId}
+        actorEmail={actorEmail}
+        onClose={() => setSendOpen(false)}
+        onSent={() => {
+          setSendOpen(false);
+          toast.success(stamped("Sent for action"));
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -458,6 +487,17 @@ function DocActionIcon({ action }: { action: string }) {
   } else if (action === "reclassified") {
     icon = "folder";
     tone = "bg-amber-50 text-amber-700";
+  } else if (action === "sent_for_action") {
+    icon = "inbox";
+    tone = "bg-violet-50 text-violet-700";
+  } else if (
+    action === "signed" ||
+    action === "acknowledged" ||
+    action === "reviewed" ||
+    action === "attested"
+  ) {
+    icon = "shield";
+    tone = "bg-emerald-50 text-emerald-700";
   }
   return (
     <div
@@ -487,6 +527,16 @@ function docActionLabel(e: AuditEventRow): string {
       return `Restored version${ver}`;
     case "reclassified":
       return "Reclassified";
+    case "sent_for_action":
+      return `Sent for ${String(e.payload?.action_type ?? "action")}`;
+    case "signed":
+      return `Signed${e.payload?.signer_name ? ` \u2014 ${String(e.payload.signer_name)}` : ""}`;
+    case "acknowledged":
+      return `Acknowledged${e.payload?.signer_name ? ` \u2014 ${String(e.payload.signer_name)}` : ""}`;
+    case "reviewed":
+      return `Reviewed${e.payload?.signer_name ? ` \u2014 ${String(e.payload.signer_name)}` : ""}`;
+    case "attested":
+      return `Training attested${e.payload?.signer_name ? ` \u2014 ${String(e.payload.signer_name)}` : ""}`;
     default:
       return e.action;
   }
@@ -497,4 +547,172 @@ function metaFieldLabel(docTypeKey: string, fieldKey: string): string {
   const f = t?.metadataFields.find((mf) => mf.key === fieldKey);
   if (f) return f.label;
   return fieldKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+
+function SendForActionModal({
+  orgId,
+  document: doc,
+  actorUserId,
+  actorEmail,
+  onClose,
+  onSent,
+}: {
+  orgId: string;
+  document: DocumentRow;
+  actorUserId: string | null;
+  actorEmail: string | null;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [members, setMembers] = useState<{ user_id: string; label: string }[] | null>(null);
+  const [actionType, setActionType] = useState<DocActionType>("sign");
+  const [assignee, setAssignee] = useState<string>("");
+  const [dueAt, setDueAt] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: mems } = await supabase
+        .from("org_members")
+        .select("user_id")
+        .eq("org_id", orgId);
+      const ids = (mems ?? []).map((m: any) => m.user_id as string);
+      let profs: any[] = [];
+      if (ids.length > 0) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", ids);
+        profs = data ?? [];
+      }
+      const byId: Record<string, any> = {};
+      profs.forEach((p) => (byId[p.id] = p));
+      const list = ids.map((id) => ({
+        user_id: id,
+        label: byId[id]?.full_name || byId[id]?.email || "(unknown)",
+      }));
+      if (cancelled) return;
+      setMembers(list);
+      if (actorUserId && list.some((m) => m.user_id === actorUserId)) setAssignee(actorUserId);
+      else if (list[0]) setAssignee(list[0].user_id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, actorUserId]);
+
+  const submit = async () => {
+    setError(null);
+    if (!actorUserId) return;
+    if (!assignee) {
+      setError("Pick someone to send this to.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const label = members?.find((m) => m.user_id === assignee)?.label ?? null;
+      await sendForAction({
+        orgId,
+        document: doc,
+        actionType,
+        assigneeUserId: assignee,
+        assigneeLabel: label,
+        dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+        note: note.trim() || null,
+        actorUserId,
+        actorEmail,
+      });
+      onSent();
+    } catch (e: any) {
+      setError(e?.message || "Couldn't send. Has migration 0011 been applied?");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Send document for action"
+        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+      >
+        <div className="px-5 py-4 border-b border-slate-200">
+          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+            {doc.title}
+          </div>
+          <h2 className="text-lg font-display font-bold text-slate-900">Send for action</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Files a task into the recipient&rsquo;s inbox. Signatures are recorded on the
+            document&rsquo;s audit chain.
+          </p>
+        </div>
+        <div className="p-5 space-y-3">
+          <label className="block">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Action
+            </span>
+            <Select value={actionType} onChange={(e) => setActionType(e.target.value as DocActionType)}>
+              {ACTION_TYPES.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Assign to
+            </span>
+            <Select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+              {!members && <option value="">Loading…</option>}
+              {members?.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Due date (optional)
+            </span>
+            <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Note (optional)
+            </span>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Context for the recipient"
+            />
+          </label>
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={submit} disabled={busy || !assignee}>
+            {busy ? "Sending…" : "Send"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
