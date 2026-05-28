@@ -194,3 +194,128 @@ export async function seedDemoStudies(
 
   return { inserted: candidates.length, skipped, total: DEMO_STUDIES.length };
 }
+
+
+/** Seed a handful of representative workflow_modules + task templates so a
+ *  fresh org demo-visualizes the Work Stream engine immediately. Idempotent
+ *  — skips if any modules already exist for this org.
+ */
+export type WorkStreamSeedResult = {
+  modules: number;
+  templates: number;
+  skipped: boolean;
+};
+
+const DEMO_WORK_STREAMS: {
+  stage_key: string;
+  name: string;
+  description: string;
+  templates: { title: string; kind: string; due_offset_days: number | null }[];
+}[] = [
+  {
+    stage_key: "intake",
+    name: "Intake triage",
+    description: "Initial scan of the protocol to decide commit / decline.",
+    templates: [
+      { title: "Log protocol + sponsor in pipeline tracker", kind: "manual", due_offset_days: 1 },
+      { title: "Scope feasibility & resource fit", kind: "manual", due_offset_days: 5 },
+      { title: "Decision: commit, decline, or hold", kind: "handoff", due_offset_days: 7 },
+    ],
+  },
+  {
+    stage_key: "study_startup",
+    name: "Startup coordination",
+    description: "Kick-off coordination once the study is committed.",
+    templates: [
+      { title: "Set up the study folder + binder shell", kind: "manual", due_offset_days: 2 },
+      { title: "Build the activation timeline draft", kind: "manual", due_offset_days: 4 },
+      { title: "Schedule sponsor kick-off call", kind: "external_handoff", due_offset_days: 7 },
+    ],
+  },
+  {
+    stage_key: "feasibility",
+    name: "Feasibility assessment",
+    description: "Confirm the site can run the study end-to-end.",
+    templates: [
+      { title: "Pull patient population estimate from EHR", kind: "manual", due_offset_days: 3 },
+      { title: "Confirm acuity score + score sign-off", kind: "manual", due_offset_days: 7 },
+      { title: "Submit feasibility questionnaire to sponsor", kind: "external_handoff", due_offset_days: 10 },
+    ],
+  },
+  {
+    stage_key: "regulatory",
+    name: "Regulatory submission",
+    description: "IRB + ancillary committee approvals.",
+    templates: [
+      { title: "Compile IRB submission packet", kind: "manual", due_offset_days: 7 },
+      { title: "Submit to IRB", kind: "external_handoff", due_offset_days: 10 },
+      { title: "Respond to IRB stipulations", kind: "manual", due_offset_days: 30 },
+    ],
+  },
+  {
+    stage_key: "contract_budget",
+    name: "Contract & budget",
+    description: "Negotiation rounds with sponsor / CRO.",
+    templates: [
+      { title: "Draft internal budget", kind: "manual", due_offset_days: 5 },
+      { title: "Send first redline to sponsor", kind: "external_handoff", due_offset_days: 10 },
+      { title: "Final budget approval", kind: "manual", due_offset_days: 30 },
+    ],
+  },
+  {
+    stage_key: "site_initiation",
+    name: "Site initiation",
+    description: "Pre-activation operational checks.",
+    templates: [
+      { title: "Confirm IP availability + delivery window", kind: "manual", due_offset_days: 3 },
+      { title: "Schedule + run SIV", kind: "manual", due_offset_days: 14 },
+      { title: "Training attestations complete", kind: "manual", due_offset_days: 21 },
+    ],
+  },
+];
+
+export async function seedDemoWorkStreams(orgId: string): Promise<WorkStreamSeedResult> {
+  // Skip if any modules already exist in this org — preserves admin work.
+  const { count } = await supabase
+    .from("workflow_modules")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId);
+  if ((count ?? 0) > 0) {
+    return { modules: 0, templates: 0, skipped: true };
+  }
+
+  let modulesInserted = 0;
+  let templatesInserted = 0;
+
+  for (let i = 0; i < DEMO_WORK_STREAMS.length; i += 1) {
+    const m = DEMO_WORK_STREAMS[i];
+    const { data: modRow, error: modErr } = await supabase
+      .from("workflow_modules")
+      .insert({
+        org_id: orgId,
+        stage_key: m.stage_key,
+        name: m.name,
+        description: m.description,
+        enabled: true,
+        position: (i + 1) * 10,
+      } as any)
+      .select("id")
+      .single();
+    if (modErr || !modRow) continue;
+    modulesInserted += 1;
+
+    const tplInserts = m.templates.map((t, idx) => ({
+      module_id: (modRow as any).id,
+      kind: t.kind,
+      title: t.title,
+      due_offset_days: t.due_offset_days,
+      position: (idx + 1) * 10,
+    }));
+    const { error: tplErr } = await supabase
+      .from("workflow_task_templates")
+      .insert(tplInserts as any);
+    if (!tplErr) templatesInserted += tplInserts.length;
+  }
+
+  return { modules: modulesInserted, templates: templatesInserted, skipped: false };
+}

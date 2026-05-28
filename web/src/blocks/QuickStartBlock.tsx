@@ -3,7 +3,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { PipelineStageRow, StudyRow } from "../lib/types";
-import { seedDemoStudies } from "../lib/demoSeed";
+import { seedDemoStudies, seedDemoWorkStreams } from "../lib/demoSeed";
 import { useToast } from "../lib/Toast";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
@@ -48,15 +48,21 @@ export function QuickStartBlock({ ctx: _ctx }: { ctx: BlockContext }) {
           setSeeding(true);
           try {
             const res = await seedDemoStudies(orgId, stages.rows);
-            if (res.inserted > 0) {
-              toast.success(
-                `Added ${res.inserted} demo stud${res.inserted === 1 ? "y" : "ies"}`
-              );
+            // Also seed example work-stream modules + task templates so
+            // stage advances spawn tasks immediately. Idempotent — skips
+            // when any modules already exist.
+            const ws = await seedDemoWorkStreams(orgId);
+            const parts: string[] = [];
+            if (res.inserted > 0) parts.push(`${res.inserted} demo stud${res.inserted === 1 ? "y" : "ies"}`);
+            if (ws.modules > 0) parts.push(`${ws.modules} work-stream module${ws.modules === 1 ? "" : "s"}`);
+            if (ws.templates > 0) parts.push(`${ws.templates} task template${ws.templates === 1 ? "" : "s"}`);
+            if (parts.length === 0) {
+              toast.info("Demo content already loaded");
             } else {
-              toast.info("Demo studies already loaded");
+              toast.success(`Added ${parts.join(" + ")}`);
             }
           } catch (e: any) {
-            toast.error(e?.message || "Couldn't load demo studies");
+            toast.error(e?.message || "Couldn't load demo content");
           } finally {
             setSeeding(false);
           }
