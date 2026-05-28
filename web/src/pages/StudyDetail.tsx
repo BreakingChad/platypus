@@ -23,6 +23,7 @@ import { writeAuditEvent } from "../lib/auditLog";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
+import { TasksTab } from "./StudyDetail.tasks";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -49,7 +50,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "activity" | "documents" | "audit";
+type Tab = "overview" | "activity" | "tasks" | "documents" | "audit";
 
 export function StudyDetail({
   studyId,
@@ -408,6 +409,7 @@ export function StudyDetail({
         {([
           ["overview", "Overview"],
           ["activity", "Activity"],
+          ["tasks", "Tasks"],
           ["documents", "Documents"],
           ["audit", "Audit"],
         ] as [Tab, string][]).map(([key, label]) => (
@@ -473,6 +475,10 @@ export function StudyDetail({
 
         {tab === "activity" && (
           <ActivityTab studyId={study.id} />
+        )}
+
+        {tab === "tasks" && (
+          <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} />
         )}
 
         {tab === "documents" && (

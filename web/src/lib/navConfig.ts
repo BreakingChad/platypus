@@ -159,6 +159,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     allowedBlocks: [
       "quick-start",
       "setup-checklist",
+      "tasks-due",
       "kpi-strip",
       "stage-breakdown",
       "recent-activity",
@@ -168,6 +169,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     defaultLayout: [
       { id: "blk-quick-start", block: "quick-start" },
       { id: "blk-setup-checklist", block: "setup-checklist" },
+      { id: "blk-tasks-due", block: "tasks-due" },
       { id: "blk-kpi-strip", block: "kpi-strip" },
       { id: "blk-stage-breakdown", block: "stage-breakdown" },
       { id: "blk-recent-activity", block: "recent-activity", settings: { limit: 5 } },

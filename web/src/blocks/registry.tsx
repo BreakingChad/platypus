@@ -6,6 +6,7 @@ import { RecentActivityBlock } from "./RecentActivityBlock";
 import { SetupHubBlock } from "./SetupHubBlock";
 import { WorkTilesBlock } from "./WorkTilesBlock";
 import { SetupChecklistBlock } from "./SetupChecklistBlock";
+import { TasksDueBlock } from "./TasksDueBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -59,6 +60,13 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Admin-only walkthrough — org name, stages, fields, teams, access roles, first study. Hides once everything's done.",
     icon: "check",
     component: SetupChecklistBlock,
+  },
+  "tasks-due": {
+    key: "tasks-due",
+    label: "Tasks due today",
+    description: "Your assigned + role-tasks that are due today or overdue. Hides when empty.",
+    icon: "alert",
+    component: TasksDueBlock,
   },
   "kpi-strip": {
     key: "kpi-strip",
