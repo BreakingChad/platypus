@@ -12,6 +12,10 @@ import { Card } from "../components/ui/Card";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { Button } from "../components/ui/Button";
+import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
+import { useAuth } from "../auth/useAuth";
+import { useToast } from "../lib/Toast";
+import { writeAuditEvent } from "../lib/auditLog";
 
 /** WorkStreamPanel — read-only visualization of the work stream modules
  *  configured for a study's current stage. Lists each module + its task
@@ -24,16 +28,25 @@ import { Button } from "../components/ui/Button";
  *  the builder pre-filtered to this stage.
  */
 export function WorkStreamPanel({
+  studyId,
   stageKey,
   stage,
   onNavigate,
 }: {
+  /** Optional — when provided + admin, enables the 'Run work stream' button
+   *  that fires spawnTasksForStageEntry for THIS study at the current stage. */
+  studyId?: string;
   stageKey: string | null;
   stage: PipelineStageRow | null;
   onNavigate?: (h: string) => void;
 }) {
   const { orgId } = useCurrentOrg();
   const { isAdmin } = useCurrentMember();
+  const auth = useAuth();
+  const toast = useToast();
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const [running, setRunning] = useState(false);
   const [modules, setModules] = useState<WorkflowModuleRow[] | null>(null);
   const [templatesByModule, setTemplatesByModule] = useState<
     Record<string, WorkflowTaskTemplateRow[]>
@@ -102,6 +115,47 @@ export function WorkStreamPanel({
     };
   }, [orgId, stageKey]);
 
+  const runWorkStream = async () => {
+    if (!orgId || !studyId || !stageKey || !userId) return;
+    setRunning(true);
+    try {
+      const res = await spawnTasksForStageEntry({
+        orgId,
+        studyId,
+        stageKey,
+        actorUserId: userId,
+      });
+      if (res.spawned > 0) {
+        toast.success(`Spawned ${res.spawned} task${res.spawned === 1 ? "" : "s"}${res.skipped > 0 ? ` (skipped ${res.skipped} already-open)` : ""}`);
+        // Log a deliberate manual re-run as an audit event so the trail is complete.
+        void writeAuditEvent({
+          orgId, actorId: userId, actorEmail: userEmail,
+          entityType: "study", entityId: studyId,
+          action: "work_stream_rerun",
+          payload: {
+            stage_key: stageKey,
+            stage_label: stage?.label ?? null,
+            spawned: res.spawned,
+            skipped: res.skipped,
+            modules: res.modules,
+          },
+        });
+      } else {
+        toast.info(
+          res.modules === 0
+            ? "No modules configured for this stage."
+            : res.skipped > 0
+            ? `Nothing new to spawn — ${res.skipped} task${res.skipped === 1 ? "" : "s"} already open.`
+            : "No task templates to spawn."
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Run failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   if (!stageKey || !stage) return null;
   if (modules === null) {
     return (
@@ -136,16 +190,29 @@ export function WorkStreamPanel({
               : `${enabledModules} of ${modules.length} module${modules.length === 1 ? "" : "s"} active · ${totalTemplates} task template${totalTemplates === 1 ? "" : "s"}`}
           </div>
         </div>
-        {isAdmin && onNavigate && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate("#/settings/work-streams")}
-            title="Open Work Stream Builder"
-          >
-            <Icon name="workflow" size={12} /> Edit work streams
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && studyId && modules.length > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void runWorkStream()}
+              disabled={running}
+              title="Fire the engine now — spawn any task templates that aren't already open"
+            >
+              <Icon name="check" size={12} /> {running ? "Running…" : "Run work stream"}
+            </Button>
+          )}
+          {isAdmin && onNavigate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate("#/settings/work-streams")}
+              title="Open Work Stream Builder"
+            >
+              <Icon name="workflow" size={12} /> Edit work streams
+            </Button>
+          )}
+        </div>
       </div>
 
       {modules.length === 0 && (

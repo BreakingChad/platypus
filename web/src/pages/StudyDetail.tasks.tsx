@@ -183,6 +183,7 @@ export function TasksTab({
     <div>
       {/* What's configured for this stage */}
       <WorkStreamPanel
+        studyId={studyId}
         stageKey={stageKey}
         stage={stages.find((s) => s.key === stageKey) ?? null}
         onNavigate={onNavigate}
