@@ -94,3 +94,55 @@ describe("catalog lookups", () => {
     }
   });
 });
+
+import {
+  parseEmlMetadata,
+  ACTION_TYPES,
+  actionTypeByKey,
+} from "./documents";
+
+describe("parseEmlMetadata", () => {
+  it("extracts subject / from / to / date from the header block", () => {
+    const eml =
+      "From: Alice <alice@example.com>\r\n" +
+      "To: Bob <bob@example.org>\r\n" +
+      "Subject: Protocol v3 approval\r\n" +
+      "Date: Mon, 25 May 2026 10:00:00 -0700\r\n" +
+      "\r\n" +
+      "Body text that should be ignored.";
+    const m = parseEmlMetadata(eml);
+    expect(m.from).toBe("Alice <alice@example.com>");
+    expect(m.to).toBe("Bob <bob@example.org>");
+    expect(m.subject).toBe("Protocol v3 approval");
+    expect(m.date).toContain("25 May 2026");
+  });
+
+  it("returns undefined for headers that are absent", () => {
+    const m = parseEmlMetadata("Subject: only a subject\r\n\r\nbody");
+    expect(m.subject).toBe("only a subject");
+    expect(m.from).toBeUndefined();
+    expect(m.to).toBeUndefined();
+  });
+});
+
+describe("ACTION_TYPES / actionTypeByKey", () => {
+  it("ships the four action types, each with an audit action + statement", () => {
+    expect(ACTION_TYPES.map((a) => a.key).sort()).toEqual([
+      "acknowledge",
+      "review",
+      "sign",
+      "training",
+    ]);
+    for (const a of ACTION_TYPES) {
+      expect(a.action.length).toBeGreaterThan(0);
+      expect(a.statement.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("resolves known keys and is undefined for unknown / null", () => {
+    expect(actionTypeByKey("sign")?.action).toBe("signed");
+    expect(actionTypeByKey("acknowledge")?.action).toBe("acknowledged");
+    expect(actionTypeByKey("nope")).toBeUndefined();
+    expect(actionTypeByKey(null)).toBeUndefined();
+  });
+});
