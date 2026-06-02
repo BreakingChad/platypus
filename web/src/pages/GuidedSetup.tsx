@@ -25,6 +25,8 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 
 export const SETUP_DISMISS_KEY = "platypus/setup-dismissed";
+const SETUP_STEP_KEY = "platypus/setup-step";
+const FROM_SETUP_KEY = "platypus/from-setup";
 
 /** Recommended startup pipeline — the "no blank page" express seed. */
 const DEFAULT_STAGES: {
@@ -77,8 +79,23 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
   const accessRoles = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
 
-  const [active, setActive] = useState<StepKey>("org");
+  const [active, setActive] = useState<StepKey>(() => {
+    try {
+      const v = localStorage.getItem(SETUP_STEP_KEY) as StepKey | null;
+      return v && STEP_ORDER.includes(v) ? v : "org";
+    } catch {
+      return "org";
+    }
+  });
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETUP_STEP_KEY, active);
+    } catch {
+      /* non-fatal */
+    }
+  }, [active]);
 
   // Org form state
   const [orgName, setOrgName] = useState("");
@@ -216,6 +233,15 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
     }
     toast.success("Setup complete — welcome to Platypus");
     onNavigate("#/");
+  };
+
+  const gotoDesigner = (h: string) => {
+    try {
+      sessionStorage.setItem(FROM_SETUP_KEY, "1");
+    } catch {
+      /* non-fatal */
+    }
+    onNavigate(h);
   };
 
   if (memberLoading) {
@@ -357,7 +383,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                   <Button variant="primary" onClick={saveOrg} disabled={busy === "org"}>
                     {busy === "org" ? "Saving…" : "Save organization"}
                   </Button>
-                  <Button variant="ghost" onClick={() => onNavigate("#/settings/org")}>
+                  <Button variant="ghost" onClick={() => gotoDesigner("#/settings/org")}>
                     More org settings
                   </Button>
                 </div>
@@ -377,7 +403,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                         </span>
                       ))}
                     </div>
-                    <Button variant="ghost" onClick={() => onNavigate("#/settings/stages")}>
+                    <Button variant="ghost" onClick={() => gotoDesigner("#/settings/stages")}>
                       <Icon name="workflow" size={12} /> Customize in Stage Designer
                     </Button>
                   </>
@@ -388,7 +414,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                     busy={busy === "stages"}
                     note="8 standard startup stages — Intake through Closeout — with sensible target days. Edit any of them after."
                     customizeLabel="Build my own"
-                    onCustomize={() => onNavigate("#/settings/stages")}
+                    onCustomize={() => gotoDesigner("#/settings/stages")}
                   />
                 )}
               </div>
@@ -400,7 +426,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                 <div className="text-sm text-slate-600">
                   {hasFields ? `${enabledStudyFields} study field${enabledStudyFields === 1 ? "" : "s"} enabled.` : "No study fields enabled yet."}
                 </div>
-                <Button variant={hasFields ? "ghost" : "primary"} onClick={() => onNavigate("#/settings/fields")}>
+                <Button variant={hasFields ? "ghost" : "primary"} onClick={() => gotoDesigner("#/settings/fields")}>
                   <Icon name="file" size={12} /> {hasFields ? "Review in Field Designer" : "Open Field Designer"}
                 </Button>
               </div>
@@ -412,7 +438,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                 <div className="text-sm text-slate-600">
                   {hasTeams ? `${teams.rows.length} team${teams.rows.length === 1 ? "" : "s"} configured.` : "No teams yet."}
                 </div>
-                <Button variant={hasTeams ? "ghost" : "primary"} onClick={() => onNavigate("#/settings/teams")}>
+                <Button variant={hasTeams ? "ghost" : "primary"} onClick={() => gotoDesigner("#/settings/teams")}>
                   <Icon name="users" size={12} /> {hasTeams ? "Review in Team Builder" : "Open Team Builder"}
                 </Button>
               </div>
@@ -424,7 +450,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                 <div className="text-sm text-slate-600">
                   {hasAccessRoles ? `${accessRoles.rows.length} access role${accessRoles.rows.length === 1 ? "" : "s"} defined.` : "No access roles yet."}
                 </div>
-                <Button variant={hasAccessRoles ? "ghost" : "primary"} onClick={() => onNavigate("#/settings/access")}>
+                <Button variant={hasAccessRoles ? "ghost" : "primary"} onClick={() => gotoDesigner("#/settings/access")}>
                   <Icon name="shield" size={12} /> {hasAccessRoles ? "Review access roles" : "Set up access roles"}
                 </Button>
               </div>
@@ -442,7 +468,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                   busy={busy === "studies"}
                   note="Demo studies + work-stream modules across your stages. Existing studies are untouched."
                   customizeLabel="Create a real study"
-                  onCustomize={() => onNavigate("#/studies")}
+                  onCustomize={() => gotoDesigner("#/studies")}
                 />
               </div>
             )}

@@ -476,6 +476,7 @@ function NewTaskModal({
   onCreated: () => void;
 }) {
   const toast = useToast();
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [title, setTitle] = useState("");
   const [studyId, setStudyId] = useState<string>("");
   const [stageKey, setStageKey] = useState<string>("");
@@ -519,6 +520,7 @@ function NewTaskModal({
       onClick={onClose}
     >
       <div
+        ref={dlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -616,6 +618,7 @@ function AttestationModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const at = actionTypeByKey(signing.task.action_type);
   const [name, setName] = useState("");
   const [agree, setAgree] = useState(false);
@@ -661,6 +664,7 @@ function AttestationModal({
       onClick={onClose}
     >
       <div
+        ref={dlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

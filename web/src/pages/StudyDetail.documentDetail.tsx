@@ -58,20 +58,12 @@ export function DocumentDetailPanel({
   onClose: () => void;
 }) {
   const toast = useToast();
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [versions, setVersions] = useState<DocumentVersionRow[] | null>(null);
   const [events, setEvents] = useState<AuditEventRow[] | null>(null);
   const [verifyResult, setVerifyResult] = useState<string | null>(null);
   const [busyVersionId, setBusyVersionId] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
-
-  // Esc closes the drawer.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   // Version history + realtime.
   useEffect(() => {
@@ -204,6 +196,7 @@ export function DocumentDetailPanel({
       onClick={onClose}
     >
       <div
+        ref={dlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -566,6 +559,7 @@ function SendForActionModal({
   onClose: () => void;
   onSent: () => void;
 }) {
+  const sendDlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [members, setMembers] = useState<{ user_id: string; label: string }[] | null>(null);
   const [actionType, setActionType] = useState<DocActionType>("sign");
   const [assignee, setAssignee] = useState<string>("");
@@ -641,6 +635,7 @@ function SendForActionModal({
       onClick={onClose}
     >
       <div
+        ref={sendDlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

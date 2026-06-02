@@ -99,6 +99,7 @@ export function NewStudyModal({
     return open?.key ?? stages[0]?.key ?? null;
   }, [stages]);
 
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [draft, setDraft] = useState<Draft>({});
   const [stageKey, setStageKey] = useState<string | null>(defaultStageKey);
   const [saving, setSaving] = useState(false);
@@ -228,9 +229,11 @@ export function NewStudyModal({
       onClick={onClose}
     >
       <div
+        ref={dlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-label="Create study"
         className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
       >
         {/* HEADER */}

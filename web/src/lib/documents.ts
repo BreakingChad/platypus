@@ -617,6 +617,17 @@ export async function recordDocumentSignature(opts: {
   versionLabel?: string | null;
 }): Promise<void> {
   const at = actionTypeByKey(opts.actionType);
+  // Bind the signature to the exact version signed (21 CFR Part 11).
+  const versionId: string | null = opts.document.current_version_id ?? null;
+  let versionLabel: string | null = opts.versionLabel ?? null;
+  if (versionId && !versionLabel) {
+    const { data } = await supabase
+      .from("document_versions")
+      .select("version_label")
+      .eq("id", versionId)
+      .maybeSingle();
+    versionLabel = (data as any)?.version_label ?? null;
+  }
   await writeAuditEvent({
     orgId: opts.orgId,
     actorId: opts.signerUserId,
@@ -629,7 +640,8 @@ export async function recordDocumentSignature(opts: {
       meaning: at?.statement ?? "",
       signer_name: opts.signerName,
       signed_at: new Date().toISOString(),
-      version_label: opts.versionLabel ?? null,
+      version_id: versionId,
+      version_label: versionLabel,
     },
   });
   if (opts.task) {

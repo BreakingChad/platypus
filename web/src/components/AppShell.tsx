@@ -47,6 +47,7 @@ export function AppShell({
   const [orgName, setOrgName] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [fromSetup, setFromSetup] = useState(false);
 
   // Look up org name once we know the orgId.
   useEffect(() => {
@@ -100,6 +101,54 @@ export function AppShell({
   useEffect(() => {
     setMobileNavOpen(false);
   }, [currentHash]);
+
+  // "Back to guided setup" banner — shown when a designer was opened from the
+  // wizard; clears when the user returns to the setup page.
+  useEffect(() => {
+    try {
+      if (currentHash === "#/setup") {
+        sessionStorage.removeItem("platypus/from-setup");
+        setFromSetup(false);
+      } else {
+        setFromSetup(sessionStorage.getItem("platypus/from-setup") === "1");
+      }
+    } catch {
+      /* non-fatal */
+    }
+  }, [currentHash]);
+
+  // Gentle first-run redirect: a fresh admin org (no stages, not dismissed)
+  // lands in Guided setup, at most once per session; always skippable.
+  useEffect(() => {
+    if (!isAdmin || !orgId) return;
+    const atHome = currentHash === "" || currentHash === "#" || currentHash === "#/";
+    if (!atHome) return;
+    try {
+      if (localStorage.getItem("platypus/setup-dismissed") === "1") return;
+      if (sessionStorage.getItem("platypus/setup-redirected") === "1") return;
+    } catch {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from("pipeline_stages")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId);
+      if (cancelled) return;
+      if ((count ?? 0) === 0) {
+        try {
+          sessionStorage.setItem("platypus/setup-redirected", "1");
+        } catch {
+          /* non-fatal */
+        }
+        onNavigate("#/setup");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, orgId, currentHash, onNavigate]);
 
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? "signed in" : "—";
 
@@ -236,6 +285,32 @@ export function AppShell({
         </header>
 
         {/* CONTENT */}
+        {fromSetup && currentHash !== "#/setup" && (
+          <div className="bg-brand-50 border-b border-brand-100 px-4 md:px-6 py-2 flex items-center gap-3 text-sm">
+            <Icon name="check" size={14} className="text-brand-600 flex-shrink-0" />
+            <span className="text-brand-800 flex-1 min-w-0 truncate">Configuring from Guided setup.</span>
+            <button
+              onClick={() => onNavigate("#/setup")}
+              className="font-semibold text-brand-700 hover:underline whitespace-nowrap"
+            >
+              Back to guided setup
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem("platypus/from-setup");
+                } catch {
+                  /* non-fatal */
+                }
+                setFromSetup(false);
+              }}
+              aria-label="Dismiss"
+              className="text-slate-400 hover:text-slate-700 flex-shrink-0"
+            >
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        )}
         <main id="platypus-main" role="main" tabIndex={-1} className="flex-1 min-w-0">{children}</main>
       </div>
 

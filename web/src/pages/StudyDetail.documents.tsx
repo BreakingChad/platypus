@@ -54,6 +54,24 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
   const [uploading, setUploading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [detailDocId, setDetailDocId] = useState<string | null>(null);
+  const [sponsorMode, setSponsorMode] = useState<string | null>(null);
+
+  // Binder type follows the org sponsor mode: site -> ISF, sponsor -> TMF.
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("orgs")
+        .select("sponsor_mode")
+        .eq("id", orgId)
+        .maybeSingle();
+      if (!cancelled) setSponsorMode((data as any)?.sponsor_mode ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
 
   // Load + realtime-subscribe to documents for this study.
   useEffect(() => {
@@ -170,8 +188,13 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
     <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
       {/* CATEGORY SIDEBAR */}
       <div>
-        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-          Categories
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Categories
+          </span>
+          {sponsorMode && (
+            <Pill tone="neutral">{sponsorMode === "sponsor" ? "TMF" : "ISF"}</Pill>
+          )}
         </div>
         <Card flush>
           <CategoryRow
@@ -623,6 +646,7 @@ function UploadDocumentModal({
   onClose: () => void;
   onUploaded: () => void;
 }) {
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [docTypeKey, setDocTypeKey] = useState<string>(DOC_TYPES[0].key);
   const docType = DOC_TYPES.find((t) => t.key === docTypeKey) ?? DOC_TYPES[0];
 
@@ -695,6 +719,7 @@ function UploadDocumentModal({
       onClick={onClose}
     >
       <div
+        ref={dlgRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
