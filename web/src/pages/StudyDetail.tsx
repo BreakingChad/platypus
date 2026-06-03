@@ -31,6 +31,7 @@ import { ActivityTab } from "./StudyDetail.activity";
 import { TasksTab } from "./StudyDetail.tasks";
 import { DocumentsTab } from "./StudyDetail.documents";
 import { NotesCard } from "./StudyDetail.notes";
+import { FeasibilityTab } from "./StudyDetail.feasibility";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -57,7 +58,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "activity" | "tasks" | "documents";
+type Tab = "overview" | "feasibility" | "activity" | "tasks" | "documents";
 
 export function StudyDetail({
   studyId,
@@ -524,6 +525,7 @@ export function StudyDetail({
       <div className="mt-6 border-b border-slate-200 flex items-center gap-1">
         {([
           ["overview", "Overview", null],
+          ["feasibility", "Feasibility", null],
           ["activity", "Activity", activityCount],
           ["tasks", "Tasks", openTaskCount],
           ["documents", "Documents", documentCount],
@@ -600,6 +602,8 @@ export function StudyDetail({
             })}
           </div>
         )}
+
+        {tab === "feasibility" && <FeasibilityTab study={study} />}
 
         {tab === "activity" && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />

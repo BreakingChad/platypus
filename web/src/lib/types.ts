@@ -240,6 +240,7 @@ export type StudyRow = {
   intake_status: string;
   committed_at: string | null;
   site_id: string | null;
+  feasibility?: Record<string, unknown>;
   stage_entered_at: string | null;
   intake_date: string | null;
   closed: boolean;
