@@ -77,6 +77,33 @@ export async function spawnTasksForStageEntry(opts: {
     }, {});
   }
 
+  // Out-of-office coverage: if an auto-assignee is OOO with a delegate,
+  // route the task to the delegate instead (Carol -> Steve). Best-effort —
+  // the columns arrive with migration 0013; absence degrades gracefully.
+  let oooByUser: Record<string, { until: string; delegate: string | null }> = {};
+  try {
+    const { data: oooRows } = await supabase
+      .from("org_members")
+      .select("user_id, ooo_until, ooo_delegate_user_id")
+      .eq("org_id", opts.orgId)
+      .not("ooo_until", "is", null);
+    const now = Date.now();
+    for (const r of (oooRows ?? []) as any[]) {
+      if (r.ooo_until && new Date(r.ooo_until).getTime() > now) {
+        oooByUser[r.user_id] = { until: r.ooo_until, delegate: r.ooo_delegate_user_id ?? null };
+      }
+    }
+  } catch {
+    /* pre-0013 — no OOO routing */
+  }
+  const routeAroundOoo = (userId: string | null): { user: string | null; covered: string | null } => {
+    if (!userId) return { user: null, covered: null };
+    const o = oooByUser[userId];
+    if (!o) return { user: userId, covered: null };
+    if (o.delegate && !oooByUser[o.delegate]) return { user: o.delegate, covered: userId };
+    return { user: null, covered: userId }; // OOO without usable delegate -> role queue
+  };
+
   // 4. Idempotency: figure out which (study, stage_key, title) tuples already
   //    have an OPEN task spawned from this configuration. We avoid duplicates
   //    when an admin re-enters the same stage manually.
@@ -124,18 +151,23 @@ export async function spawnTasksForStageEntry(opts: {
     if (roleHolders.length === 1) {
       assignedUser = roleHolders[0];
     }
+    const routed = routeAroundOoo(assignedUser);
+    assignedUser = routed.user;
+    const coveredFor = routed.covered;
     inserts.push({
       org_id: opts.orgId,
       study_id: opts.studyId,
       stage_key: opts.stageKey,
       kind: tpl.kind ?? "manual",
       title: tpl.title,
-      description: tpl.description ?? null,
       status: "open",
       due_at: due,
       assigned_to_user_id: assignedUser,
       assigned_to_role_id: tpl.assigned_to_role_id ?? null,
       created_by: opts.actorUserId,
+      description: coveredFor && !tpl.description
+        ? "Covering while the assigned holder is out of office."
+        : (tpl.description ?? null),
       position: tpl.position ?? 0,
     });
   }

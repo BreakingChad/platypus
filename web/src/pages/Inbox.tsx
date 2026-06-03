@@ -57,6 +57,49 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
+  const [coveringFor, setCoveringFor] = useState<string[]>([]);
+
+  // Am I covering for anyone? (their OOO delegate, still active)
+  useEffect(() => {
+    if (!orgId || !userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("org_members")
+          .select("user_id, ooo_until")
+          .eq("org_id", orgId)
+          .eq("ooo_delegate_user_id", userId)
+          .not("ooo_until", "is", null);
+        if (cancelled || error) return;
+        const active = (data ?? []).filter(
+          (r: any) => new Date(r.ooo_until).getTime() > Date.now()
+        );
+        if (active.length === 0) {
+          setCoveringFor([]);
+          return;
+        }
+        const ids = active.map((r: any) => r.user_id);
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", ids);
+        if (!cancelled) {
+          setCoveringFor(
+            ids.map((id: string) => {
+              const p = (profs ?? []).find((x: any) => x.id === id);
+              return p?.full_name || p?.email || "a teammate";
+            })
+          );
+        }
+      } catch {
+        /* pre-0013 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, userId]);
 
   const escalate = async (t: TaskRow) => {
     if (!orgId || !userId) return;
@@ -246,6 +289,16 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           )
         }
       />
+
+      {coveringFor.length > 0 && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-800">
+          <Icon name="users" size={14} className="flex-shrink-0" />
+          <span>
+            You're covering for <strong>{coveringFor.join(", ")}</strong> while they're out — their
+            newly assigned work routes here.
+          </span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">

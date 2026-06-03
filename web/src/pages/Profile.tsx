@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
 import { useToast } from "../lib/Toast";
-import type { ProfileRow } from "../lib/types";
+import type { ProfileRow, OrgMemberRow } from "../lib/types";
+import { useCurrentOrg } from "../lib/OrgContext";
+import { writeAuditEvent } from "../lib/auditLog";
+import { stamped } from "../lib/stamp";
+import { Select } from "../components/ui/Select";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -17,6 +21,97 @@ export function Profile() {
   const auth = useAuth();
   const toast = useToast();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const { orgId } = useCurrentOrg();
+
+  // ---- Out-of-office (org_members row) ----
+  const [member, setMember] = useState<OrgMemberRow | null>(null);
+  const [teammates, setTeammates] = useState<{ user_id: string; label: string }[]>([]);
+  const [oooUntil, setOooUntil] = useState<string>("");
+  const [oooDelegate, setOooDelegate] = useState<string>("");
+  const [oooSaving, setOooSaving] = useState(false);
+  const [oooSupported, setOooSupported] = useState(true);
+
+  useEffect(() => {
+    if (!userId || !orgId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("org_members")
+        .select("id, org_id, user_id, tier, created_at, access_role_id, ooo_until, ooo_delegate_user_id")
+        .eq("org_id", orgId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        setOooSupported(false);
+        return;
+      }
+      const m = data as unknown as OrgMemberRow;
+      setMember(m);
+      setOooUntil(m?.ooo_until ? m.ooo_until.slice(0, 10) : "");
+      setOooDelegate(m?.ooo_delegate_user_id ?? "");
+
+      const { data: mems } = await supabase
+        .from("org_members")
+        .select("user_id")
+        .eq("org_id", orgId)
+        .neq("user_id", userId);
+      const ids = (mems ?? []).map((x: any) => x.user_id as string);
+      let profs: any[] = [];
+      if (ids.length > 0) {
+        const { data: ps } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", ids);
+        profs = ps ?? [];
+      }
+      if (!cancelled) {
+        setTeammates(
+          ids.map((id) => {
+            const p = profs.find((x) => x.id === id);
+            return { user_id: id, label: p?.full_name || p?.email || "(teammate)" };
+          })
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, orgId]);
+
+  const saveOoo = async (clear: boolean) => {
+    if (!member || !orgId || !userId) return;
+    setOooSaving(true);
+    try {
+      const patch = clear
+        ? { ooo_until: null, ooo_delegate_user_id: null }
+        : {
+            ooo_until: oooUntil ? new Date(oooUntil + "T23:59:59").toISOString() : null,
+            ooo_delegate_user_id: oooDelegate || null,
+          };
+      const { error } = await supabase.from("org_members").update(patch as any).eq("id", member.id);
+      if (error) throw error;
+      void writeAuditEvent({
+        orgId, actorId: userId, actorEmail: userEmail,
+        entityType: "member", entityId: member.id,
+        action: clear ? "ooo_cleared" : "ooo_set",
+        payload: clear ? {} : { until: patch.ooo_until, delegate: oooDelegate || null },
+      });
+      setMember({ ...member, ...(patch as any) });
+      if (clear) {
+        setOooUntil("");
+        setOooDelegate("");
+      }
+      toast.success(stamped(clear ? "Out-of-office cleared" : "Out-of-office set"));
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't update. Has migration 0013 been applied?");
+    } finally {
+      setOooSaving(false);
+    }
+  };
+
+  const oooActive = Boolean(member?.ooo_until && new Date(member.ooo_until).getTime() > Date.now());
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,6 +240,48 @@ export function Profile() {
           </div>
         </div>
       </Card>
+
+      {oooSupported && (
+        <Card className="mt-5 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Out of office
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                While you're out, newly spawned tasks that would auto-assign to you route to your
+                delegate instead — with the coverage noted on the task.
+              </p>
+            </div>
+            {oooActive && <Pill tone="warning">OOO active</Pill>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Out until">
+              <Input type="date" value={oooUntil} onChange={(e) => setOooUntil(e.target.value)} />
+            </Field>
+            <Field label="Delegate (covers for you)">
+              <Select value={oooDelegate} onChange={(e) => setOooDelegate(e.target.value)}>
+                <option value="">— No delegate (tasks queue on the role) —</option>
+                {teammates.map((t) => (
+                  <option key={t.user_id} value={t.user_id}>
+                    {t.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            {oooActive && (
+              <Button variant="ghost" onClick={() => saveOoo(true)} disabled={oooSaving}>
+                I'm back — clear OOO
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => saveOoo(false)} disabled={oooSaving || !oooUntil}>
+              {oooSaving ? "Saving…" : "Set out of office"}
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
