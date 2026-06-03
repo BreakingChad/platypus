@@ -199,6 +199,30 @@ export type DocumentVersionRow = {
   archived_by: string | null;
 };
 
+export type SiteRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  status: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  profile: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StudyNoteRow = {
+  id: string;
+  org_id: string;
+  study_id: string;
+  body: string;
+  author_id: string | null;
+  author_email: string | null;
+  created_at: string;
+};
+
 export type StudyRow = {
   id: string;
   org_id: string;
@@ -213,6 +237,7 @@ export type StudyRow = {
   priority: string;
   intake_status: string;
   committed_at: string | null;
+  site_id: string | null;
   stage_entered_at: string | null;
   intake_date: string | null;
   closed: boolean;
@@ -238,6 +263,8 @@ export type OrgMemberRow = {
   id: string; org_id: string; user_id: string;
   tier: MemberTier; created_at: string;
   access_role_id?: string | null;
+  ooo_until?: string | null;
+  ooo_delegate_user_id?: string | null;
 };
 
 /** Lightweight Database type. Add tables as we go. */
@@ -259,6 +286,8 @@ export type Database = {
       workflow_modules:        { Row: WorkflowModuleRow;       Insert: Partial<WorkflowModuleRow>;       Update: Partial<WorkflowModuleRow>;       Relationships: [] };
       workflow_task_templates: { Row: WorkflowTaskTemplateRow; Insert: Partial<WorkflowTaskTemplateRow>; Update: Partial<WorkflowTaskTemplateRow>; Relationships: [] };
       documents:               { Row: DocumentRow;             Insert: Partial<DocumentRow>;             Update: Partial<DocumentRow>;             Relationships: [] };
+      sites:                   { Row: SiteRow;                 Insert: Partial<SiteRow>;                 Update: Partial<SiteRow>;                 Relationships: [] };
+      study_notes:             { Row: StudyNoteRow;            Insert: Partial<StudyNoteRow>;            Update: Partial<StudyNoteRow>;            Relationships: [] };
       document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
     };
     Views: {};

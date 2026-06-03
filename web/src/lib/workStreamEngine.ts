@@ -116,9 +116,13 @@ export async function spawnTasksForStageEntry(opts: {
       typeof tpl.due_offset_days === "number"
         ? new Date(enteredAt.getTime() + tpl.due_offset_days * 86400000).toISOString()
         : null;
+    // Assignment rule (per product spec): exactly ONE person holds the role
+    // -> auto-assign to them. Multiple holders -> leave unassigned on the
+    // role; a manager picks the person from the Inbox role queue.
     let assignedUser: string | null = null;
-    if (tpl.assigned_to_role_id && holdersByRole[tpl.assigned_to_role_id]?.length) {
-      assignedUser = holdersByRole[tpl.assigned_to_role_id][0];
+    const roleHolders = tpl.assigned_to_role_id ? holdersByRole[tpl.assigned_to_role_id] ?? [] : [];
+    if (roleHolders.length === 1) {
+      assignedUser = roleHolders[0];
     }
     inserts.push({
       org_id: opts.orgId,

@@ -36,6 +36,7 @@ function mkStudy(over: Partial<StudyRow> = {}): StudyRow {
     priority: "standard",
     intake_status: "submitted",
     committed_at: null,
+    site_id: null,
     stage_entered_at: null,
     intake_date: "2026-05-01T00:00:00Z",
     closed: false,

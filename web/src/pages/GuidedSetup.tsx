@@ -38,14 +38,14 @@ const DEFAULT_STAGES: {
   terminal: boolean;
   is_core: boolean;
 }[] = [
-  { key: "intake",          label: "Intake",            color: "#6366F1", icon_key: "inbox",  target_days: 7,  terminal: false, is_core: true },
-  { key: "feasibility",     label: "Feasibility",       color: "#0EA5E9", icon_key: "file",   target_days: 14, terminal: false, is_core: false },
-  { key: "site_selection",  label: "Site selection",    color: "#7C3AED", icon_key: "users",  target_days: 10, terminal: false, is_core: false },
-  { key: "budget_contract", label: "Budget & contract", color: "#F59E0B", icon_key: "file",   target_days: 30, terminal: false, is_core: false },
-  { key: "regulatory",      label: "Regulatory & IRB",  color: "#10B981", icon_key: "shield", target_days: 30, terminal: false, is_core: false },
-  { key: "activation",      label: "Activation",        color: "#EC4899", icon_key: "check",  target_days: 21, terminal: false, is_core: false },
-  { key: "enrolling",       label: "Enrolling",         color: "#64748B", icon_key: "layers", target_days: 0,  terminal: false, is_core: false },
-  { key: "closeout",        label: "Closeout",          color: "#64748B", icon_key: "folder", target_days: 0,  terminal: true,  is_core: false },
+  { key: "intake",             label: "Intake",             color: "#6366F1", icon_key: "inbox",  target_days: 7,  terminal: false, is_core: true },
+  { key: "feasibility",        label: "Feasibility",        color: "#0EA5E9", icon_key: "file",   target_days: 14, terminal: false, is_core: false },
+  { key: "site_selection",     label: "Site selection",     color: "#7C3AED", icon_key: "users",  target_days: 10, terminal: false, is_core: false },
+  { key: "site_qualification", label: "Site qualification", color: "#14B8A6", icon_key: "check",  target_days: 14, terminal: false, is_core: false },
+  { key: "budget_contract",    label: "Budget & contract",  color: "#F59E0B", icon_key: "file",   target_days: 30, terminal: false, is_core: false },
+  { key: "regulatory",         label: "Regulatory",         color: "#10B981", icon_key: "shield", target_days: 30, terminal: false, is_core: false },
+  { key: "activation",         label: "Activation",         color: "#EC4899", icon_key: "check",  target_days: 21, terminal: false, is_core: false },
+  { key: "closeout",           label: "Closeout",           color: "#64748B", icon_key: "folder", target_days: 0,  terminal: true,  is_core: false },
 ];
 
 type StepKey = "org" | "stages" | "fields" | "teams" | "access" | "studies";
