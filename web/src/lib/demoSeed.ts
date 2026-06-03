@@ -25,7 +25,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Avery Chen",
     nct: "NCT05123456",
     priority: "high",
-    stage_key_preference: ["activation", "site_initiation", "regulatory"],
+    stage_key_preference: ["activation", "regulatory"],
   },
   {
     title: "Long-acting GLP-1 in adolescent obesity",
@@ -35,7 +35,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Priya Rao",
     nct: "NCT05234567",
     priority: "standard",
-    stage_key_preference: ["contract_budget", "regulatory", "feasibility"],
+    stage_key_preference: ["budget_contract", "contract_budget", "regulatory"],
   },
   {
     title: "Novel JAK inhibitor for moderate-to-severe atopic dermatitis",
@@ -45,7 +45,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Jordan Hayes",
     nct: "NCT05345678",
     priority: "standard",
-    stage_key_preference: ["feasibility", "study_startup", "intake"],
+    stage_key_preference: ["feasibility", "intake"],
   },
   {
     title: "Cardiac device early feasibility study — second-generation lead",
@@ -55,7 +55,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Marcus Patel",
     nct: "NCT05456789",
     priority: "high",
-    stage_key_preference: ["regulatory", "contract_budget", "site_selection"],
+    stage_key_preference: ["site_qualification", "regulatory", "site_selection"],
   },
   {
     title: "Pediatric pulmonary hypertension registry — multi-site",
@@ -65,7 +65,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Sam Reynolds",
     nct: "NCT05567890",
     priority: "standard",
-    stage_key_preference: ["site_initiation", "regulatory", "intake"],
+    stage_key_preference: ["site_selection", "regulatory", "intake"],
   },
   {
     title: "Investigator-initiated trial — biomarker-guided dosing in NSCLC",
@@ -75,7 +75,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Maria Vargas",
     nct: "NCT05678901",
     priority: "high",
-    stage_key_preference: ["activation", "regulatory", "contract_budget"],
+    stage_key_preference: ["activation", "regulatory", "budget_contract"],
   },
   {
     title: "Phase I first-in-human dose-escalation in advanced solid tumors",
@@ -85,7 +85,7 @@ const DEMO_STUDIES: DemoStudy[] = [
     pi_name: "Dr. Avery Chen",
     nct: "NCT05789012",
     priority: "standard",
-    stage_key_preference: ["intake", "feasibility", "study_startup"],
+    stage_key_preference: ["intake", "feasibility"],
   },
   {
     title: "Closed: alopecia areata phase II program — final report submitted",
@@ -318,4 +318,111 @@ export async function seedDemoWorkStreams(orgId: string): Promise<WorkStreamSeed
   }
 
   return { modules: modulesInserted, templates: templatesInserted, skipped: false };
+}
+
+
+/* ============================================================================
+ * Demo sites — the "site information collection system" needs believable
+ * profiles. Names are playful but plausible (per demo guidance).
+ * ========================================================================== */
+
+const DEMO_SITES = [
+  {
+    name: "St. Mallard Medical Center",
+    city: "Phoenix", state: "AZ", country: "USA",
+    profile: {
+      siteCode: "SMMC-01",
+      institutionType: "Academic medical center",
+      siteContactName: "Dana Webb",
+      siteContactEmail: "d.webb@stmallard.org",
+      siteContactPhone: "+1 (602) 555-0142",
+      timezone: "America/Phoenix",
+    },
+  },
+  {
+    name: "Billabong Clinical Research",
+    city: "Austin", state: "TX", country: "USA",
+    profile: {
+      siteCode: "BCR-02",
+      institutionType: "Dedicated research site",
+      siteContactName: "Theo Park",
+      siteContactEmail: "tpark@billabongcr.com",
+      siteContactPhone: "+1 (512) 555-0117",
+      timezone: "America/Chicago",
+    },
+  },
+  {
+    name: "Webbed Foot Health Network — North Campus",
+    city: "Portland", state: "OR", country: "USA",
+    profile: {
+      siteCode: "WFHN-N",
+      institutionType: "Community hospital",
+      siteContactName: "Rosa Delgado",
+      siteContactEmail: "rdelgado@webbedfoot.health",
+      siteContactPhone: "+1 (503) 555-0186",
+      timezone: "America/Los_Angeles",
+    },
+  },
+];
+
+export type SiteSeedResult = { sites: number; linked: number };
+
+/** Seed demo sites (idempotent by name) and link any unlinked demo studies
+ *  round-robin so site rosters look alive. */
+export async function seedDemoSites(orgId: string): Promise<SiteSeedResult> {
+  const { data: existing } = await supabase
+    .from("sites")
+    .select("id, name")
+    .eq("org_id", orgId);
+  const byName = new Map<string, string>(
+    ((existing ?? []) as any[]).map((r) => [r.name, r.id])
+  );
+
+  let created = 0;
+  const siteIds: string[] = [];
+  for (const d of DEMO_SITES) {
+    const have = byName.get(d.name);
+    if (have) {
+      siteIds.push(have);
+      continue;
+    }
+    const { data, error } = await supabase
+      .from("sites")
+      .insert({
+        org_id: orgId,
+        name: d.name,
+        city: d.city,
+        state: d.state,
+        country: d.country,
+        profile: d.profile,
+      } as any)
+      .select("id")
+      .single();
+    if (!error && data) {
+      siteIds.push((data as any).id);
+      created += 1;
+    }
+  }
+
+  // Link unlinked open studies round-robin.
+  let linked = 0;
+  if (siteIds.length > 0) {
+    const { data: studies } = await supabase
+      .from("studies")
+      .select("id, site_id")
+      .eq("org_id", orgId)
+      .is("site_id", null);
+    let i = 0;
+    for (const st of (studies ?? []) as any[]) {
+      const { error } = await supabase
+        .from("studies")
+        .update({ site_id: siteIds[i % siteIds.length] } as any)
+        .eq("id", st.id);
+      if (!error) {
+        linked += 1;
+        i += 1;
+      }
+    }
+  }
+  return { sites: created, linked };
 }

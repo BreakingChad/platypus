@@ -7,7 +7,7 @@ import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import { stamped } from "../lib/stamp";
-import { seedDemoStudies, seedDemoWorkStreams } from "../lib/demoSeed";
+import { seedDemoStudies, seedDemoWorkStreams, seedDemoSites } from "../lib/demoSeed";
 import type {
   FieldDefinitionRow,
   PipelineStageRow,
@@ -214,6 +214,11 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
     try {
       const res = await seedDemoStudies(orgId, stages.rows);
       const ws = await seedDemoWorkStreams(orgId);
+      try {
+        await seedDemoSites(orgId);
+      } catch {
+        /* pre-0012 */
+      }
       const parts: string[] = [];
       if (res.inserted) parts.push(`${res.inserted} stud${res.inserted === 1 ? "y" : "ies"}`);
       if (ws.modules) parts.push(`${ws.modules} work-stream module${ws.modules === 1 ? "" : "s"}`);
