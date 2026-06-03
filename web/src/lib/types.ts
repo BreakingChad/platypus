@@ -60,6 +60,7 @@ export type TeamRow = {
 
 export type TeamRoleRow = {
   id: string;
+  org_id?: string | null;
   team_id: string;
   title: string;
   hierarchy_key: HierarchyKey;
@@ -70,6 +71,7 @@ export type TeamRoleRow = {
 
 export type TeamRoleHolderRow = {
   id: string;
+  org_id?: string | null;
   team_role_id: string;
   user_id: string;
   created_at: string;

@@ -1,5 +1,5 @@
 import { confirmDialog } from "../lib/confirm";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
@@ -291,9 +291,9 @@ function RoleCard({
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
               Description
             </label>
-            <Input
+            <DraftInput
               value={role.description ?? ""}
-              onChange={(e) => onUpdate({ description: e.target.value || null })}
+              onCommit={(v) => onUpdate({ description: v || null })}
               placeholder="What does this role do?"
             />
           </div>
@@ -365,5 +365,33 @@ function RoleCard({
         </div>
       )}
     </div>
+  );
+}
+
+/** Local-draft input — commits on blur or Enter instead of writing to the
+ *  database per keystroke (which made typing lag behind the network). */
+function DraftInput({
+  value,
+  onCommit,
+  placeholder,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <Input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft.trim());
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      placeholder={placeholder}
+    />
   );
 }
