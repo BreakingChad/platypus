@@ -11,6 +11,7 @@ import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import { actionTypeByKey, recordDocumentSignature } from "../lib/documents";
+import { escalateTask } from "../lib/escalation";
 import { useStickyState } from "../lib/useStickyState";
 import type {
   TaskRow,
@@ -56,6 +57,25 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
+
+  const escalate = async (t: TaskRow) => {
+    if (!orgId || !userId) return;
+    if (t.kind === "escalation") {
+      toast.error("This is already an escalation");
+      return;
+    }
+    if (!(await confirmDialog({ title: "Escalate task", message: `Escalate "${t.title}" up the role hierarchy? A new escalation task is created and routed to the team's senior role; this task stays open.`, confirmLabel: "Escalate", danger: true }))) return;
+    try {
+      const res = await escalateTask({
+        orgId, task: t, reason: "Escalated from Inbox",
+        actorUserId: userId, actorEmail: userEmail,
+        roles: roles.rows, holders: holders.rows,
+      });
+      toast.success(stamped(res.targetRole ? `Escalated to ${res.targetRole.title}` : "Escalated to admin queue"));
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn\u2019t escalate");
+    }
+  };
 
   // Listen for the global quick-add FAB action.
   useEffect(() => {
@@ -377,7 +397,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
                     {at ? (
                       <Pill tone="info">{at.label}</Pill>
                     ) : (
-                      <Pill tone={t.kind === "escalation" ? "danger" : "neutral"}>{t.kind}</Pill>
+                      <KindPill kind={t.kind} />
                     )}
                   </div>
                   {/* Due */}
@@ -412,6 +432,11 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
                         <Button size="sm" variant="ghost" onClick={() => skipTask(t)}>
                           Skip
                         </Button>
+                        {t.kind !== "escalation" && (
+                          <Button size="sm" variant="ghost" onClick={() => escalate(t)} title="Escalate up the role hierarchy">
+                            <Icon name="alert" size={11} />
+                          </Button>
+                        )}
                       </>
                     )}
                     {(t.status === "done" || t.status === "skipped") && isAdmin && (
@@ -732,4 +757,26 @@ function AttestationModal({
       </div>
     </div>
   );
+}
+
+/** Task-kind pill — handoffs and escalations get distinct, legible treatment
+ *  so the "system noticed" moments read at a glance. */
+export function KindPill({ kind }: { kind: string }) {
+  if (kind === "handoff" || kind === "external_handoff") {
+    return (
+      <Pill tone="info">
+        <Icon name="chevron-right" size={9} />
+        {kind === "external_handoff" ? "external handoff" : "handoff"}
+      </Pill>
+    );
+  }
+  if (kind === "escalation") {
+    return (
+      <Pill tone="danger">
+        <Icon name="alert" size={9} />
+        escalation
+      </Pill>
+    );
+  }
+  return <Pill tone="neutral">{kind}</Pill>;
 }

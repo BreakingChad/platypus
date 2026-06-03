@@ -30,6 +30,7 @@ import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { TasksTab } from "./StudyDetail.tasks";
 import { DocumentsTab } from "./StudyDetail.documents";
+import { NotesCard } from "./StudyDetail.notes";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -558,6 +559,7 @@ export function StudyDetail({
       <div className="mt-5">
         {tab === "overview" && (
           <div className="space-y-5">
+            <NotesCard studyId={study.id} />
             {studyFields.length === 0 && (
               <Card>
                 <EmptyState

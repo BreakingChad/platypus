@@ -1,3 +1,4 @@
+import { KindPill } from "./Inbox";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
@@ -6,7 +7,11 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
-import type { TaskRow, PipelineStageRow } from "../lib/types";
+import type { TaskRow, PipelineStageRow, TeamRoleRow, TeamRoleHolderRow } from "../lib/types";
+import { useOrgTable } from "../lib/useOrgTable";
+import { escalateTask } from "../lib/escalation";
+import { confirmDialog } from "../lib/confirm";
+import { stamped } from "../lib/stamp";
 
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -36,6 +41,23 @@ export function TasksTab({
   const toast = useToast();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const rolesTbl = useOrgTable<TeamRoleRow>("team_roles");
+  const holdersTbl = useOrgTable<TeamRoleHolderRow>("team_role_holders");
+
+  const escalate = async (t: TaskRow) => {
+    if (!orgId || !userId || t.kind === "escalation") return;
+    if (!(await confirmDialog({ title: "Escalate task", message: `Escalate "${t.title}"? A new escalation task routes to the team's senior role; this task stays open.`, confirmLabel: "Escalate", danger: true }))) return;
+    try {
+      const res = await escalateTask({
+        orgId, task: t, reason: "Escalated from study tasks",
+        actorUserId: userId, actorEmail: userEmail,
+        roles: rolesTbl.rows, holders: holdersTbl.rows,
+      });
+      toast.success(stamped(res.targetRole ? `Escalated to ${res.targetRole.title}` : "Escalated to admin queue"));
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn\u2019t escalate");
+    }
+  };
 
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -312,7 +334,7 @@ export function TasksTab({
                           {stage.label}
                         </span>
                       )}
-                      <Pill tone={t.kind === "escalation" ? "danger" : "neutral"}>{t.kind}</Pill>
+                      <KindPill kind={t.kind} />
                       {due && (
                         <span
                           className={
@@ -327,9 +349,16 @@ export function TasksTab({
                   </div>
                   <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition">
                     {isOpen && (
-                      <Button size="sm" variant="ghost" onClick={() => updateStatus(t, "skipped", "task_skipped")}>
-                        Skip
-                      </Button>
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => updateStatus(t, "skipped", "task_skipped")}>
+                          Skip
+                        </Button>
+                        {t.kind !== "escalation" && (
+                          <Button size="sm" variant="ghost" onClick={() => escalate(t)} title="Escalate up the role hierarchy">
+                            <Icon name="alert" size={11} />
+                          </Button>
+                        )}
+                      </>
                     )}
                     {!isOpen && isAdmin && (
                       <Button size="sm" variant="ghost" onClick={() => updateStatus(t, "open", "task_reopened")}>
