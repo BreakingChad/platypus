@@ -327,7 +327,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       {/* Health filter chips */}
       {studies.rows.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+          <span
+            className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1 cursor-help"
+            title="Health = time in the current stage vs that stage's target days. Healthy: under 75% of target. At risk: approaching target. Overdue: past target."
+          >
             Health
           </span>
           {([

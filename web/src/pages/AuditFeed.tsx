@@ -194,7 +194,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
       <PageHeader
         kicker="Audit"
         title="Audit feed"
-        subtitle="Every action across your organization, hash-chained per entity. Filter, search, export. The chain integrity is maintained per entity — open a study to verify its specific chain."
+        subtitle="The defensible record: every action in your org, hash-chained per entity — who did what, when, from where. Filter or export for inspection; open any study to verify its chain link-by-link."
         actions={
           <div className="flex items-center gap-2">
             <Pill tone="brand">21 CFR Part 11 ready</Pill>

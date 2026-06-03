@@ -67,7 +67,7 @@ const SITE_SECTIONS = ["Identity", "Location", "Contacts", "Regulatory", "Operat
 const FIELD_TYPES: FieldType[] = ["text", "date", "number", "dropdown", "boolean", "person"];
 
 export function FieldsDesigner() {
-  const { isAdmin, loading: memberLoading } = useCurrentMember();
+  const { isAdmin, isDeveloper, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
 
   // ENTITY TAB STATE
@@ -415,6 +415,7 @@ export function FieldsDesigner() {
                 key={f.id}
                 field={f}
                 allSections={sections}
+                showKeys={isDeveloper}
                 onUpdate={tryUpdate}
                 onRemove={() => tryRemove(f.id, f.label)}
               />
@@ -439,11 +440,14 @@ export function FieldsDesigner() {
 function FieldRow({
   field,
   allSections,
+  showKeys,
   onUpdate,
   onRemove,
 }: {
   field: FieldDefinitionRow;
   allSections: string[];
+  /** Raw field keys are internal plumbing — only developers see them. */
+  showKeys?: boolean;
   onUpdate: (id: string, patch: Partial<FieldDefinitionRow>) => Promise<void>;
   onRemove: () => void;
 }) {
@@ -498,9 +502,11 @@ function FieldRow({
             {isCustom && <Pill tone="brand">custom</Pill>}
           </button>
         )}
-        <span className="text-[10px] font-mono text-slate-400 truncate block">
-          {field.key}
-        </span>
+        {showKeys && (
+          <span className="text-[10px] font-mono text-slate-400 truncate block">
+            {field.key}
+          </span>
+        )}
       </span>
 
       {/* SECTION dropdown */}

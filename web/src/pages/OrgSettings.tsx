@@ -163,7 +163,7 @@ export function OrgSettings() {
         </Field>
 
         <Field
-          label="Study code prefix"
+          label="Study code prefix (advanced)"
           hint="Auto-generated codes look like PREFIX-001. Letters and digits only, up to 8 chars."
         >
           <Input

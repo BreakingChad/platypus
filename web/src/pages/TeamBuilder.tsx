@@ -52,6 +52,39 @@ export function TeamBuilder() {
   const { orgId } = useCurrentOrg();
   const toast = useToast();
 
+  const [seeding, setSeeding] = useState(false);
+  /** Express seed: the standard site team structure, colors matched to the
+   *  pipeline stages each team owns. */
+  const loadRecommended = async () => {
+    setSeeding(true);
+    try {
+      const defs = [
+        { name: "Startup",    color: "#6366F1", charter: "Owns intake through site qualification.", roles: [["Startup Manager","manager",2],["Startup Coordinator","coordinator",3]] },
+        { name: "Budgets & Contracts", color: "#F59E0B", charter: "Owns budget & contract negotiation.", roles: [["Finance Manager","manager",2],["Budget Analyst","specialist",3]] },
+        { name: "Regulatory", color: "#10B981", charter: "Owns regulatory & IRB submissions.", roles: [["Regulatory Manager","manager",2],["Regulatory Coordinator","coordinator",3]] },
+        { name: "Clinical Ops", color: "#EC4899", charter: "Owns activation onward.", roles: [["Ops Director","director",1],["Clinical Research Coordinator","coordinator",3]] },
+      ];
+      let pos = teams.rows.reduce((m, t) => Math.max(m, t.position), 0);
+      for (const d of defs) {
+        if (teams.rows.some((t) => t.name === d.name)) continue;
+        pos += 10;
+        const created = await teams.insert({ name: d.name, color: d.color, charter: d.charter, status: "active", position: pos } as any);
+        if (created) {
+          let rpos = 0;
+          for (const [title, hk, level] of d.roles) {
+            rpos += 10;
+            await roles.insert({ team_id: (created as any).id, title, hierarchy_key: hk, level, position: rpos } as any);
+          }
+        }
+      }
+      toast.success("Recommended teams loaded — rename or reshape them freely");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn\u2019t load recommended teams");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const teams = useOrgTable<TeamRow>("teams", { orderBy: "position", realtime: true });
   const roles = useOrgTable<TeamRoleRow>("team_roles", { orderBy: "position", realtime: true });
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders", { realtime: true });
@@ -153,7 +186,16 @@ export function TeamBuilder() {
         kicker="Configure"
         title="Teams & roles"
         subtitle="Build the teams that own work. Role slots survive turnover — when someone leaves, you swap holders, not workflows. Hierarchy lets the app know who escalates to whom."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
+        actions={
+          <div className="flex items-center gap-2">
+            {teams.rows.length === 0 && (
+              <Button variant="primary" size="sm" onClick={() => void loadRecommended()} disabled={seeding}>
+                <Icon name="check" size={12} /> {seeding ? "Loading…" : "Load recommended teams"}
+              </Button>
+            )}
+            <Pill tone="brand">live · admin-driven</Pill>
+          </div>
+        }
       />
 
       {/* COMPOSER */}

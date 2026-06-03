@@ -229,7 +229,6 @@ export function AppShell({
               >
                 <Icon name="search" size={11} aria-hidden="true" />
                 Universal search
-                <kbd className="text-[10px] text-slate-400 ml-1">⌘K</kbd>
               </button>
             </div>
 
