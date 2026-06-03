@@ -80,6 +80,7 @@ export function CommandPalette({
       { id: "nav-pipeline", kind: "nav", title: "Pipeline", subtitle: "Kanban view", icon: "layers", navigateTo: "#/pipeline" },
       { id: "nav-inbox", kind: "nav", title: "Inbox", subtitle: "My tasks", icon: "inbox", navigateTo: "#/inbox" },
       { id: "nav-sites", kind: "nav", title: "Sites", subtitle: "Site profiles & capabilities", icon: "hospital", navigateTo: "#/sites" },
+      { id: "nav-intake", kind: "nav", title: "Intake", subtitle: "Triage queue", icon: "inbox", navigateTo: "#/intake" },
       { id: "nav-profile", kind: "nav", title: "Profile", subtitle: "Your details", icon: "users", navigateTo: "#/profile" },
     ];
     if (isAdmin) {

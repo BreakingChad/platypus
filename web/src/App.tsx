@@ -13,6 +13,7 @@ import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
 import { Inbox } from "./pages/Inbox";
 import { Sites } from "./pages/Sites";
+import { IntakeTriage } from "./pages/IntakeTriage";
 import { Profile } from "./pages/Profile";
 import { ComingSoon } from "./pages/ComingSoon";
 
@@ -84,6 +85,9 @@ function renderRoute(
   }
   if (hash === "#/sites") {
     return { node: <Sites onNavigate={navigate} /> };
+  }
+  if (hash === "#/intake") {
+    return { node: <IntakeTriage onNavigate={navigate} /> };
   }
   if (hash === "#/inbox") {
     return { node: <Inbox onNavigate={navigate} /> };

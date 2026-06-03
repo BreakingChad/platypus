@@ -59,6 +59,7 @@ export type NavRegistryEntry = {
 
 export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "home",     label: "Home",       icon: "home",     hash: "#/",                description: "Dashboard landing." },
+  { key: "intake",   label: "Intake",     icon: "inbox",    hash: "#/intake",          description: "Triage queue — complete startup data, commit or decline." },
   { key: "studies",  label: "Studies",    icon: "folder",   hash: "#/studies",         description: "Every study from intake through closeout." },
   { key: "pipeline", label: "Pipeline",   icon: "layers",   hash: "#/pipeline",        description: "Kanban view grouped by stage." },
   { key: "inbox",    label: "Inbox",      icon: "inbox",    hash: "#/inbox",           description: "Tasks routed to you and the roles you hold." },
@@ -91,6 +92,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     group: "Workspace",
     items: [
       { key: "home" },
+      { key: "intake" },
       { key: "studies" },
       { key: "pipeline" },
       { key: "sites" },
