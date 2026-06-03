@@ -48,13 +48,6 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
   const [creating, setCreating] = useState(false);
 
-  // Listen for the global quick-add FAB action.
-  useEffect(() => {
-    const onAdd = () => { if (isAdmin) setCreating(true); };
-    window.addEventListener("platypus:new-study", onAdd);
-    return () => window.removeEventListener("platypus:new-study", onAdd);
-  }, [isAdmin]);
-
   const toggleSel = (id: string) => {
     setSelected((s) => {
       const next = new Set(s);

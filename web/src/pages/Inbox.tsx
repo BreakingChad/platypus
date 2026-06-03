@@ -120,13 +120,6 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
     }
   };
 
-  // Listen for the global quick-add FAB action.
-  useEffect(() => {
-    const onAdd = () => { if (isAdmin) setAddingTask(true); };
-    window.addEventListener("platypus:new-task", onAdd);
-    return () => window.removeEventListener("platypus:new-task", onAdd);
-  }, [isAdmin]);
-
   // Which roles does the current user hold?
   const myRoleIds = useMemo(() => {
     if (!userId) return new Set<string>();

@@ -8,7 +8,6 @@ import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
 import { CommandPalette } from "./CommandPalette";
-import { QuickAddFab } from "./QuickAddFab";
 import { HelpOverlay } from "./HelpOverlay";
 
 /** App shell — persistent left rail + header + content slot.
@@ -315,9 +314,6 @@ export function AppShell({
 
       {/* Global Cmd-K palette */}
       <CommandPalette onNavigate={onNavigate} />
-
-      {/* Global Quick-add FAB */}
-      <QuickAddFab onNavigate={onNavigate} />
 
       {/* Global help overlay (press ?) */}
       <HelpOverlay />

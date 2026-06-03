@@ -56,7 +56,6 @@ export function HelpOverlay() {
           <Section title="Global">
             <Shortcut keys={["⌘", "K"]} alt={["Ctrl", "K"]} label="Open universal search" />
             <Shortcut keys={["/"]} label="Open universal search (from anywhere)" />
-            <Shortcut keys={["N"]} label="Open quick-add menu" />
             <Shortcut keys={["?"]} label="Toggle this shortcuts overlay" />
             <Shortcut keys={["Esc"]} label="Close the current modal / palette" />
           </Section>

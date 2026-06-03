@@ -102,7 +102,7 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
           <EmptyState
             iconName="inbox"
             title="Intake queue is clear"
-            sub="New studies land here for data triage before they're committed to the portfolio. Create one from Studies or the quick-add menu."
+            sub="New studies land here for data triage before they're committed to the portfolio. Create one from the Studies page."
           />
         )}
         {intakeStudies.length > 0 && (
