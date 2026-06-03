@@ -460,6 +460,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/studies": { kicker: "Workspace", title: "Studies" },
   "#/pipeline": { kicker: "Workspace", title: "Pipeline" },
   "#/inbox": { kicker: "Workspace", title: "Inbox" },
+  "#/sites": { kicker: "Workspace", title: "Sites" },
   "#/settings/org": { kicker: "Configure", title: "Organization" },
   "#/settings/members": { kicker: "Configure", title: "Members" },
   "#/settings/nav": { kicker: "Configure", title: "Nav designer" },

@@ -12,6 +12,7 @@ import { StudiesList } from "./pages/StudiesList";
 import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
 import { Inbox } from "./pages/Inbox";
+import { Sites } from "./pages/Sites";
 import { Profile } from "./pages/Profile";
 import { ComingSoon } from "./pages/ComingSoon";
 
@@ -80,6 +81,9 @@ function renderRoute(
   }
   if (hash === "#/pipeline") {
     return { node: <PipelineView onNavigate={navigate} /> };
+  }
+  if (hash === "#/sites") {
+    return { node: <Sites onNavigate={navigate} /> };
   }
   if (hash === "#/inbox") {
     return { node: <Inbox onNavigate={navigate} /> };

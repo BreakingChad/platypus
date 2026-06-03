@@ -79,6 +79,7 @@ export function CommandPalette({
       { id: "nav-studies", kind: "nav", title: "Studies", subtitle: "All studies", icon: "folder", navigateTo: "#/studies" },
       { id: "nav-pipeline", kind: "nav", title: "Pipeline", subtitle: "Kanban view", icon: "layers", navigateTo: "#/pipeline" },
       { id: "nav-inbox", kind: "nav", title: "Inbox", subtitle: "My tasks", icon: "inbox", navigateTo: "#/inbox" },
+      { id: "nav-sites", kind: "nav", title: "Sites", subtitle: "Site profiles & capabilities", icon: "hospital", navigateTo: "#/sites" },
       { id: "nav-profile", kind: "nav", title: "Profile", subtitle: "Your details", icon: "users", navigateTo: "#/profile" },
     ];
     if (isAdmin) {

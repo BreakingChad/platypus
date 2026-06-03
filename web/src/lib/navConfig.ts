@@ -62,6 +62,7 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "studies",  label: "Studies",    icon: "folder",   hash: "#/studies",         description: "Every study from intake through closeout." },
   { key: "pipeline", label: "Pipeline",   icon: "layers",   hash: "#/pipeline",        description: "Kanban view grouped by stage." },
   { key: "inbox",    label: "Inbox",      icon: "inbox",    hash: "#/inbox",           description: "Tasks routed to you and the roles you hold." },
+  { key: "sites",    label: "Sites",      icon: "hospital", hash: "#/sites",           description: "Site profiles, capabilities, and qualification data." },
 
   { key: "org",         label: "Organization",     icon: "settings",  hash: "#/settings/org",       adminOnly: true, description: "Name, mode, prefix, region." },
   { key: "members",     label: "Members",          icon: "users",     hash: "#/settings/members",   adminOnly: true, description: "Roster + tier management." },
@@ -92,6 +93,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
       { key: "home" },
       { key: "studies" },
       { key: "pipeline" },
+      { key: "sites" },
       { key: "inbox" },
     ],
   },

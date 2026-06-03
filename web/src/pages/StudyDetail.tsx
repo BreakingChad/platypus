@@ -11,6 +11,7 @@ import type {
   PipelineStageRow,
   FieldDefinitionRow,
   FieldType,
+  SiteRow,
 } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -75,6 +76,7 @@ export function StudyDetail({
     orderBy: "position",
     realtime: true,
   });
+  const sites = useOrgTable<SiteRow>("sites", { orderBy: "name" });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
     realtime: true,
@@ -385,6 +387,34 @@ export function StudyDetail({
               .join(" · ") || (
               <span className="text-slate-400 italic">No identifiers set yet</span>
             )}
+            <SiteChip
+              study={study}
+              sites={sites.rows}
+              isAdmin={isAdmin}
+              onAssign={async (siteId) => {
+                try {
+                  const { error } = await supabase
+                    .from("studies")
+                    .update({ site_id: siteId } as any)
+                    .eq("id", study.id);
+                  if (error) throw error;
+                  if (orgId && userId) {
+                    void writeAuditEvent({
+                      orgId, actorId: userId, actorEmail: userEmail,
+                      entityType: "study", entityId: study.id,
+                      action: "site_assigned",
+                      payload: {
+                        site_id: siteId,
+                        site_name: sites.rows.find((s) => s.id === siteId)?.name ?? null,
+                      },
+                    });
+                  }
+                  toast.success(stamped("Site assigned"));
+                } catch (e: any) {
+                  toast.error(e?.message || "Couldn't assign site");
+                }
+              }}
+            />
           </>
         }
         actions={
@@ -793,4 +823,72 @@ function formatValue(v: unknown, type: FieldType): React.ReactNode {
   }
   if (type === "number") return String(v);
   return String(v);
+}
+
+/* ---------- Site chip (header) ---------- */
+
+function SiteChip({
+  study,
+  sites,
+  isAdmin,
+  onAssign,
+}: {
+  study: StudyRow;
+  sites: SiteRow[];
+  isAdmin: boolean;
+  onAssign: (siteId: string | null) => Promise<void>;
+}) {
+  const [picking, setPicking] = useState(false);
+  const site = study.site_id ? sites.find((s) => s.id === study.site_id) ?? null : null;
+
+  if (picking && isAdmin) {
+    return (
+      <span className="inline-flex items-center gap-1.5 mt-1">
+        <Select
+          autoFocus
+          value={study.site_id ?? ""}
+          onChange={async (e) => {
+            await onAssign(e.target.value || null);
+            setPicking(false);
+          }}
+          className="text-xs py-1 px-2 max-w-[240px]"
+          aria-label="Assign site"
+        >
+          <option value="">— No site —</option>
+          {sites
+            .filter((s) => s.status === "active" || s.id === study.site_id)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+        </Select>
+        <Button size="sm" variant="ghost" onClick={() => setPicking(false)}>
+          Cancel
+        </Button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 ml-2">
+      <span className="text-slate-300">·</span>
+      <button
+        onClick={() => isAdmin && setPicking(true)}
+        disabled={!isAdmin}
+        className={
+          "inline-flex items-center gap-1 text-sm transition " +
+          (isAdmin ? "hover:text-brand-700" : "cursor-default")
+        }
+        title={isAdmin ? "Assign site" : undefined}
+      >
+        <Icon name="hospital" size={12} className="text-slate-400" />
+        {site ? (
+          <span className="text-slate-700">{site.name}</span>
+        ) : (
+          <span className="text-slate-400 italic">no site</span>
+        )}
+      </button>
+    </span>
+  );
 }
