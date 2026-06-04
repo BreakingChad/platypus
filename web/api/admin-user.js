@@ -61,9 +61,36 @@ export default async function handler(req, res) {
   // ---- authenticate + authorize the CALLER --------------------------------
   const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!token) return res.status(401).json({ error: "Sign in first." });
-  const { data: callerData, error: callerErr } = await admin.auth.getUser(token);
-  if (callerErr || !callerData?.user) return res.status(401).json({ error: "Session expired — sign in again." });
-  const caller = callerData.user;
+
+  // Verify the caller two ways: service-key getUser, then (if the key in
+  // env is a new-style sb_secret that GoTrue rejects for this call) fall
+  // back to a client bound to the caller's own token + publishable key.
+  let caller = null;
+  let verifyErr = null;
+  {
+    const { data, error } = await admin.auth.getUser(token);
+    if (data?.user) caller = data.user;
+    else verifyErr = error;
+  }
+  if (!caller) {
+    const pubKey =
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (pubKey) {
+      const asCaller = createClient(url, pubKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data, error } = await asCaller.auth.getUser();
+      if (data?.user) caller = data.user;
+      else verifyErr = error ?? verifyErr;
+    }
+  }
+  if (!caller) {
+    return res.status(401).json({
+      error: `Couldn't verify your session (${verifyErr?.message ?? "unknown"}). Sign out and back in; if it persists, check that SUPABASE_SERVICE_ROLE_KEY is the service_role secret from Supabase → Settings → API.`,
+    });
+  }
 
   const { data: pa } = await admin
     .from("platform_admins")
