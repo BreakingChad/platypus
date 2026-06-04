@@ -395,29 +395,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           placeholder="Search by title, code, sponsor, PI, NCT…"
         />
       </div>
-      <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-        <input
-          type="checkbox"
-          checked={staleOnly}
-          onChange={(e) => setStaleOnly(e.target.checked)}
-          className="accent-brand-500 w-4 h-4"
-        />
-        Stale only (&gt;14d)
-      </label>
-      <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-        <input
-          type="checkbox"
-          checked={showClosed}
-          onChange={(e) => setShowClosed(e.target.checked)}
-          className="accent-brand-500 w-4 h-4"
-        />
-        Show closed
-      </label>
       <button
         onClick={() => setFiltersOpen(true)}
         className={
           "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition " +
-          (advFilterCount(advFilters) > 0
+          (advFilterCount(advFilters) > 0 || staleOnly
             ? "border-brand-300 bg-brand-50 text-brand-700"
             : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
         }
@@ -426,9 +408,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       >
         <Icon name="filter" size={12} />
         Filters
-        {advFilterCount(advFilters) > 0 && (
+        {advFilterCount(advFilters) + (staleOnly ? 1 : 0) > 0 && (
           <span className="rounded-full bg-brand-600 text-white text-[10px] font-bold px-1.5">
-            {advFilterCount(advFilters)}
+            {advFilterCount(advFilters) + (staleOnly ? 1 : 0)}
           </span>
         )}
       </button>
@@ -555,8 +537,20 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       )}
 
       {/* Active advanced-filter chips — each removable on its own */}
-      {advFilterCount(advFilters) > 0 && (
+      {(advFilterCount(advFilters) > 0 || staleOnly) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {staleOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+              Stale only (&gt;14d)
+              <button
+                onClick={() => setStaleOnly(false)}
+                className="text-amber-400 hover:text-red-600 leading-none"
+                aria-label="Remove stale-only filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {describeAdvFilters(advFilters).map((chip) => (
             <span
               key={chip.key}
@@ -573,7 +567,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             </span>
           ))}
           <button
-            onClick={() => setAdvFilters(EMPTY_ADV_FILTERS)}
+            onClick={() => {
+              setAdvFilters(EMPTY_ADV_FILTERS);
+              setStaleOnly(false);
+            }}
             className="text-[11px] font-semibold text-slate-500 hover:text-brand-700 transition"
           >
             Clear all
@@ -879,6 +876,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           filters={advFilters}
           rows={studies.rows}
           onChange={setAdvFilters}
+          staleOnly={staleOnly}
+          onStaleOnly={setStaleOnly}
           onClose={() => setFiltersOpen(false)}
         />
       )}
@@ -1042,11 +1041,15 @@ function FilterModal({
   filters,
   rows,
   onChange,
+  staleOnly,
+  onStaleOnly,
   onClose,
 }: {
   filters: AdvFilters;
   rows: StudyRow[];
   onChange: (f: AdvFilters) => void;
+  staleOnly: boolean;
+  onStaleOnly: (v: boolean) => void;
   onClose: () => void;
 }) {
   const dlgRef = useModalA11y<HTMLDivElement>(onClose);
@@ -1107,7 +1110,15 @@ function FilterModal({
           <Icon name="filter" size={14} className="text-slate-500" />
           <h2 className="text-base font-display font-bold text-slate-900 flex-1">Filters</h2>
           <span className="text-[11px] text-slate-500">Changes apply immediately</span>
-          <Button size="sm" variant="ghost" onClick={() => onChange(EMPTY_ADV_FILTERS)} disabled={advFilterCount(filters) === 0}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              onChange(EMPTY_ADV_FILTERS);
+              onStaleOnly(false);
+            }}
+            disabled={advFilterCount(filters) === 0 && !staleOnly}
+          >
             Clear all
           </Button>
           <Button size="sm" variant="primary" onClick={onClose}>
@@ -1140,6 +1151,22 @@ function FilterModal({
                   aria-label="Created to"
                 />
               </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">Activity</div>
+              <button
+                onClick={() => onStaleOnly(!staleOnly)}
+                className={
+                  "text-xs rounded-full border px-2.5 py-1 transition " +
+                  (staleOnly
+                    ? "border-amber-300 bg-amber-50 text-amber-800 font-semibold"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                }
+                aria-pressed={staleOnly}
+                title="Only studies untouched for more than 14 days"
+              >
+                {staleOnly ? "✓ " : ""}Stale only (&gt;14 days untouched)
+              </button>
             </div>
             <div>
               <div className="text-xs font-semibold text-slate-500 mb-1.5">NCT registration</div>
