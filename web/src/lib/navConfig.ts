@@ -151,7 +151,12 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     ],
   },
   {
+    // Hidden (Chad, 2026-06-03): eReg/binders deferred to a later date.
+    // The per-study Documents tab (upload, versions, e-sign, audit) is
+    // unaffected — this only removes the standalone Binders module from
+    // the sidebar. Re-show here or per role in the nav designer.
     group: "Documents",
+    hidden: true,
     items: [
       { key: "binders" },
     ],
