@@ -286,7 +286,7 @@ export function PageLayoutDesigner() {
       <Card primary className="mt-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               Page
             </label>
             <select
@@ -302,7 +302,7 @@ export function PageLayoutDesigner() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               For role
             </label>
             <select
@@ -379,7 +379,7 @@ export function PageLayoutDesigner() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px_300px] gap-4 mt-4">
         {/* CENTER — the page, top to bottom, core content locked in place */}
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+          <div className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
             This page, top to bottom
             <InfoTip side="bottom" label="The canvas mirrors the real page. Blocks above the grey anchor render before the page's built-in content; blocks below render after. Drag across the divider or use a row's above/below chip." />
           </div>
@@ -412,7 +412,7 @@ export function PageLayoutDesigner() {
                       <Icon name="lock" size={14} className="text-slate-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold text-slate-700">{pageMeta.coreLabel}</div>
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                        <div className="text-[11px] font-semibold text-slate-400">
                           built-in page content · always shown
                         </div>
                       </div>
@@ -420,7 +420,7 @@ export function PageLayoutDesigner() {
 
                     {(pageMeta.tabs ?? []).length > 0 && (
                       <div className="mt-3 pt-3 border-t border-slate-200">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
                           Its tabs — reorder, rename, hide
                         </div>
                         <div className="space-y-1">
@@ -490,7 +490,7 @@ export function PageLayoutDesigner() {
                                     );
                                   }}
                                   className={
-                                    "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded transition " +
+                                    "text-[11px] font-semibold px-1.5 py-0.5 rounded transition " +
                                     (t.hidden
                                       ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
                                       : "bg-slate-100 text-slate-500 hover:bg-slate-200")
@@ -524,7 +524,7 @@ export function PageLayoutDesigner() {
 
                     {(pageMeta.optionsSchema ?? []).length > 0 && (
                       <div className="mt-3 pt-3 border-t border-slate-200">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
                           Page defaults for this role
                         </div>
                         <div className="space-y-2">
@@ -610,7 +610,7 @@ export function PageLayoutDesigner() {
 
         {/* RIGHT — block library */}
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <div className="text-xs font-semibold text-slate-500 mb-2">
             Block library
           </div>
           <div className="space-y-2 sticky top-20">
@@ -633,14 +633,14 @@ export function PageLayoutDesigner() {
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <button
                       onClick={() => addBlock(entry.key, "top")}
-                      className="text-[10px] font-bold uppercase tracking-wider rounded border border-brand-200 bg-brand-50 text-brand-700 px-1.5 py-0.5 hover:bg-brand-100 transition"
+                      className="text-[11px] font-semibold rounded border border-brand-200 bg-brand-50 text-brand-700 px-1.5 py-0.5 hover:bg-brand-100 transition"
                     >
                       {pageMeta?.coreLabel ? "+ Above" : "+ Add"}
                     </button>
                     {pageMeta?.coreLabel && (
                       <button
                         onClick={() => addBlock(entry.key, "bottom")}
-                        className="text-[10px] font-bold uppercase tracking-wider rounded border border-slate-200 bg-white text-slate-600 px-1.5 py-0.5 hover:border-slate-300 transition"
+                        className="text-[11px] font-semibold rounded border border-slate-200 bg-white text-slate-600 px-1.5 py-0.5 hover:border-slate-300 transition"
                       >
                         + Below
                       </button>
@@ -654,7 +654,7 @@ export function PageLayoutDesigner() {
 
         {/* RIGHTMOST — selected block settings */}
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <div className="text-xs font-semibold text-slate-500 mb-2">
             {selectedBlock ? "Block settings" : "Settings"}
           </div>
           {!selectedBlock && (
@@ -683,7 +683,7 @@ export function PageLayoutDesigner() {
                   const v = (selectedBlock.settings ?? {})[field.key];
                   return (
                     <div key={field.key}>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                         {field.label}
                       </label>
                       {field.kind === "number" && (
@@ -829,7 +829,7 @@ function SortableBlockRow({
             onRegion((block.region ?? "top") === "top" ? "bottom" : "top");
           }}
           title="Move to the other side of the page content"
-          className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+          className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
         >
           {(block.region ?? "top") === "top" ? "above" : "below"}
         </button>
@@ -841,7 +841,7 @@ function SortableBlockRow({
         }}
         title={block.hidden ? "Show on page" : "Hide on page"}
         className={
-          "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded transition " +
+          "text-[11px] font-semibold px-1.5 py-0.5 rounded transition " +
           (block.hidden
             ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
             : "bg-slate-100 text-slate-500 hover:bg-slate-200")

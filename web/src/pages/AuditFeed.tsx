@@ -212,7 +212,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
 
       {/* Date-range preset chips */}
       <div className="mt-6 flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+        <span className="text-[11px] font-semibold text-slate-400 mr-1">
           When
         </span>
         {([
@@ -246,7 +246,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
       {/* Action chips (visible only when at least 2 action types exist) */}
       {actionTypes.length > 1 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+          <span className="text-[11px] font-semibold text-slate-400 mr-1">
             Action
           </span>
           <button
@@ -282,7 +282,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
       <Card primary className="mt-4">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-end">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               Entity type
             </label>
             <Select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
@@ -295,25 +295,25 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
             </Select>
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               Actor email contains
             </label>
             <Input value={actorFilter} onChange={(e) => setActorFilter(e.target.value)} placeholder="e.g. chad" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               From
             </label>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               To
             </label>
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               Limit
             </label>
             <Select value={String(limit)} onChange={(e) => setLimit(Number(e.target.value))}>
@@ -348,7 +348,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
 
       {filtered && filtered.length > 0 && (
         <Card flush className="mt-4">
-          <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[160px_120px_1fr_180px_140px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+          <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[160px_120px_1fr_180px_140px] gap-3 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold">
             <span>Timestamp</span>
             <span>Entity</span>
             <span>Action</span>
@@ -382,7 +382,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
                       }
                     }}
                     className={
-                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition " +
+                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition " +
                       (e.entity_type === "study" && study
                         ? "bg-brand-50 text-brand-700 border border-brand-100 hover:bg-brand-100"
                         : e.entity_type === "task"

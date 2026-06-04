@@ -239,7 +239,7 @@ export function NewStudyModal({
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-slate-400">
               Studies
             </div>
             <h2 className="text-lg font-display font-bold text-slate-900">
@@ -260,7 +260,7 @@ export function NewStudyModal({
           {/* Title fallback when no shortTitle field is configured */}
           {!hasShortTitle && (
             <div className="mb-5">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Short title <span className="text-red-500">*</span>
               </label>
               <Input
@@ -277,7 +277,7 @@ export function NewStudyModal({
 
           {/* Stage picker */}
           <div className="mb-5">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Starting stage
             </label>
             <Select
@@ -307,7 +307,7 @@ export function NewStudyModal({
             if (sectionFields.length === 0) return null;
             return (
               <div key={section} className="mb-5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                <div className="text-[11px] font-semibold text-slate-500 mb-2">
                   {section}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -17,7 +17,7 @@ export function SetupHubBlock({ ctx }: { ctx: BlockContext }) {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-display font-bold text-slate-900">Setup hub</h2>
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+        <span className="text-[11px] font-semibold text-slate-400">
           live · admin-driven
         </span>
       </div>
@@ -105,7 +105,7 @@ function HubCard({
         </div>
       )}
       {disabled && (
-        <div className="mt-3 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+        <div className="mt-3 text-[11px] font-semibold text-slate-400">
           Admin access required
         </div>
       )}

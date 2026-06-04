@@ -298,7 +298,7 @@ export function WorkStreamBuilder() {
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 mt-6">
         {/* LEFT — stage rail */}
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <div className="text-xs font-semibold text-slate-500 mb-2">
             Stages
           </div>
           <Card flush>
@@ -347,7 +347,7 @@ export function WorkStreamBuilder() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <div className="text-xs font-semibold text-slate-500">
                 Modules
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
@@ -577,7 +577,7 @@ function ModuleCard({
         </span>
 
         <label
-          className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-600 cursor-pointer"
+          className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 cursor-pointer"
           title={mod.enabled ? "Module is active" : "Module is disabled"}
         >
           <input
@@ -612,7 +612,7 @@ function ModuleCard({
           {/* Module metadata */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                 Owner team
               </label>
               <Select
@@ -630,7 +630,7 @@ function ModuleCard({
               </Select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                 Description (optional)
               </label>
               <Input
@@ -643,7 +643,7 @@ function ModuleCard({
 
           {/* Templates */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <div className="text-[11px] font-semibold text-slate-500 mb-1">
               Task templates ({templates?.length ?? 0})
             </div>
             <TemplatesList

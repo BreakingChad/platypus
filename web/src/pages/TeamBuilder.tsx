@@ -226,7 +226,7 @@ export function TeamBuilder() {
       <Card primary className="mt-6 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+            <div className="text-sm font-semibold text-brand-700">
               Add a team
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
@@ -967,7 +967,7 @@ function HolderList({
       <div className="relative">
         <button
           onClick={() => setPicking((p) => !p)}
-          className="text-[10px] font-mono uppercase tracking-wider text-slate-500 hover:text-brand-700 transition px-1.5 py-0.5 rounded border border-dashed border-slate-300 hover:border-brand-300"
+          className="text-[11px] font-semibold text-slate-500 hover:text-brand-700 transition px-1.5 py-0.5 rounded border border-dashed border-slate-300 hover:border-brand-300"
           title="Add holder"
         >
           + Assign

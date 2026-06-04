@@ -381,7 +381,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       {studies.rows.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span
-            className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-1 cursor-help"
+            className="text-[11px] font-semibold text-slate-400 mr-1 cursor-help"
             title="Health = time in the current stage vs that stage's target days. Healthy: under 75% of target. At risk: approaching target. Overdue: past target."
           >
             Health
@@ -521,7 +521,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         {filtered.length > 0 && (
           <>
             <div
-              className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold"
+              className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-3 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold"
               style={{ gridTemplateColumns: gridTemplate }}
             >
               <span className="flex items-center justify-center">

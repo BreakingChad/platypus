@@ -292,7 +292,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
       {/* Progress */}
       <div className="mt-6 mb-6">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <span className="text-xs font-semibold text-slate-500">
             {completed} of {total} complete
           </span>
           <span className="text-[10px] font-mono text-slate-400">{pct}%</span>
@@ -307,7 +307,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
         <div className="space-y-5">
           {PHASES.map((p) => (
             <div key={p.phase}>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+              <div className="text-[11px] font-semibold text-slate-400 mb-1.5 px-1">
                 {p.phase}
               </div>
               <ul className="space-y-0.5">
@@ -359,7 +359,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                   <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="e.g. Banner Research Institute" />
                 </FieldRow>
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <div className="text-xs font-semibold text-slate-700 mb-1.5">
                     Do you sponsor studies?
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -531,7 +531,7 @@ function Why({ children }: { children: React.ReactNode }) {
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">{label}</span>
+      <span className="block text-xs font-semibold text-slate-700 mb-1">{label}</span>
       {children}
     </label>
   );

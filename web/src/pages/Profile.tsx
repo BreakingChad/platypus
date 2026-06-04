@@ -246,7 +246,7 @@ export function Profile() {
         <Card className="mt-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              <div className="text-sm font-semibold text-slate-700">
                 Out of office
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
@@ -298,7 +298,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+      <label className="block text-xs font-semibold text-slate-700 mb-1">
         {label}
       </label>
       {children}

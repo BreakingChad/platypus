@@ -43,7 +43,7 @@ export function StageBreakdownBlock({ ctx }: { ctx: BlockContext }) {
               <button
                 key={stage.id}
                 onClick={() => ctx.navigate("#/pipeline")}
-                className="h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-white hover:opacity-80 transition"
+                className="h-full flex items-center justify-center text-[11px] font-bold uppercase tracking-wider text-white hover:opacity-80 transition"
                 style={{ backgroundColor: stage.color, width: `${pct}%` }}
                 title={`${stage.label}: ${c} stud${c === 1 ? "y" : "ies"}`}
               >

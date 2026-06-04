@@ -263,7 +263,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+      <label className="block text-xs font-semibold text-slate-700 mb-1">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>

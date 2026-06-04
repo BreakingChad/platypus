@@ -503,7 +503,7 @@ export function StudyDetail({
         >
           <div className={"w-2 h-8 rounded-full " + HEALTH_TONE[health.level].dot} />
           <div className="flex-1 min-w-0">
-            <div className={"text-xs font-bold uppercase tracking-wider " + HEALTH_TONE[health.level].text}>
+            <div className={"text-xs font-semibold " + HEALTH_TONE[health.level].text}>
               {HEALTH_TONE[health.level].label} in {stage.label}
             </div>
             <div className="text-xs text-slate-600 mt-0.5">
@@ -536,7 +536,7 @@ export function StudyDetail({
       {isAdmin && stages.rows.length > 0 && (
         <Card className="mt-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <div className="text-xs font-semibold text-slate-500">
               Move to stage
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -624,7 +624,7 @@ export function StudyDetail({
               if (sectionFields.length === 0) return null;
               return (
                 <Card key={section}>
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                  <div className="text-xs font-semibold text-slate-500 mb-3">
                     {section}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -707,7 +707,7 @@ function FieldEditor({
   if (!editable) {
     return (
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+        <div className="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
           {field.label}
           {lockReason && (
             <span title={lockReason} className="text-slate-300 inline-flex">
@@ -723,7 +723,7 @@ function FieldEditor({
   if (!editing) {
     return (
       <div className="group">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+        <div className="text-[11px] font-semibold text-slate-500 mb-1">
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </div>
@@ -732,7 +732,7 @@ function FieldEditor({
           className="text-left w-full text-sm text-slate-900 hover:text-brand-700 transition rounded px-1.5 py-0.5 -mx-1.5 hover:bg-brand-50/50 flex items-center gap-2"
         >
           {display}
-          <span className="opacity-0 group-hover:opacity-100 transition text-[10px] font-mono text-brand-600 uppercase tracking-wider">
+          <span className="opacity-0 group-hover:opacity-100 transition text-[11px] font-semibold text-brand-600">
             edit
           </span>
         </button>
@@ -742,7 +742,7 @@ function FieldEditor({
 
   return (
     <div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+      <div className="text-[11px] font-semibold text-slate-500 mb-1">
         {field.label}
       </div>
       <div className="flex items-center gap-1.5">

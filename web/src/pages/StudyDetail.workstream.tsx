@@ -176,7 +176,7 @@ export function WorkStreamPanel({
     <Card className="mt-6">
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="text-xs font-semibold text-slate-500">
             Work stream for{" "}
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ml-1"

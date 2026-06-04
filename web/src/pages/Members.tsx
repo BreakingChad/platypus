@@ -364,7 +364,7 @@ export function Members() {
 
         {members && members.length > 0 && (
           <Card flush>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Member</span>
               <span>Title</span>
               <span>Joined</span>
@@ -453,7 +453,7 @@ export function Members() {
                       onClick={() => void sendSignInLink(m)}
                       disabled={sendingFor === m.id}
                       title={`Send a magic sign-in link to ${m.email}`}
-                      className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-[11px] font-semibold px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {sendingFor === m.id ? "…" : "Send link"}
                     </button>

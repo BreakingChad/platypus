@@ -31,7 +31,7 @@ export function QuickStartBlock({ ctx: _ctx }: { ctx: BlockContext }) {
         <Icon name="layers" size={22} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-bold uppercase tracking-wider text-brand-700 mb-0.5">
+        <div className="text-sm font-semibold text-brand-700 mb-0.5">
           Quick start
         </div>
         <div className="font-display font-bold text-base text-slate-900">

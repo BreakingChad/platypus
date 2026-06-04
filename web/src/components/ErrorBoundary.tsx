@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               crash. Reload to recover.
             </p>
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-left mb-6">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1">
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">
                 Error
               </div>
               <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap break-words">

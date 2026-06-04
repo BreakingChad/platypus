@@ -629,7 +629,7 @@ function NewTaskModal({
         </div>
         <div className="p-5 space-y-3">
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Title
             </span>
             <Input
@@ -643,7 +643,7 @@ function NewTaskModal({
             />
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Study (optional)
             </span>
             <Select value={studyId} onChange={(e) => setStudyId(e.target.value)}>
@@ -658,7 +658,7 @@ function NewTaskModal({
             </Select>
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Stage (optional)
             </span>
             <Select value={stageKey} onChange={(e) => setStageKey(e.target.value)}>
@@ -671,7 +671,7 @@ function NewTaskModal({
             </Select>
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Due date (optional)
             </span>
             <Input
@@ -771,7 +771,7 @@ function AttestationModal({
             <h2 className="text-lg font-display font-bold text-slate-900">
               {at?.label ?? "Sign"}
             </h2>
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+            <div className="text-[11px] font-semibold text-slate-400 truncate">
               {signing.doc.title}
             </div>
           </div>
@@ -781,7 +781,7 @@ function AttestationModal({
             {at?.statement}
           </div>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Your full legal name
             </span>
             <Input

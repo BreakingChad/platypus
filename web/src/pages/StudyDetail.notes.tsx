@@ -104,7 +104,7 @@ export function NotesCard({ studyId }: { studyId: string }) {
     <Card>
       <div className="flex items-center gap-2 mb-3">
         <Icon name="file" size={14} className="text-slate-400" />
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Notes</span>
+        <span className="text-xs font-semibold text-slate-500">Notes</span>
         {notes && notes.length > 0 && (
           <span className="text-[10px] font-mono text-slate-400">{notes.length}</span>
         )}

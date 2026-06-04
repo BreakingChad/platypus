@@ -320,7 +320,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: stage.color }}
                     />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 truncate">
+                    <span className="text-xs font-semibold text-slate-800 truncate">
                       {stage.label}
                     </span>
                     <div className="flex-1" />
@@ -391,7 +391,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
 
                 {/* Target days footer */}
                 {!stage.terminal && (
-                  <div className="px-3 py-1.5 border-t border-slate-200 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                  <div className="px-3 py-1.5 border-t border-slate-200 text-[11px] font-semibold text-slate-400">
                     target: {stage.target_days}d
                   </div>
                 )}

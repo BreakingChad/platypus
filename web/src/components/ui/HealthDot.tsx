@@ -33,7 +33,7 @@ export function HealthDot({
       <span
         title={health.summary}
         className={
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider whitespace-nowrap " +
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold whitespace-nowrap " +
           tone.bg +
           " " +
           tone.text +

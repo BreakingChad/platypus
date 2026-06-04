@@ -63,7 +63,7 @@ function MetricCard({
     >
       <div
         className={
-          "text-[10px] font-bold uppercase tracking-wider mb-1 " +
+          "text-[11px] font-semibold mb-1 " +
           (warning ? "text-amber-700" : "text-slate-500")
         }
       >

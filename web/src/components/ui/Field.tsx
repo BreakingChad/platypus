@@ -11,7 +11,7 @@ export function Field({ label, hint, required, children }: Props) {
   return (
     <div>
       {label && (
-        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+        <label className="block text-xs font-semibold text-slate-500 mb-1.5">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}

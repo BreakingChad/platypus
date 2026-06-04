@@ -149,7 +149,7 @@ export function DirectorsPulseBlock({ ctx }: { ctx: BlockContext }) {
       <div className={"rounded-2xl border-2 bg-gradient-to-br p-5 " + toneCls}>
         <div className="flex items-center gap-2 mb-2">
           <span className={"inline-block w-2.5 h-2.5 rounded-full " + dotCls} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
+          <span className="text-[11px] font-semibold text-slate-700">
             Director's pulse · {sentimentLabel}
           </span>
         </div>

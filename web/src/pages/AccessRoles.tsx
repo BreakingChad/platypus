@@ -125,7 +125,7 @@ export function AccessRoles() {
       {/* COMPOSER */}
       <Card primary className="mt-6 mb-6">
         <div className="mb-3">
-          <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+          <div className="text-sm font-semibold text-brand-700">
             Add an access role
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
@@ -292,7 +292,7 @@ function RoleCard({
           </span>
         )}
         <div className="flex-1" />
-        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+        <span className="text-[11px] font-semibold text-slate-500">
           scope: {role.portfolio_scope}
         </span>
         {!role.builtin && (
@@ -310,7 +310,7 @@ function RoleCard({
         <div className="p-4 space-y-4">
           {/* Description */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
               Description
             </label>
             <DraftInput
@@ -322,7 +322,7 @@ function RoleCard({
 
           {/* Modules grid */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Module permissions
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -345,7 +345,7 @@ function RoleCard({
                           key={p.key}
                           onClick={() => updateModule(m.key, p.key)}
                           className={
-                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition " +
+                            "px-2 py-0.5 rounded text-[11px] font-semibold transition " +
                             (level === p.key
                               ? p.tone === "neutral"
                                 ? "bg-slate-300 text-slate-900"
@@ -369,7 +369,7 @@ function RoleCard({
 
           {/* Portfolio scope */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
               Portfolio scope
             </label>
             <Select

@@ -49,7 +49,7 @@ function WorkTile({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-slate-900">{label}</div>
         {dimmed && (
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+          <div className="text-[11px] font-semibold text-slate-400">
             coming next
           </div>
         )}

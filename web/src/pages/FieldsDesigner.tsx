@@ -294,7 +294,7 @@ export function FieldsDesigner() {
                     {meta.label}
                   </span>
                   {active && (
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                    <span className="text-[11px] font-semibold text-slate-500">
                       editing
                     </span>
                   )}
@@ -310,7 +310,7 @@ export function FieldsDesigner() {
                 }>
                   {count}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-slate-400">
                   active
                 </span>
               </div>
@@ -355,14 +355,14 @@ export function FieldsDesigner() {
       <Card innerRef={composerCardRef} primary className="mb-8 scroll-mt-24">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+            <div className="text-sm font-semibold text-brand-700">
               Add a custom field to {ENTITY_META[entityType].label.toLowerCase()}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
               Pick the section below — available in <strong>every</strong> section.
             </div>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+          <span className="text-[11px] font-semibold text-slate-400">
             writes live · Supabase
           </span>
         </div>
@@ -442,7 +442,7 @@ export function FieldsDesigner() {
           >
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <span className="text-sm font-semibold text-slate-700">
                   {section}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">
@@ -460,7 +460,7 @@ export function FieldsDesigner() {
             </div>
 
             {/* Column headers — wider grid to fit the new section + type dropdowns. */}
-            <div className="px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-[11px] text-slate-400 font-semibold">
               <span className="w-8">On</span>
               <span className="flex-1">Field</span>
               <span className="w-32">Section</span>
@@ -767,7 +767,7 @@ function ChoicesEditor({
 function SummaryCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+      <div className="text-[11px] font-semibold text-slate-500">
         {label}
       </div>
       <div className="text-2xl font-bold text-slate-900 mt-0.5 flex items-baseline gap-1.5">

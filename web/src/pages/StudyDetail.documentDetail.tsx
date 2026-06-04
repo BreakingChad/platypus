@@ -207,7 +207,7 @@ export function DocumentDetailPanel({
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+            <div className="text-[11px] font-semibold text-slate-400 truncate">
               {study.code} · {study.title}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
@@ -261,7 +261,7 @@ export function DocumentDetailPanel({
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {metaEntries.map(([k, val]) => (
                   <div key={k}>
-                    <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <dt className="text-[11px] font-semibold text-slate-500">
                       {metaFieldLabel(doc.doc_type, k)}
                     </dt>
                     <dd className="text-sm text-slate-800">{String(val)}</dd>
@@ -339,7 +339,7 @@ export function DocumentDetailPanel({
                             <button
                               onClick={() => void toggleVersionArchive(v)}
                               disabled={busyVersionId === v.id}
-                              className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition disabled:opacity-40"
+                              className="text-[11px] font-semibold px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition disabled:opacity-40"
                               title={v.archived ? "Restore version" : "Archive version"}
                             >
                               {v.archived ? "restore" : "archive"}
@@ -454,7 +454,7 @@ function SectionHeading({
   return (
     <div className={inline ? "flex items-center gap-2" : "flex items-center gap-2 mb-2"}>
       <Icon name={icon} size={14} className="text-slate-400" />
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+      <span className="text-xs font-semibold text-slate-500">
         {label}
       </span>
       {typeof count === "number" && (
@@ -644,7 +644,7 @@ function SendForActionModal({
         className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
       >
         <div className="px-5 py-4 border-b border-slate-200">
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+          <div className="text-[11px] font-semibold text-slate-400 truncate">
             {doc.title}
           </div>
           <h2 className="text-lg font-display font-bold text-slate-900">Send for action</h2>
@@ -655,7 +655,7 @@ function SendForActionModal({
         </div>
         <div className="p-5 space-y-3">
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Action
             </span>
             <Select value={actionType} onChange={(e) => setActionType(e.target.value as DocActionType)}>
@@ -667,7 +667,7 @@ function SendForActionModal({
             </Select>
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Assign to
             </span>
             <Select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
@@ -680,13 +680,13 @@ function SendForActionModal({
             </Select>
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Due date (optional)
             </span>
             <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           </label>
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Note (optional)
             </span>
             <Input

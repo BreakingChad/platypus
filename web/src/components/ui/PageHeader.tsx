@@ -12,7 +12,7 @@ export function PageHeader({ kicker, title, subtitle, actions }: Props) {
     <header className="mb-8 flex items-end justify-between gap-6">
       <div className="min-w-0">
         {kicker && (
-          <div className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold mb-2">
+          <div className="text-xs font-semibold text-slate-500 mb-2">
             {kicker}
           </div>
         )}

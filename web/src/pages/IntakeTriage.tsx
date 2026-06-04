@@ -107,7 +107,7 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
         )}
         {intakeStudies.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[110px_1fr_190px_200px] gap-3 text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[110px_1fr_190px_200px] gap-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Code</span>
               <span>Study</span>
               <span className="flex items-center gap-1">

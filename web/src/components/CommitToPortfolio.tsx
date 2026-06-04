@@ -169,7 +169,7 @@ function CommitModal({
         className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-slate-200">
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+          <div className="text-[11px] font-semibold text-slate-400">
             {study.code}
           </div>
           <h2 className="text-lg font-display font-bold text-slate-900">Commit to portfolio</h2>
@@ -188,7 +188,7 @@ function CommitModal({
             </div>
           )}
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <div className="text-xs font-semibold text-slate-500 mb-2">
               Work stream that fires on entry
             </div>
             {modules.length === 0 ? (

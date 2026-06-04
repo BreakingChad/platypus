@@ -290,7 +290,7 @@ export function NavDesigner() {
       <Card primary className="mt-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               Editing role
             </label>
             <select
@@ -389,14 +389,14 @@ export function NavDesigner() {
         <div>
           <div className="sticky top-20">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <div className="text-xs font-semibold text-slate-500">
                 Preview
               </div>
               <div className="flex items-center gap-1.5 text-[10px]">
                 <button
                   onClick={() => setPreviewAsAdmin(true)}
                   className={
-                    "rounded px-2 py-0.5 font-mono uppercase tracking-wider transition " +
+                    "rounded px-2 py-0.5 font-semibold transition " +
                     (previewAsAdmin
                       ? "bg-brand-600 text-white"
                       : "bg-slate-100 text-slate-500 hover:bg-slate-200")
@@ -407,7 +407,7 @@ export function NavDesigner() {
                 <button
                   onClick={() => setPreviewAsAdmin(false)}
                   className={
-                    "rounded px-2 py-0.5 font-mono uppercase tracking-wider transition " +
+                    "rounded px-2 py-0.5 font-semibold transition " +
                     (!previewAsAdmin
                       ? "bg-slate-700 text-white"
                       : "bg-slate-100 text-slate-500 hover:bg-slate-200")
@@ -538,12 +538,12 @@ function SortableGroup({
                 setRenaming(false);
               }
             }}
-            className="text-xs font-bold uppercase tracking-wider text-slate-700 border border-brand-200 rounded px-1.5 py-0.5 outline-none focus:border-brand-500"
+            className="text-sm font-semibold text-slate-700 border border-brand-200 rounded px-1.5 py-0.5 outline-none focus:border-brand-500"
           />
         ) : (
           <button
             onClick={() => setRenaming(true)}
-            className="text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-brand-700 transition"
+            className="text-sm font-semibold text-slate-700 hover:text-brand-700 transition"
             title="Rename group"
           >
             {group.group}
@@ -742,7 +742,7 @@ function SortableItem({
         onClick={() => onUpdate({ hidden: !item.hidden })}
         title={item.hidden ? "Show item" : "Hide item"}
         className={
-          "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded transition " +
+          "text-[11px] font-semibold px-1.5 py-0.5 rounded transition " +
           (item.hidden
             ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
             : "bg-slate-100 text-slate-500 hover:bg-slate-200")
@@ -784,7 +784,7 @@ function DragGhost({ id, working }: { id: string; working: NavGroupConfig[] }) {
     const group = working[Number(groupMatch[1])];
     if (!group) return null;
     return (
-      <div className="bg-white rounded-xl border border-brand-300 shadow-lg px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+      <div className="bg-white rounded-xl border border-brand-300 shadow-lg px-3 py-2 text-sm font-semibold text-slate-800">
         {group.group}
       </div>
     );

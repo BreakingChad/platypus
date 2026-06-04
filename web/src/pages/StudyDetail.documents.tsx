@@ -190,7 +190,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
       {/* CATEGORY SIDEBAR */}
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <span className="text-xs font-semibold text-slate-500">
             Categories
           </span>
           {sponsorMode && (
@@ -516,7 +516,7 @@ function DocumentRowView({
           {canEdit && (
             <button
               onClick={onToggleArchive}
-              className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition"
+              className="text-[11px] font-semibold px-1.5 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 transition"
               title={doc.archived ? "Restore document" : "Archive document"}
             >
               {doc.archived ? "restore" : "archive"}
@@ -572,7 +572,7 @@ function NewVersionButton({
             </div>
             <div className="p-5 space-y-3">
               <label className="block">
-                <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                <span className="block text-xs font-semibold text-slate-700 mb-1">
                   Version label
                 </span>
                 <Input
@@ -582,7 +582,7 @@ function NewVersionButton({
                 />
               </label>
               <label className="block">
-                <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                <span className="block text-xs font-semibold text-slate-700 mb-1">
                   File
                 </span>
                 <input
@@ -729,7 +729,7 @@ function UploadDocumentModal({
       >
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-slate-400">
               {study.code} · {study.title}
             </div>
             <h2 className="text-lg font-display font-bold text-slate-900">
@@ -749,7 +749,7 @@ function UploadDocumentModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">
                 Document type
               </span>
               <Select value={docTypeKey} onChange={(e) => setDocTypeKey(e.target.value)}>
@@ -764,7 +764,7 @@ function UploadDocumentModal({
               </p>
             </label>
             <label className="block">
-              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">
                 Category
               </span>
               <Select value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -778,7 +778,7 @@ function UploadDocumentModal({
           </div>
 
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Title <span className="text-red-500">*</span>
             </span>
             <Input
@@ -790,7 +790,7 @@ function UploadDocumentModal({
           </label>
 
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Description (optional)
             </span>
             <Input
@@ -803,13 +803,13 @@ function UploadDocumentModal({
           {/* Type-specific required metadata */}
           {docType.metadataFields.length > 0 && (
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+              <div className="text-xs font-semibold text-slate-500 mb-2">
                 {docType.label} details
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {docType.metadataFields.map((f) => (
                   <label key={f.key} className="block">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    <span className="block text-[11px] font-semibold text-slate-600 mb-1">
                       {f.label}
                       {f.required && <span className="text-red-500 ml-1">*</span>}
                     </span>
@@ -829,7 +829,7 @@ function UploadDocumentModal({
 
           {/* File picker */}
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               File <span className="text-red-500">*</span>
             </span>
             <input

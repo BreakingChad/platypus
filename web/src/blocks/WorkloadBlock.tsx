@@ -114,7 +114,7 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
                   <span className="text-sm font-semibold text-slate-900 truncate min-w-0">
                     {r.email}
                   </span>
-                  <span className={"text-[10px] font-bold uppercase tracking-wider " + toneCls}>
+                  <span className={"text-[11px] font-semibold " + toneCls}>
                     {tone}
                   </span>
                   <div className="flex-1" />

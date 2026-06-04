@@ -151,7 +151,7 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
         )}
         {filtered.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[1fr_180px_120px_120px] gap-3 text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[1fr_180px_120px_120px] gap-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Site</span>
               <span>Location</span>
               <span>Studies</span>
@@ -348,22 +348,22 @@ function NewSiteModal({
         </div>
         <div className="p-5 space-y-3">
           <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
               Site name <span className="text-red-500">*</span>
             </span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Banner Health — Phoenix" autoFocus />
           </label>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
-              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">City</span>
+              <span className="block text-xs font-semibold text-slate-700 mb-1">City</span>
               <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </label>
             <label className="block">
-              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">State</span>
+              <span className="block text-xs font-semibold text-slate-700 mb-1">State</span>
               <Input value={state} onChange={(e) => setState(e.target.value)} />
             </label>
             <label className="block">
-              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Country</span>
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Country</span>
               <Input value={country} onChange={(e) => setCountry(e.target.value)} />
             </label>
           </div>
@@ -501,7 +501,7 @@ function SiteProfilePanel({
         {/* HEADER */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Site profile</div>
+            <div className="text-[11px] font-semibold text-slate-400">Site profile</div>
             <div className="flex items-center gap-2 mt-0.5">
               <Icon name="hospital" size={16} className="text-slate-400 flex-shrink-0" />
               <h2 className="text-lg font-display font-bold text-slate-900 truncate">{site.name}</h2>
@@ -534,7 +534,7 @@ function SiteProfilePanel({
           <section>
             <div className="flex items-center gap-2 mb-2">
               <Icon name="folder" size={14} className="text-slate-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Studies here</span>
+              <span className="text-xs font-semibold text-slate-500">Studies here</span>
               <span className="text-[10px] font-mono text-slate-400">{studies.length}</span>
             </div>
             {studies.length === 0 ? (
@@ -570,7 +570,7 @@ function SiteProfilePanel({
             const sectionFields = siteFields.filter((f) => f.section === section);
             return (
               <section key={section}>
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{section}</div>
+                <div className="text-xs font-semibold text-slate-500 mb-2">{section}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {sectionFields.map((f) => (
                     <SiteFieldEditor
@@ -619,7 +619,7 @@ function SiteFieldEditor({
   if (!editable) {
     return (
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{field.label}</div>
+        <div className="text-[11px] font-semibold text-slate-500 mb-1">{field.label}</div>
         <div className="text-sm text-slate-900">{display}</div>
       </div>
     );
@@ -628,7 +628,7 @@ function SiteFieldEditor({
   if (!editing) {
     return (
       <div className="group">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+        <div className="text-[11px] font-semibold text-slate-500 mb-1">
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </div>
@@ -640,7 +640,7 @@ function SiteFieldEditor({
           className="text-left w-full text-sm text-slate-900 hover:text-brand-700 transition rounded px-1.5 py-0.5 -mx-1.5 hover:bg-brand-50/50 flex items-center gap-2"
         >
           {display}
-          <span className="opacity-0 group-hover:opacity-100 transition text-[10px] font-mono text-brand-600 uppercase tracking-wider">
+          <span className="opacity-0 group-hover:opacity-100 transition text-[11px] font-semibold text-brand-600">
             edit
           </span>
         </button>
@@ -660,7 +660,7 @@ function SiteFieldEditor({
 
   return (
     <div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{field.label}</div>
+      <div className="text-[11px] font-semibold text-slate-500 mb-1">{field.label}</div>
       <div className="flex items-center gap-1.5">
         {field.field_type === "dropdown" && opts.length > 0 ? (
           <Select value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus>

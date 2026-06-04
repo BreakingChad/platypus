@@ -254,7 +254,7 @@ export function AppShell({
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-60 rounded-xl border border-slate-200 bg-white shadow-lg py-1.5 z-30">
                   <div className="px-3 py-2 border-b border-slate-100">
-                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-semibold text-slate-400">
                       Signed in
                     </div>
                     <div className="text-sm font-medium text-slate-900 truncate">
@@ -372,7 +372,7 @@ function SidebarBody({
           <span className="text-lg font-display font-extrabold tracking-tight text-slate-900">
             Platypus
           </span>
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+          <span className="text-[11px] font-semibold text-slate-400">
             clinical ops
           </span>
         </div>
@@ -391,7 +391,7 @@ function SidebarBody({
       <nav className="flex-1 px-2 pb-4 overflow-y-auto" aria-label="Primary navigation">
         {groups.map((group) => (
           <div key={group.group} className="mb-5">
-            <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="px-3 pb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               {group.group}
             </div>
             <ul className="space-y-0.5">
@@ -427,7 +427,7 @@ function SidebarBody({
 
       <div className="border-t border-slate-200 p-3">
         <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-0.5">
+          <div className="text-[11px] font-semibold text-slate-400 mb-0.5">
             Organization
           </div>
           <div className="text-sm font-semibold text-slate-900 truncate">
@@ -512,7 +512,7 @@ function Breadcrumb({
       <nav aria-label="Breadcrumb" className="flex items-baseline gap-2">
         <button
           onClick={() => onNavigate("#/studies")}
-          className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hover:text-brand-700 transition"
+          className="text-[11px] font-semibold text-slate-400 hover:text-brand-700 transition"
         >
           Studies
         </button>
@@ -551,7 +551,7 @@ function Breadcrumb({
     <nav aria-label="Breadcrumb" className="flex items-baseline gap-2">
       <button
         onClick={() => onNavigate(groupHash)}
-        className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hover:text-brand-700 transition"
+        className="text-[11px] font-semibold text-slate-400 hover:text-brand-700 transition"
       >
         {kicker}
       </button>
@@ -648,7 +648,7 @@ function ConfigGearMenu({
           role="menu"
           className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="px-3 py-2 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Configure what you're looking at
           </div>
           {items.map((it) => (
