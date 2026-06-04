@@ -19,6 +19,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { useModalA11y } from "../lib/useModalA11y";
+import { useDismissable } from "../lib/useDismissable";
 import {
   EMPTY_ADV_FILTERS,
   advFilterCount,
@@ -388,6 +389,13 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           );
         })}
       </div>
+      <StageDropdown
+        stages={stages.rows}
+        counts={stageCounts}
+        totalOpen={studies.rows.filter((s) => !s.closed).length}
+        value={stageFilter}
+        onChange={setStageFilter}
+      />
       <div className="flex-1 min-w-[240px]">
         <Input
           value={search}
@@ -435,57 +443,6 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         ))}
       </div>
       </div>
-
-      {/* TOOLBAR row 2 — stage chips · health chips, one wrapping row */}
-      {stages.rows.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setStageFilter("all")}
-            className={
-              "rounded-full border px-3 py-1 text-xs font-semibold transition flex items-center gap-1.5 " +
-              (stageFilter === "all"
-                ? "bg-brand-50 border-brand-200 text-brand-700"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300")
-            }
-          >
-            All
-            <span className="text-[10px] font-mono text-slate-400">
-              {studies.rows.filter((s) => !s.closed).length}
-            </span>
-          </button>
-          {stages.rows.map((stage) => (
-            <button
-              key={stage.id}
-              onClick={() => setStageFilter(stage.key)}
-              className={
-                "rounded-full border px-3 py-1 text-xs font-semibold transition flex items-center gap-1.5 " +
-                (stageFilter === stage.key
-                  ? "border-transparent text-white"
-                  : "bg-white border-slate-200 text-slate-700 hover:border-slate-300")
-              }
-              style={
-                stageFilter === stage.key
-                  ? { backgroundColor: stage.color }
-                  : undefined
-              }
-            >
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: stage.color }}
-              />
-              {stage.label}
-              <span
-                className={
-                  "text-[10px] font-mono " +
-                  (stageFilter === stage.key ? "text-white/80" : "text-slate-400")
-                }
-              >
-                {stageCounts[stage.key] ?? 0}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Health filter chips */}
       {studies.rows.length > 0 && (
@@ -898,6 +855,92 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 }
 
 /** Tiny star icon (inline so we don't bloat the shared Icon component). */
+/* ---------- stage dropdown (toolbar) ---------- */
+
+function StageDropdown({
+  stages,
+  counts,
+  totalOpen,
+  value,
+  onChange,
+}: {
+  stages: PipelineStageRow[];
+  counts: Record<string, number>;
+  totalOpen: number;
+  value: string;
+  onChange: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  useDismissable("[data-stage-dd]", () => setOpen(false), open);
+  const current = value === "all" ? null : stages.find((s) => s.key === value) ?? null;
+  return (
+    <div className="relative" data-stage-dd>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={
+          "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition " +
+          (current
+            ? "border-brand-300 bg-brand-50 text-brand-700"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300")
+        }
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label="Filter by stage"
+      >
+        {current && (
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: current.color }} />
+        )}
+        {current ? current.label : "All stages"}
+        <span className="text-[10px] font-mono text-slate-400">
+          {current ? counts[current.key] ?? 0 : totalOpen}
+        </span>
+        <Icon name={open ? "chevron-up" : "chevron-down"} size={12} className="text-slate-400" />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-80 overflow-y-auto"
+        >
+          <button
+            role="option"
+            aria-selected={value === "all"}
+            onClick={() => {
+              onChange("all");
+              setOpen(false);
+            }}
+            className={
+              "w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-slate-50 transition " +
+              (value === "all" ? "font-semibold text-brand-700" : "text-slate-700")
+            }
+          >
+            All stages
+            <span className="ml-auto text-[10px] font-mono text-slate-400">{totalOpen}</span>
+          </button>
+          {stages.map((s) => (
+            <button
+              key={s.id}
+              role="option"
+              aria-selected={value === s.key}
+              onClick={() => {
+                onChange(s.key);
+                setOpen(false);
+              }}
+              className={
+                "w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-slate-50 transition " +
+                (value === s.key ? "font-semibold text-brand-700" : "text-slate-700")
+              }
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+              {s.label}
+              <span className="ml-auto text-[10px] font-mono text-slate-400">{counts[s.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- dense table view (Wave L2) ---------- */
 
 const DENSE_GT =
