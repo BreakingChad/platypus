@@ -20,6 +20,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 const SWATCHES = [
   "#6366F1", // indigo
   "#7C3AED", // violet
+  "#3B82F6", // blue
+  "#06B6D4", // cyan
   "#0EA5E9", // sky
   "#10B981", // emerald
   "#F59E0B", // amber

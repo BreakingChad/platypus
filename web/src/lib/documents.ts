@@ -658,16 +658,4 @@ export async function recordDocumentSignature(opts: {
 
 /** Parse the headers of an .eml file so the binder can prefill title +
  *  metadata when a coordinator drags an email straight in. */
-export function parseEmlMetadata(text: string): {
-  subject?: string;
-  from?: string;
-  to?: string;
-  date?: string;
-} {
-  const headerBlock = text.split(/\r?\n\r?\n/)[0] ?? text.slice(0, 8000);
-  const get = (name: string): string | undefined => {
-    const m = headerBlock.match(new RegExp("^" + name + ":\\s*(.+)$", "im"));
-    return m ? m[1].trim() : undefined;
-  };
-  return { subject: get("Subject"), from: get("From"), to: get("To"), date: get("Date") };
-}
+export { parseEmlMetadata } from "./eml";
