@@ -1,3 +1,4 @@
+import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
@@ -283,6 +284,8 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
         }
       />
 
+      <PageBlocks pageKey="inbox" region="top" navigate={onNavigate} />
+
       {coveringFor.length > 0 && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-800">
           <Icon name="users" size={14} className="flex-shrink-0" />
@@ -497,6 +500,8 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
           </ul>
         )}
       </Card>
+
+      <PageBlocks pageKey="inbox" region="bottom" navigate={onNavigate} />
 
       {addingTask && orgId && userId && (
         <NewTaskModal

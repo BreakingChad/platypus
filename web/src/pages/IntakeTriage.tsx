@@ -1,3 +1,4 @@
+import { PageBlocks } from "../blocks/PageBlocks";
 import { useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -91,6 +92,8 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
           </div>
         }
       />
+
+      <PageBlocks pageKey="intake" region="top" navigate={onNavigate} />
 
       <Card flush className="mt-6 overflow-hidden">
         {studies.loading && intakeStudies.length === 0 && (
@@ -218,6 +221,8 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
           </>
         )}
       </Card>
+
+      <PageBlocks pageKey="intake" region="bottom" navigate={onNavigate} />
 
       {committing && orgId && userId && commitStage && (
         <CommitModal

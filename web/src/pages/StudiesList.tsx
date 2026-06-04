@@ -1,3 +1,4 @@
+import { PageBlocks } from "../blocks/PageBlocks";
 import { confirmDialog } from "../lib/confirm";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
@@ -265,6 +266,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           </div>
         }
       />
+
+      <PageBlocks pageKey="studies" region="top" navigate={onNavigate} />
 
       {/* Stage chips strip — shows the live count per stage */}
       {stages.rows.length > 0 && (
@@ -621,6 +624,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           </div>
         )}
       </Card>
+
+      <PageBlocks pageKey="studies" region="bottom" navigate={onNavigate} />
 
       {creating && (
         <NewStudyModal

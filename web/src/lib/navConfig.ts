@@ -34,6 +34,10 @@ export type PageBlockConfig = {
   block: string;
   /** Hide the block (keeps the row for re-enabling). */
   hidden?: boolean;
+  /** Where the block renders relative to the page's core content.
+   *  "top" (default) = above; "bottom" = below. Home has no core content,
+   *  so both regions simply stack. */
+  region?: "top" | "bottom";
   /** Block-specific settings (title overrides, limits, etc.). */
   settings?: Record<string, unknown>;
 };
@@ -157,30 +161,36 @@ export type PageRegistryEntry = {
   key: string;            // pageKey used in page_layouts jsonb
   label: string;
   description: string;
+  /** What the page's built-in content is — shown as the locked anchor in
+   *  the designer. Undefined = the page is fully block-driven (Home). */
+  coreLabel?: string;
   allowedBlocks: string[]; // block keys (from BLOCK_REGISTRY)
   defaultLayout: PageBlockConfig[];
 };
+
+/** Every registered block — any block can go on any page. */
+export const ALL_BLOCK_KEYS = [
+  "quick-start",
+  "setup-checklist",
+  "directors-pulse",
+  "tasks-due",
+  "my-studies",
+  "at-risk-studies",
+  "workload",
+  "kpi-strip",
+  "stage-breakdown",
+  "recent-activity",
+  "cycle-time",
+  "setup-hub",
+  "work-tiles",
+];
 
 export const PAGE_REGISTRY: PageRegistryEntry[] = [
   {
     key: "home",
     label: "Home",
-    description: "The dashboard everyone lands on. Mix and match KPI strips, stage breakdowns, recent activity, work tiles.",
-    allowedBlocks: [
-      "quick-start",
-      "setup-checklist",
-      "directors-pulse",
-      "tasks-due",
-      "my-studies",
-      "at-risk-studies",
-      "workload",
-      "kpi-strip",
-      "stage-breakdown",
-      "recent-activity",
-      "cycle-time",
-      "setup-hub",
-      "work-tiles",
-    ],
+    description: "The dashboard everyone lands on — fully block-driven.",
+    allowedBlocks: ALL_BLOCK_KEYS,
     defaultLayout: [
       { id: "blk-quick-start", block: "quick-start" },
       { id: "blk-setup-checklist", block: "setup-checklist" },
@@ -189,6 +199,46 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
       { id: "blk-kpi-strip", block: "kpi-strip" },
       { id: "blk-recent-activity", block: "recent-activity", settings: { limit: 5 } },
     ],
+  },
+  {
+    key: "intake",
+    label: "Intake",
+    description: "The triage queue. Add context blocks above or below it.",
+    coreLabel: "Intake triage queue (completeness, commit, decline)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+  },
+  {
+    key: "studies",
+    label: "Studies",
+    description: "The full portfolio list. Surround it with the signals each role needs.",
+    coreLabel: "Portfolio list (filters, search, bulk actions)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+  },
+  {
+    key: "pipeline",
+    label: "Pipeline",
+    description: "The kanban board grouped by stage.",
+    coreLabel: "Stage kanban (drag to advance)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+  },
+  {
+    key: "sites",
+    label: "Sites",
+    description: "The site information collection system.",
+    coreLabel: "Site list + profile drawer",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+  },
+  {
+    key: "inbox",
+    label: "Inbox",
+    description: "Tasks routed to each person and their roles.",
+    coreLabel: "Task queue (mine / team / all)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
   },
 ];
 

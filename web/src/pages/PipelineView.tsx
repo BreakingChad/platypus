@@ -1,3 +1,4 @@
+import { PageBlocks } from "../blocks/PageBlocks";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { useMemo, useState } from "react";
@@ -172,6 +173,8 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
         </div>
       )}
 
+      <PageBlocks pageKey="pipeline" region="top" navigate={onNavigate} />
+
       {/* Kanban */}
       <div
         className="mt-6 overflow-x-auto -mx-4 md:-mx-6 px-4 md:px-6"
@@ -300,6 +303,8 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
           />
         </Card>
       )}
+
+      <PageBlocks pageKey="pipeline" region="bottom" navigate={onNavigate} />
     </div>
   );
 }

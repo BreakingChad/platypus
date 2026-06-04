@@ -1,4 +1,5 @@
 import { confirmDialog } from "../lib/confirm";
+import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -105,16 +106,38 @@ export function PageLayoutDesigner() {
 
   /* ---------- mutators ---------- */
 
-  const addBlock = (blockKey: string) => {
+  const addBlock = (blockKey: string, region: "top" | "bottom" = "top") => {
     const entry = blockEntry(blockKey);
     if (!entry) return;
     const block: PageBlockConfig = {
       id: newBlockId(blockKey),
       block: blockKey,
+      region,
       settings: { ...(entry.defaultSettings ?? {}) },
     };
     setWorking((bs) => [...bs, block]);
     setSelectedBlockId(block.id);
+  };
+
+  const setRegion = (id: string, region: "top" | "bottom") => {
+    setWorking((bs) => bs.map((b) => (b.id === id ? { ...b, region } : b)));
+  };
+
+  const copyFromRole = async (fromRoleId: string) => {
+    const from = roles.rows.find((r) => r.id === fromRoleId);
+    if (!from) return;
+    const layouts = (from.page_layouts as PageLayoutsConfig) ?? {};
+    const layout = layouts[selectedPageKey] ?? pageEntry(selectedPageKey)?.defaultLayout ?? [];
+    if (
+      !(await confirmDialog({
+        title: "Copy layout",
+        message: `Replace this working layout with ${from.name}'s ${pageMeta?.label ?? selectedPageKey} layout? You still review and save.`,
+        confirmLabel: "Copy",
+      }))
+    )
+      return;
+    setWorking(JSON.parse(JSON.stringify(layout)));
+    setSelectedBlockId(null);
   };
 
   const removeBlock = (id: string) => {
@@ -156,7 +179,11 @@ export function PageLayoutDesigner() {
     const from = working.findIndex((b) => b.id === active.id);
     const to = working.findIndex((b) => b.id === over.id);
     if (from < 0 || to < 0) return;
-    setWorking((bs) => arrayMove(bs, from, to));
+    setWorking((bs) => {
+      const overRegion = bs[to]?.region ?? "top";
+      const moved = arrayMove(bs, from, to);
+      return moved.map((b) => (b.id === active.id ? { ...b, region: overRegion } : b));
+    });
   };
 
   /* ---------- persistence ---------- */
@@ -175,7 +202,7 @@ export function PageLayoutDesigner() {
         .eq("id", selectedRoleId);
       if (error) throw error;
       setOriginalSerialized(JSON.stringify(working));
-      toast.success(`Saved ${pageMeta?.label} layout for ${selectedRole?.name}`);
+      toast.success(stamped(`Saved ${pageMeta?.label} layout for ${selectedRole?.name}`));
     } catch (e: any) {
       toast.error(e?.message || "Save failed");
     } finally {
@@ -214,13 +241,15 @@ export function PageLayoutDesigner() {
 
   const selectedBlock = working.find((b) => b.id === selectedBlockId) ?? null;
   const selectedBlockMeta = selectedBlock ? blockEntry(selectedBlock.block) : null;
+  const topBlocks = working.filter((b) => (b.region ?? "top") === "top");
+  const bottomBlocks = working.filter((b) => (b.region ?? "top") === "bottom");
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
         title="Page designer"
-        subtitle="Drag blocks to reorder them on each page. Each access role gets its own layout — hide what's not relevant, move what matters to the top."
+        subtitle="Every page in the workspace, shaped per access role. Place any block above or below a page's built-in content, reorder by drag, tune each block's settings — what you save here is exactly what that role sees, live."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
 
@@ -265,6 +294,23 @@ export function PageLayoutDesigner() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) void copyFromRole(e.target.value);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 outline-none focus:border-brand-500"
+              aria-label="Copy layout from another role"
+            >
+              <option value="">Copy from role…</option>
+              {roles.rows
+                .filter((r) => r.id !== selectedRoleId)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+            </select>
             <Button variant="ghost" size="sm" onClick={resetToDefault}>
               Reset page
             </Button>
@@ -285,10 +331,10 @@ export function PageLayoutDesigner() {
 
       {/* Editor */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px_300px] gap-4 mt-4">
-        {/* CENTER — block list */}
+        {/* CENTER — the page, top to bottom, core content locked in place */}
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Blocks (top → bottom)
+            This page, top to bottom
           </div>
           <DndContext
             sensors={sensors}
@@ -301,16 +347,7 @@ export function PageLayoutDesigner() {
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-2 min-h-[200px]">
-                {working.length === 0 && (
-                  <Card>
-                    <EmptyState
-                      iconName="layers"
-                      title="No blocks on this page"
-                      sub="Add a block from the library on the right."
-                    />
-                  </Card>
-                )}
-                {working.map((b) => (
+                {topBlocks.map((b) => (
                   <SortableBlockRow
                     key={b.id}
                     block={b}
@@ -318,6 +355,39 @@ export function PageLayoutDesigner() {
                     onSelect={() => setSelectedBlockId(b.id)}
                     onToggleHidden={() => toggleHidden(b.id)}
                     onRemove={() => removeBlock(b.id)}
+                    onRegion={(r) => setRegion(b.id, r)}
+                  />
+                ))}
+
+                {pageMeta?.coreLabel ? (
+                  <div className="rounded-lg border-2 border-slate-300 bg-slate-100/80 px-3 py-3 flex items-center gap-2.5">
+                    <Icon name="lock" size={14} className="text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-700">{pageMeta.coreLabel}</div>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                        built-in page content · always shown
+                      </div>
+                    </div>
+                  </div>
+                ) : working.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      iconName="layers"
+                      title="Nothing on this page yet"
+                      sub="Add a block from the library on the right."
+                    />
+                  </Card>
+                ) : null}
+
+                {bottomBlocks.map((b) => (
+                  <SortableBlockRow
+                    key={b.id}
+                    block={b}
+                    selected={b.id === selectedBlockId}
+                    onSelect={() => setSelectedBlockId(b.id)}
+                    onToggleHidden={() => toggleHidden(b.id)}
+                    onRemove={() => removeBlock(b.id)}
+                    onRegion={(r) => setRegion(b.id, r)}
                   />
                 ))}
               </div>
@@ -341,22 +411,34 @@ export function PageLayoutDesigner() {
               </div>
             )}
             {libraryUnused.map((entry) => (
-              <button
+              <div
                 key={entry.key}
-                onClick={() => addBlock(entry.key)}
-                className="w-full text-left rounded-lg border border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/30 transition px-3 py-2.5 flex items-start gap-2.5"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 flex items-start gap-2.5"
               >
                 <div className="w-8 h-8 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0">
                   <Icon name={entry.icon} size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-slate-900">{entry.label}</div>
-                  <div className="text-[11px] text-slate-500 leading-snug">
-                    {entry.description}
+                  <div className="text-[11px] text-slate-500 leading-snug">{entry.description}</div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <button
+                      onClick={() => addBlock(entry.key, "top")}
+                      className="text-[10px] font-bold uppercase tracking-wider rounded border border-brand-200 bg-brand-50 text-brand-700 px-1.5 py-0.5 hover:bg-brand-100 transition"
+                    >
+                      {pageMeta?.coreLabel ? "+ Above" : "+ Add"}
+                    </button>
+                    {pageMeta?.coreLabel && (
+                      <button
+                        onClick={() => addBlock(entry.key, "bottom")}
+                        className="text-[10px] font-bold uppercase tracking-wider rounded border border-slate-200 bg-white text-slate-600 px-1.5 py-0.5 hover:border-slate-300 transition"
+                      >
+                        + Below
+                      </button>
+                    )}
                   </div>
                 </div>
-                <Icon name="plus" size={14} className="text-slate-400 mt-1" />
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -468,12 +550,14 @@ function SortableBlockRow({
   onSelect,
   onToggleHidden,
   onRemove,
+  onRegion,
 }: {
   block: PageBlockConfig;
   selected: boolean;
   onSelect: () => void;
   onToggleHidden: () => void;
   onRemove: () => void;
+  onRegion?: (r: "top" | "bottom") => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
@@ -529,6 +613,18 @@ function SortableBlockRow({
         </div>
         <div className="text-[11px] text-slate-500 truncate">{entry.description}</div>
       </div>
+      {onRegion && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRegion((block.region ?? "top") === "top" ? "bottom" : "top");
+          }}
+          title="Move to the other side of the page content"
+          className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+        >
+          {(block.region ?? "top") === "top" ? "above" : "below"}
+        </button>
+      )}
       <button
         onClick={(e) => {
           e.stopPropagation();

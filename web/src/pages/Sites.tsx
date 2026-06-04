@@ -1,3 +1,4 @@
+import { PageBlocks } from "../blocks/PageBlocks";
 import { useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -108,6 +109,8 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
         />
       </div>
 
+      <PageBlocks pageKey="sites" region="top" navigate={onNavigate} />
+
       <Card flush className="mt-4 overflow-hidden">
         {sites.error && (
           <div className="m-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -200,6 +203,8 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
           </>
         )}
       </Card>
+
+      <PageBlocks pageKey="sites" region="bottom" navigate={onNavigate} />
 
       {composerOpen && orgId && userId && (
         <NewSiteModal
