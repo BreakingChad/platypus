@@ -30,6 +30,9 @@ const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({
 const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
 const GuidedSetup          = lazy(() => import("./pages/GuidedSetup").then(m => ({ default: m.GuidedSetup })));
 const SettingsHub          = lazy(() => import("./pages/SettingsHub").then(m => ({ default: m.SettingsHub })));
+const MyStudies            = lazy(() => import("./pages/MyStudies").then(m => ({ default: m.MyStudies })));
+const TeamTasks            = lazy(() => import("./pages/TeamTasks").then(m => ({ default: m.TeamTasks })));
+const Approvals            = lazy(() => import("./pages/Approvals").then(m => ({ default: m.Approvals })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -58,6 +61,20 @@ function renderRoute(
   if (hash === "" || hash === "#" || hash === "#/") {
     return { node: <Home onNavigate={navigate} /> };
   }
+
+  if (hash === "#/my-studies") return { node: <MyStudies onNavigate={navigate} /> };
+  if (hash === "#/team-tasks") return { node: <TeamTasks onNavigate={navigate} /> };
+  if (hash === "#/approvals") return { node: <Approvals onNavigate={navigate} /> };
+  if (hash === "#/calendar")
+    return { node: <ComingSoon kicker="Workspace" title="Calendar" iconName="layers" description="Task due dates and study milestones on one calendar — month and week views." onBackToHome={() => navigate("#/")} /> };
+  if (hash === "#/amendments")
+    return { node: <ComingSoon kicker="Pipeline tools" title="Amendments" iconName="file" description="Intake for studies that already exist: truncated feasibility, full regulatory, budget, and CTMS pathway — run as a parallel study instance." onBackToHome={() => navigate("#/")} /> };
+  if (hash === "#/analytics")
+    return { node: <ComingSoon kicker="Insights" title="Analytics" iconName="workflow" description="Cycle time per stage, throughput per site, workload — with CSV export. Root-study rollups arrive with the multi-site model." onBackToHome={() => navigate("#/")} /> };
+  if (hash === "#/binders")
+    return { node: <ComingSoon kicker="Documents" title="Binders" iconName="shield" description="eReg / eISF digital binders on the CDISC framework — version control, Part 11 e-signatures, monitor access. Lands near end of year; document upload and the audit chain are live inside each study today." onBackToHome={() => navigate("#/")} /> };
+  if (hash === "#/expirations")
+    return { node: <ComingSoon kicker="Team work" title="Expirations" iconName="alert" description="Every dated document and credential approaching expiry, across all studies — sorted by urgency." onBackToHome={() => navigate("#/")} /> };
 
   // Configure
   if (hash === "#/settings") {

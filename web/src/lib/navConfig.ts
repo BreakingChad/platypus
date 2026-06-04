@@ -99,6 +99,14 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "work-streams", label: "Work streams",    icon: "workflow",  hash: "#/settings/work-streams", adminOnly: true, description: "Pattern Builder — auto-spawn tasks per stage." },
   { key: "setup",        label: "Guided setup",    icon: "check",     hash: "#/setup",                 adminOnly: true, description: "First-run guided configuration." },
   { key: "settings",     label: "Settings",        icon: "settings",  hash: "#/settings",              adminOnly: true, description: "All configuration tools, explained." },
+  { key: "my-studies",   label: "My Studies",      icon: "folder",    hash: "#/my-studies",            description: "Studies you're actively working." },
+  { key: "team-tasks",   label: "Team tasks",      icon: "users",     hash: "#/team-tasks",            description: "Your team's open queue." },
+  { key: "approvals",    label: "Approvals",       icon: "check",     hash: "#/approvals",             description: "Documents waiting on your signature or review." },
+  { key: "calendar",     label: "Calendar",        icon: "layers",    hash: "#/calendar",              description: "Due dates and milestones (coming)." },
+  { key: "amendments",   label: "Amendments",      icon: "file",      hash: "#/amendments",            description: "Intake for studies that already exist (coming)." },
+  { key: "analytics",    label: "Analytics",       icon: "workflow",  hash: "#/analytics",             description: "Cycle times, throughput, exports (coming)." },
+  { key: "binders",      label: "Binders",         icon: "shield",    hash: "#/binders",               description: "eReg / eISF document binders (eOY)." },
+  { key: "expirations",  label: "Expirations",     icon: "alert",     hash: "#/expirations",           description: "Dated documents approaching expiry (coming)." },
 ];
 
 export function navEntry(key: string): NavRegistryEntry | undefined {
@@ -114,12 +122,46 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
   {
     group: "Workspace",
     items: [
-      { key: "home" },
-      { key: "intake" },
-      { key: "studies" },
-      { key: "pipeline" },
-      { key: "sites" },
+      { key: "home", label: "Today" },
+      { key: "calendar" },
       { key: "inbox" },
+    ],
+  },
+  {
+    group: "Studies",
+    items: [
+      { key: "studies", label: "Portfolio" },
+      { key: "my-studies" },
+    ],
+  },
+  {
+    group: "Pipeline tools",
+    items: [
+      { key: "intake" },
+      { key: "amendments" },
+      { key: "pipeline", label: "By stage" },
+      { key: "sites" },
+    ],
+  },
+  {
+    group: "Team work",
+    items: [
+      { key: "team-tasks" },
+      { key: "approvals" },
+      { key: "expirations" },
+    ],
+  },
+  {
+    group: "Documents",
+    items: [
+      { key: "binders" },
+    ],
+  },
+  {
+    group: "Insights",
+    items: [
+      { key: "analytics" },
+      { key: "audit", label: "Audit Trail" },
     ],
   },
   {

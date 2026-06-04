@@ -41,7 +41,14 @@ import { EmptyState } from "../components/ui/EmptyState";
 
 type Tab = "mine" | "team" | "all";
 
-export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
+export function Inbox({
+  onNavigate,
+  fixedTab,
+}: {
+  onNavigate: (h: string) => void;
+  /** Lock the queue to one tab and hide the tab bar (Team tasks page). */
+  fixedTab?: Tab;
+}) {
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
   const { isAdmin } = useCurrentMember();
@@ -57,9 +64,10 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const documents = useOrgTable<DocumentRow>("documents", { realtime: true });
 
   const { configFor } = useResolvedConfig();
-  const [tab, setTab] = useStickyStateWithRoleDefault<Tab>(
+  const [tabSticky, setTab] = useStickyStateWithRoleDefault<Tab>(
     "inbox/tab", "mine", (configFor("inbox").options ?? {}).defaultTab as Tab | undefined
   );
+  const tab: Tab = fixedTab ?? tabSticky;
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
@@ -302,7 +310,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       )}
 
       {/* Tabs */}
-      <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+      <div className={(fixedTab ? "hidden " : "") + "mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5"}>
         {([
           ["mine", "Mine", counts.mine],
           ["team", "My team", counts.team],

@@ -487,6 +487,14 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/setup": { kicker: "Get started", title: "Guided setup" },
   "#/profile": { kicker: "You", title: "Profile" },
   "#/settings": { kicker: "Configure", title: "Settings" },
+  "#/my-studies": { kicker: "Studies", title: "My Studies" },
+  "#/team-tasks": { kicker: "Team work", title: "Team tasks" },
+  "#/approvals": { kicker: "Team work", title: "Approvals" },
+  "#/calendar": { kicker: "Workspace", title: "Calendar" },
+  "#/amendments": { kicker: "Pipeline tools", title: "Amendments" },
+  "#/analytics": { kicker: "Insights", title: "Analytics" },
+  "#/binders": { kicker: "Documents", title: "Binders" },
+  "#/expirations": { kicker: "Team work", title: "Expirations" },
 };
 
 function Breadcrumb({
