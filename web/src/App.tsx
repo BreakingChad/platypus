@@ -34,6 +34,7 @@ const TeamTasks            = lazy(() => import("./pages/TeamTasks").then(m => ({
 const Approvals            = lazy(() => import("./pages/Approvals").then(m => ({ default: m.Approvals })));
 const FormsAdmin           = lazy(() => import("./pages/FormsAdmin").then(m => ({ default: m.FormsAdmin })));
 const PublicIntake         = lazy(() => import("./pages/PublicIntake").then(m => ({ default: m.PublicIntake })));
+const PlatformConsole      = lazy(() => import("./pages/PlatformConsole").then(m => ({ default: m.PlatformConsole })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -175,6 +176,25 @@ export function App() {
         <Suspense fallback={<LazyFallback />}>
           <PublicIntake hash={hash} />
         </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  // PLATFORM console — its own address (#/platform), its own chrome,
+  // cross-org by design. Auth applies; the org shell does not.
+  if (hash === "#/platform" || hash.startsWith("#/platform/")) {
+    return (
+      <ErrorBoundary>
+        <ToastProvider>
+          <OrgProvider>
+            <AuthGate>
+              <Suspense fallback={<LazyFallback />}>
+                <PlatformConsole onNavigate={navigate} />
+              </Suspense>
+            </AuthGate>
+          </OrgProvider>
+          <ConfirmRoot />
+        </ToastProvider>
       </ErrorBoundary>
     );
   }

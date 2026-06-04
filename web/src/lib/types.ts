@@ -174,6 +174,21 @@ export type WorkflowTaskTemplateRow = {
   created_at: string;
 };
 
+export type PlatformAdminRow = {
+  user_id: string;
+  created_at: string;
+};
+
+export type OrgInviteRow = {
+  id: string;
+  org_id: string;
+  email: string;
+  tier: MemberTier;
+  invited_by: string | null;
+  created_at: string;
+  accepted_at: string | null;
+};
+
 export type IntakeFormRow = {
   id: string;
   org_id: string;
@@ -340,6 +355,8 @@ export type Database = {
       study_notes:             { Row: StudyNoteRow;            Insert: Partial<StudyNoteRow>;            Update: Partial<StudyNoteRow>;            Relationships: [] };
       document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
       intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
+      platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
+      org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };
     };
     Views: {};

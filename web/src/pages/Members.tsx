@@ -1,6 +1,8 @@
 import { friendlyError } from "../lib/errors";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
+import type { OrgInviteRow } from "../lib/types";
+import { Select } from "../components/ui/Select";
 import { fmtDate } from "../lib/dates";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
@@ -57,6 +59,22 @@ export function Members() {
   const [orgOwnerId, setOrgOwnerId] = useState<string | null>(null);
   const [accessRoles, setAccessRoles] = useState<{ id: string; name: string }[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteTier, setInviteTier] = useState<"member" | "admin">("member");
+  const [pendingInvites, setPendingInvites] = useState<OrgInviteRow[]>([]);
+  const loadInvites = async () => {
+    if (!orgId) return;
+    const { data } = await supabase
+      .from("org_invites")
+      .select("*")
+      .eq("org_id", orgId)
+      .is("accepted_at", null)
+      .order("created_at", { ascending: false });
+    setPendingInvites((data ?? []) as OrgInviteRow[]);
+  };
+  useEffect(() => {
+    void loadInvites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId]);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [sendingFor, setSendingFor] = useState<string | null>(null);
 
@@ -178,6 +196,19 @@ export function Members() {
   const sendInvite = async () => {
     setSendingInvite(true);
     const ok = await sendMagicLink(inviteEmail, "invite");
+    if (ok && orgId) {
+      // Record the invite: gives it visible status here, and routes the
+      // signup into THIS org at the chosen tier (0023 trigger).
+      const { error } = await supabase.from("org_invites").upsert(
+        {
+          org_id: orgId,
+          email: inviteEmail.trim().toLowerCase(),
+          tier: inviteTier,
+        } as any,
+        { onConflict: "org_id,email" }
+      );
+      if (!error) void loadInvites();
+    }
     setSendingInvite(false);
     if (ok) setInviteEmail("");
   };
@@ -295,7 +326,7 @@ export function Members() {
               here once they appear.
             </p>
 
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-center">
               <Input
                 type="email"
                 value={inviteEmail}
@@ -306,6 +337,15 @@ export function Members() {
                 placeholder="teammate@example.com"
                 autoComplete="off"
               />
+              <Select
+                value={inviteTier}
+                onChange={(e) => setInviteTier(e.target.value as "member" | "admin")}
+                className="w-32"
+                aria-label="Tier for the invitee"
+              >
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </Select>
               <Button
                 variant="primary"
                 onClick={() => void sendInvite()}
@@ -489,6 +529,38 @@ export function Members() {
           </Card>
         )}
       </div>
+
+      {pendingInvites.length > 0 && (
+        <Card flush className="mt-4 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-800">Pending invites</span>
+            <Pill tone="warning">{pendingInvites.length} awaiting first sign-in</Pill>
+          </div>
+          {pendingInvites.map((inv) => (
+            <div
+              key={inv.id}
+              className="px-4 py-2.5 border-b border-slate-100 last:border-b-0 grid grid-cols-[1fr_110px_160px_90px] gap-3 items-center"
+            >
+              <span className="text-sm text-slate-900 truncate">{inv.email}</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{inv.tier}</span>
+              <span className="text-[11px] font-mono text-slate-500">invited {fmtDate(inv.created_at)}</span>
+              <button
+                onClick={async () => {
+                  const { error } = await supabase.from("org_invites").delete().eq("id", inv.id);
+                  if (error) toast.error(friendlyError(error, "Couldn't revoke the invite"));
+                  else {
+                    toast.success(stamped(`Invite for ${inv.email} revoked`));
+                    void loadInvites();
+                  }
+                }}
+                className="justify-self-end text-xs font-semibold text-slate-400 hover:text-red-600 transition"
+              >
+                Revoke
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
         <strong>Owners</strong> are the org's ultimate authority — exactly one per org, set at
