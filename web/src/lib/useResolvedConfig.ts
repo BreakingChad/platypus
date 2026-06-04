@@ -8,8 +8,10 @@ import {
   DEFAULT_NAV,
   resolveNav,
   resolvePageLayout,
+  resolvePageConfig,
   type NavGroupConfig,
   type PageBlockConfig,
+  type PageConfig,
   type PageLayoutsConfig,
 } from "./navConfig";
 
@@ -150,6 +152,9 @@ export function useResolvedConfig() {
   const layoutFor = (pageKey: string): PageBlockConfig[] =>
     resolvePageLayout(pageKey, pageLayouts as PageLayoutsConfig);
 
+  const configFor = (pageKey: string): PageConfig =>
+    resolvePageConfig(pageKey, pageLayouts as PageLayoutsConfig);
+
   return {
     loading,
     accessRoleId: memberRow?.access_role_id ?? null,
@@ -157,6 +162,7 @@ export function useResolvedConfig() {
     rawNavConfig: navConfig,     // raw value (or null if default)
     pageLayouts,                 // raw page layouts (or null)
     layoutFor,                   // resolves per-page layout w/ default fallback
+    configFor,                   // full page config: blocks + tabs + options
   };
 }
 

@@ -17,7 +17,8 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthInfo } from "../lib/studyHealth";
-import { useStickyState } from "../lib/useStickyState";
+import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
+import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { useStarredStudies } from "../lib/useStarred";
 import { useAuth } from "../auth/useAuth";
 
@@ -43,7 +44,10 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
     realtime: true,
   });
 
-  const [showClosed, setShowClosed] = useStickyState<boolean>("pipeline/showClosed", false);
+  const { configFor } = useResolvedConfig();
+  const [showClosed, setShowClosed] = useStickyStateWithRoleDefault<boolean>(
+    "pipeline/showClosed", false, (configFor("pipeline").options ?? {}).showClosed as boolean | undefined
+  );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
 

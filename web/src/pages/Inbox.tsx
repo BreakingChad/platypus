@@ -13,7 +13,8 @@ import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import { actionTypeByKey, recordDocumentSignature } from "../lib/documents";
 import { escalateTask } from "../lib/escalation";
-import { useStickyState } from "../lib/useStickyState";
+import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
+import { useResolvedConfig } from "../lib/useResolvedConfig";
 import type {
   TaskRow,
   TaskStatus,
@@ -54,7 +55,10 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders");
   const documents = useOrgTable<DocumentRow>("documents", { realtime: true });
 
-  const [tab, setTab] = useStickyState<Tab>("inbox/tab", "mine");
+  const { configFor } = useResolvedConfig();
+  const [tab, setTab] = useStickyStateWithRoleDefault<Tab>(
+    "inbox/tab", "mine", (configFor("inbox").options ?? {}).defaultTab as Tab | undefined
+  );
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
   const [addingTask, setAddingTask] = useState(false);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);

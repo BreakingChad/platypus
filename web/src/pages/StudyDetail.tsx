@@ -32,6 +32,9 @@ import { TasksTab } from "./StudyDetail.tasks";
 import { DocumentsTab } from "./StudyDetail.documents";
 import { NotesCard } from "./StudyDetail.notes";
 import { FeasibilityTab } from "./StudyDetail.feasibility";
+import { PageBlocks } from "../blocks/PageBlocks";
+import { useResolvedConfig } from "../lib/useResolvedConfig";
+import { pageEntry } from "../lib/navConfig";
 
 /** StudyDetail — full record. Header (code + title + stage chip + actions),
  *  tabbed body (Overview / Activity / Documents / Audit), inline editing on
@@ -86,7 +89,30 @@ export function StudyDetail({
 
   const [study, setStudy] = useState<StudyRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("overview");
+
+  // Tabs are designable per role (Page designer → Study record): order,
+  // labels, hidden, and the default tab all come from the role's config.
+  const { configFor } = useResolvedConfig();
+  const pageCfg = configFor("study-detail");
+  const registryTabs = pageEntry("study-detail")?.tabs ?? [];
+  const tabCfgs: { key: string; label?: string; hidden?: boolean }[] =
+    pageCfg.tabs ?? registryTabs.map((t) => ({ key: t.key }));
+  const visibleTabs = tabCfgs
+    .filter((t) => !t.hidden)
+    .map((t) => ({
+      key: t.key as Tab,
+      label: t.label || registryTabs.find((r) => r.key === t.key)?.label || t.key,
+    }));
+  const safeTabs = visibleTabs.length > 0
+    ? visibleTabs
+    : registryTabs.map((t) => ({ key: t.key as Tab, label: t.label }));
+  const roleDefaultTab = (pageCfg.options?.defaultTab as Tab | undefined) ?? "overview";
+  const [tab, setTabRaw] = useState<Tab | null>(null);
+  const effectiveTab: Tab = (() => {
+    const want = tab ?? roleDefaultTab;
+    return safeTabs.some((t) => t.key === want) ? want : safeTabs[0].key;
+  })();
+  const setTab = (t: Tab) => setTabRaw(t);
   const [advancing, setAdvancing] = useState(false);
   const [activityCount, setActivityCount] = useState<number | null>(null);
   const [openTaskCount, setOpenTaskCount] = useState<number | null>(null);
@@ -379,6 +405,8 @@ export function StudyDetail({
         Back to studies
       </button>
 
+      <PageBlocks pageKey="study-detail" region="top" navigate={(h) => { window.location.hash = h; }} />
+
       <PageHeader
         kicker={`Study · ${study.code}`}
         title={study.title}
@@ -523,19 +551,18 @@ export function StudyDetail({
 
       {/* Tabs */}
       <div className="mt-6 border-b border-slate-200 flex items-center gap-1">
-        {([
-          ["overview", "Overview", null],
-          ["feasibility", "Feasibility", null],
-          ["activity", "Activity", activityCount],
-          ["tasks", "Tasks", openTaskCount],
-          ["documents", "Documents", documentCount],
-        ] as [Tab, string, number | null][]).map(([key, label, count]) => (
+        {safeTabs.map(({ key, label }) => {
+          const count: number | null =
+            key === "activity" ? activityCount :
+            key === "tasks" ? openTaskCount :
+            key === "documents" ? documentCount : null;
+          return (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={
               "px-3 py-2 text-sm font-semibold transition border-b-2 -mb-px flex items-center gap-1.5 " +
-              (tab === key
+              (effectiveTab === key
                 ? "border-brand-600 text-brand-700"
                 : "border-transparent text-slate-500 hover:text-slate-900")
             }
@@ -545,7 +572,7 @@ export function StudyDetail({
               <span
                 className={
                   "text-[10px] font-mono px-1.5 py-0.5 rounded-full " +
-                  (tab === key
+                  (effectiveTab === key
                     ? "bg-brand-100 text-brand-700"
                     : "bg-slate-100 text-slate-500")
                 }
@@ -554,12 +581,13 @@ export function StudyDetail({
               </span>
             )}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Tab body */}
       <div className="mt-5">
-        {tab === "overview" && (
+        {effectiveTab === "overview" && (
           <div className="space-y-5">
             <NotesCard studyId={study.id} />
             {studyFields.length === 0 && (
@@ -603,21 +631,22 @@ export function StudyDetail({
           </div>
         )}
 
-        {tab === "feasibility" && <FeasibilityTab study={study} />}
+        {effectiveTab === "feasibility" && <FeasibilityTab study={study} />}
 
-        {tab === "activity" && (
+        {effectiveTab === "activity" && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />
         )}
 
-        {tab === "tasks" && (
+        {effectiveTab === "tasks" && (
           <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} onNavigate={(h) => { window.location.hash = h; }} />
         )}
 
-        {tab === "documents" && (
+        {effectiveTab === "documents" && (
           <DocumentsTab study={study} />
         )}
-
       </div>
+
+      <PageBlocks pageKey="study-detail" region="bottom" navigate={(h) => { window.location.hash = h; }} />
     </div>
   );
 }

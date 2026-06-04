@@ -17,7 +17,8 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
-import { useStickyState } from "../lib/useStickyState";
+import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
+import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { useStarredStudies } from "../lib/useStarred";
 import { toCsv, downloadCsv } from "../lib/csv";
 import { useAuth } from "../auth/useAuth";
@@ -42,10 +43,16 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
 
+  const { configFor } = useResolvedConfig();
+  const pageOpts = configFor("studies").options ?? {};
   const [search, setSearch] = useState("");                                                // search resets per session
   const [stageFilter, setStageFilter] = useStickyState<string>("studies/stageFilter", "all");
-  const [healthFilter, setHealthFilter] = useStickyState<"all" | HealthLevel>("studies/healthFilter", "all");
-  const [showClosed, setShowClosed] = useStickyState<boolean>("studies/showClosed", false);
+  const [healthFilter, setHealthFilter] = useStickyStateWithRoleDefault<"all" | HealthLevel>(
+    "studies/healthFilter", "all", pageOpts.healthFilter as "all" | HealthLevel | undefined
+  );
+  const [showClosed, setShowClosed] = useStickyStateWithRoleDefault<boolean>(
+    "studies/showClosed", false, pageOpts.showClosed as boolean | undefined
+  );
   const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
   const [creating, setCreating] = useState(false);
 

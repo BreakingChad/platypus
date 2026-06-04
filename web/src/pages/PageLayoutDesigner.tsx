@@ -30,8 +30,10 @@ import {
   PAGE_REGISTRY,
   pageEntry,
   newBlockId,
+  resolvePageConfig,
   type PageBlockConfig,
   type PageLayoutsConfig,
+  type PageTabConfig,
 } from "../lib/navConfig";
 import { BLOCK_REGISTRY, blockEntry } from "../blocks/registry";
 
@@ -60,6 +62,8 @@ export function PageLayoutDesigner() {
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [selectedPageKey, setSelectedPageKey] = useState<string>(PAGE_REGISTRY[0]?.key ?? "home");
   const [working, setWorking] = useState<PageBlockConfig[]>([]);
+  const [workingTabs, setWorkingTabs] = useState<PageTabConfig[]>([]);
+  const [workingOptions, setWorkingOptions] = useState<Record<string, unknown>>({});
   const [originalSerialized, setOriginalSerialized] = useState<string>("[]");
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -88,18 +92,21 @@ export function PageLayoutDesigner() {
     }
     const role = roles.rows.find((r) => r.id === selectedRoleId);
     if (!role) return;
-    const layouts = (role.page_layouts as PageLayoutsConfig) ?? {};
-    const layout = layouts[selectedPageKey] ?? pageEntry(selectedPageKey)?.defaultLayout ?? [];
-    const clone = JSON.parse(JSON.stringify(layout));
-    setWorking(clone);
+    const cfg = resolvePageConfig(selectedPageKey, (role.page_layouts as PageLayoutsConfig) ?? {});
+    const clone = JSON.parse(JSON.stringify(cfg));
+    setWorking(clone.blocks);
+    setWorkingTabs(clone.tabs ?? []);
+    setWorkingOptions(clone.options ?? {});
     setOriginalSerialized(JSON.stringify(clone));
     setSelectedBlockId(null);
     setActiveBlockId(null);
   }, [selectedRoleId, selectedPageKey, roles.rows]);
 
   const dirty = useMemo(
-    () => JSON.stringify(working) !== originalSerialized,
-    [working, originalSerialized]
+    () =>
+      JSON.stringify({ blocks: working, tabs: workingTabs, options: workingOptions }) !==
+      originalSerialized,
+    [working, workingTabs, workingOptions, originalSerialized]
   );
   const selectedRole = roles.rows.find((r) => r.id === selectedRoleId) ?? null;
   const pageMeta = pageEntry(selectedPageKey);
@@ -126,8 +133,7 @@ export function PageLayoutDesigner() {
   const copyFromRole = async (fromRoleId: string) => {
     const from = roles.rows.find((r) => r.id === fromRoleId);
     if (!from) return;
-    const layouts = (from.page_layouts as PageLayoutsConfig) ?? {};
-    const layout = layouts[selectedPageKey] ?? pageEntry(selectedPageKey)?.defaultLayout ?? [];
+    const cfg = resolvePageConfig(selectedPageKey, (from.page_layouts as PageLayoutsConfig) ?? {});
     if (
       !(await confirmDialog({
         title: "Copy layout",
@@ -136,7 +142,10 @@ export function PageLayoutDesigner() {
       }))
     )
       return;
-    setWorking(JSON.parse(JSON.stringify(layout)));
+    const clone = JSON.parse(JSON.stringify(cfg));
+    setWorking(clone.blocks);
+    setWorkingTabs(clone.tabs ?? []);
+    setWorkingOptions(clone.options ?? {});
     setSelectedBlockId(null);
   };
 
@@ -161,8 +170,10 @@ export function PageLayoutDesigner() {
 
   const resetToDefault = async () => {
     if (!(await confirmDialog({ title: "Reset layout", message: "Reset this page to its default layout? Unsaved changes will be lost.", confirmLabel: "Reset" }))) return;
-    const def = pageEntry(selectedPageKey)?.defaultLayout ?? [];
-    setWorking(JSON.parse(JSON.stringify(def)));
+    const entry = pageEntry(selectedPageKey);
+    setWorking(JSON.parse(JSON.stringify(entry?.defaultLayout ?? [])));
+    setWorkingTabs((entry?.tabs ?? []).map((t) => ({ key: t.key })));
+    setWorkingOptions({});
     setSelectedBlockId(null);
   };
 
@@ -195,13 +206,18 @@ export function PageLayoutDesigner() {
       // Merge into the role's existing page_layouts JSONB.
       const role = roles.rows.find((r) => r.id === selectedRoleId);
       const prev = (role?.page_layouts as PageLayoutsConfig) ?? {};
-      const next = { ...prev, [selectedPageKey]: working };
+      const next = {
+        ...prev,
+        [selectedPageKey]: { blocks: working, tabs: workingTabs, options: workingOptions },
+      };
       const { error } = await supabase
         .from("access_roles")
         .update({ page_layouts: next as any })
         .eq("id", selectedRoleId);
       if (error) throw error;
-      setOriginalSerialized(JSON.stringify(working));
+      setOriginalSerialized(
+        JSON.stringify({ blocks: working, tabs: workingTabs, options: workingOptions })
+      );
       toast.success(stamped(`Saved ${pageMeta?.label} layout for ${selectedRole?.name}`));
     } catch (e: any) {
       toast.error(e?.message || "Save failed");
@@ -360,14 +376,162 @@ export function PageLayoutDesigner() {
                 ))}
 
                 {pageMeta?.coreLabel ? (
-                  <div className="rounded-lg border-2 border-slate-300 bg-slate-100/80 px-3 py-3 flex items-center gap-2.5">
-                    <Icon name="lock" size={14} className="text-slate-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-700">{pageMeta.coreLabel}</div>
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-                        built-in page content · always shown
+                  <div className="rounded-lg border-2 border-slate-300 bg-slate-100/80 px-3 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <Icon name="lock" size={14} className="text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-700">{pageMeta.coreLabel}</div>
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                          built-in page content · always shown
+                        </div>
                       </div>
                     </div>
+
+                    {(pageMeta.tabs ?? []).length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                          Its tabs — reorder, rename, hide
+                        </div>
+                        <div className="space-y-1">
+                          {workingTabs.map((t, idx) => {
+                            const reg = (pageMeta.tabs ?? []).find((r) => r.key === t.key);
+                            return (
+                              <div
+                                key={t.key}
+                                className={
+                                  "flex items-center gap-2 rounded-md border bg-white px-2 py-1.5 " +
+                                  (t.hidden ? "opacity-60 border-slate-200" : "border-slate-200")
+                                }
+                              >
+                                <div className="flex flex-col">
+                                  <button
+                                    onClick={() =>
+                                      idx > 0 &&
+                                      setWorkingTabs((ts) => {
+                                        const n = [...ts];
+                                        [n[idx - 1], n[idx]] = [n[idx], n[idx - 1]];
+                                        return n;
+                                      })
+                                    }
+                                    disabled={idx === 0}
+                                    className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                                    aria-label={`Move ${reg?.label ?? t.key} up`}
+                                  >
+                                    <Icon name="chevron-up" size={11} />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      idx < workingTabs.length - 1 &&
+                                      setWorkingTabs((ts) => {
+                                        const n = [...ts];
+                                        [n[idx + 1], n[idx]] = [n[idx], n[idx + 1]];
+                                        return n;
+                                      })
+                                    }
+                                    disabled={idx === workingTabs.length - 1}
+                                    className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                                    aria-label={`Move ${reg?.label ?? t.key} down`}
+                                  >
+                                    <Icon name="chevron-down" size={11} />
+                                  </button>
+                                </div>
+                                <input
+                                  value={t.label ?? ""}
+                                  onChange={(e) =>
+                                    setWorkingTabs((ts) =>
+                                      ts.map((x) =>
+                                        x.key === t.key ? { ...x, label: e.target.value || undefined } : x
+                                      )
+                                    )
+                                  }
+                                  placeholder={reg?.label ?? t.key}
+                                  className="flex-1 min-w-0 text-sm text-slate-800 bg-transparent outline-none border-b border-transparent focus:border-brand-300 placeholder:text-slate-400"
+                                  aria-label={`Rename ${reg?.label ?? t.key} tab`}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const visible = workingTabs.filter((x) => !x.hidden);
+                                    if (!t.hidden && visible.length <= 1) return;
+                                    setWorkingTabs((ts) =>
+                                      ts.map((x) =>
+                                        x.key === t.key ? { ...x, hidden: !x.hidden } : x
+                                      )
+                                    );
+                                  }}
+                                  className={
+                                    "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded transition " +
+                                    (t.hidden
+                                      ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200")
+                                  }
+                                  title={
+                                    !t.hidden && workingTabs.filter((x) => !x.hidden).length <= 1
+                                      ? "At least one tab must stay visible"
+                                      : t.hidden
+                                      ? "Show this tab"
+                                      : "Hide this tab"
+                                  }
+                                >
+                                  {t.hidden ? "hidden" : "shown"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {(pageMeta.optionsSchema ?? []).length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                          Page defaults for this role
+                        </div>
+                        <div className="space-y-2">
+                          {(pageMeta.optionsSchema ?? []).map((opt) => (
+                            <div key={opt.key} className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-xs font-semibold text-slate-700">{opt.label}</div>
+                                {opt.description && (
+                                  <div className="text-[10px] text-slate-500">{opt.description}</div>
+                                )}
+                              </div>
+                              {opt.kind === "boolean" ? (
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(workingOptions[opt.key])}
+                                  onChange={(e) =>
+                                    setWorkingOptions((o) => ({ ...o, [opt.key]: e.target.checked }))
+                                  }
+                                  className="accent-brand-500 w-4 h-4"
+                                  aria-label={opt.label}
+                                />
+                              ) : (
+                                <select
+                                  value={(workingOptions[opt.key] as string) ?? ""}
+                                  onChange={(e) =>
+                                    setWorkingOptions((o) => {
+                                      const n = { ...o };
+                                      if (e.target.value) n[opt.key] = e.target.value;
+                                      else delete n[opt.key];
+                                      return n;
+                                    })
+                                  }
+                                  className="text-xs rounded-md border border-slate-200 bg-white px-2 py-1 outline-none focus:border-brand-500"
+                                  aria-label={opt.label}
+                                >
+                                  <option value="">App default</option>
+                                  {(opt.choices ?? []).map((c) => (
+                                    <option key={c.value} value={c.value}>
+                                      {c.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : working.length === 0 ? (
                   <Card>

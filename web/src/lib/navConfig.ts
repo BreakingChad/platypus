@@ -42,7 +42,25 @@ export type PageBlockConfig = {
   settings?: Record<string, unknown>;
 };
 
-export type PageLayoutsConfig = Record<string, PageBlockConfig[]>;
+/** Per-page tab override — order in the array IS the tab order. */
+export type PageTabConfig = {
+  key: string;
+  /** Override label (empty = registry default). */
+  label?: string;
+  hidden?: boolean;
+};
+
+/** Full per-page config. Legacy values were a bare PageBlockConfig[];
+ *  resolvePageConfig normalizes both shapes. */
+export type PageConfig = {
+  blocks: PageBlockConfig[];
+  tabs?: PageTabConfig[];
+  /** Role-level page defaults (default filters, default tab, …) consumed by
+   *  the page until the signed-in user makes their own choice. */
+  options?: Record<string, unknown>;
+};
+
+export type PageLayoutsConfig = Record<string, PageBlockConfig[] | PageConfig>;
 
 /* ============================================================================
  * Nav registry — the catalog of every nav item the app ships with.
@@ -157,6 +175,15 @@ export function resolveNav(
  * Each entry advertises the block ids it allows and a default layout.
  * ========================================================================== */
 
+export type PageOptionChoice = { value: string; label: string };
+export type PageOptionSchema = {
+  key: string;
+  label: string;
+  kind: "boolean" | "select";
+  choices?: PageOptionChoice[];
+  description?: string;
+};
+
 export type PageRegistryEntry = {
   key: string;            // pageKey used in page_layouts jsonb
   label: string;
@@ -166,6 +193,10 @@ export type PageRegistryEntry = {
   coreLabel?: string;
   allowedBlocks: string[]; // block keys (from BLOCK_REGISTRY)
   defaultLayout: PageBlockConfig[];
+  /** Tabs the page's core content exposes (designable: order/rename/hide). */
+  tabs?: { key: string; label: string }[];
+  /** Role-level page defaults the designer can set. */
+  optionsSchema?: PageOptionSchema[];
 };
 
 /** Every registered block — any block can go on any page. */
@@ -215,6 +246,15 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     coreLabel: "Portfolio list (filters, search, bulk actions)",
     allowedBlocks: ALL_BLOCK_KEYS,
     defaultLayout: [],
+    optionsSchema: [
+      { key: "showClosed", label: "Show closed studies by default", kind: "boolean", description: "Users can still toggle it; this sets the starting point for people in this role." },
+      { key: "healthFilter", label: "Default health filter", kind: "select", choices: [
+        { value: "all", label: "All" },
+        { value: "red", label: "Overdue" },
+        { value: "yellow", label: "At risk" },
+        { value: "green", label: "Healthy" },
+      ] },
+    ],
   },
   {
     key: "pipeline",
@@ -223,6 +263,9 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     coreLabel: "Stage kanban (drag to advance)",
     allowedBlocks: ALL_BLOCK_KEYS,
     defaultLayout: [],
+    optionsSchema: [
+      { key: "showClosed", label: "Show closed studies by default", kind: "boolean" },
+    ],
   },
   {
     key: "sites",
@@ -239,6 +282,37 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     coreLabel: "Task queue (mine / team / all)",
     allowedBlocks: ALL_BLOCK_KEYS,
     defaultLayout: [],
+    optionsSchema: [
+      { key: "defaultTab", label: "Default queue", kind: "select", choices: [
+        { value: "mine", label: "Mine" },
+        { value: "team", label: "My team's roles" },
+        { value: "all", label: "All open (admins)" },
+      ] },
+    ],
+  },
+  {
+    key: "study-detail",
+    label: "Study record",
+    description: "The study page itself — reorder, rename, or hide its tabs; set the default tab; add blocks above or below the record.",
+    coreLabel: "Study record (header, health, stage bar + tabs)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+    tabs: [
+      { key: "overview", label: "Overview" },
+      { key: "feasibility", label: "Feasibility" },
+      { key: "activity", label: "Activity" },
+      { key: "tasks", label: "Tasks" },
+      { key: "documents", label: "Documents" },
+    ],
+    optionsSchema: [
+      { key: "defaultTab", label: "Default tab", kind: "select", choices: [
+        { value: "overview", label: "Overview" },
+        { value: "feasibility", label: "Feasibility" },
+        { value: "activity", label: "Activity" },
+        { value: "tasks", label: "Tasks" },
+        { value: "documents", label: "Documents" },
+      ] },
+    ],
   },
 ];
 
@@ -246,13 +320,39 @@ export function pageEntry(pageKey: string): PageRegistryEntry | undefined {
   return PAGE_REGISTRY.find((p) => p.key === pageKey);
 }
 
+/** Normalize either stored shape (legacy array | PageConfig object) into a
+ *  full PageConfig, falling back to the registry defaults. */
+export function resolvePageConfig(
+  pageKey: string,
+  layouts: PageLayoutsConfig | null | undefined
+): PageConfig {
+  const raw = layouts?.[pageKey];
+  const entry = pageEntry(pageKey);
+  const registryTabs = (entry?.tabs ?? []).map((t) => ({ key: t.key }));
+  if (Array.isArray(raw)) {
+    return { blocks: raw.length > 0 ? raw : entry?.defaultLayout ?? [], tabs: registryTabs, options: {} };
+  }
+  if (raw && typeof raw === "object") {
+    const blocks = Array.isArray(raw.blocks) && raw.blocks.length > 0 ? raw.blocks : entry?.defaultLayout ?? [];
+    // Merge stored tab config with the registry: keep stored order, append
+    // any new registry tabs the stored config doesn't know about yet.
+    const stored = Array.isArray(raw.tabs) ? raw.tabs : [];
+    const known = new Set(stored.map((t) => t.key));
+    const valid = new Set((entry?.tabs ?? []).map((t) => t.key));
+    const tabs = [
+      ...stored.filter((t) => valid.has(t.key)),
+      ...registryTabs.filter((t) => !known.has(t.key)),
+    ];
+    return { blocks, tabs, options: raw.options ?? {} };
+  }
+  return { blocks: entry?.defaultLayout ?? [], tabs: registryTabs, options: {} };
+}
+
 export function resolvePageLayout(
   pageKey: string,
   layouts: PageLayoutsConfig | null | undefined
 ): PageBlockConfig[] {
-  const fromConfig = layouts?.[pageKey];
-  if (fromConfig && fromConfig.length > 0) return fromConfig;
-  return pageEntry(pageKey)?.defaultLayout ?? [];
+  return resolvePageConfig(pageKey, layouts).blocks;
 }
 
 /** Generate a stable, unique block instance id. */
