@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -234,7 +236,7 @@ export function NavDesigner() {
         .eq("id", selectedRoleId);
       if (error) throw error;
       setOriginalSerialized(JSON.stringify(working));
-      toast.success(`Saved nav for ${selectedRole?.name ?? "role"}`);
+      toast.success(stamped(`Saved nav for ${selectedRole?.name ?? "role"}`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Save failed"));
     } finally {
@@ -251,7 +253,7 @@ export function NavDesigner() {
   /* ---------- gating ---------- */
 
   if (memberLoading) {
-    return <div className="max-w-page-wide mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {

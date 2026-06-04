@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -6,6 +8,7 @@ import type { PipelineStageRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import { Card } from "../components/ui/Card";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Pill } from "../components/ui/Pill";
@@ -68,7 +71,7 @@ export function StageDesigner() {
         is_core: false,
         position: nextPos,
       });
-      toast.success(`Added "${composer.label.trim()}" stage`);
+      toast.success(stamped(`Added "${composer.label.trim()}" stage`));
       setComposer({ ...composer, label: "" });
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't add stage"));
@@ -96,14 +99,14 @@ export function StageDesigner() {
     if (!(await confirmDialog({ title: "Remove stage", message: `Remove "${stage.label}"? Studies already in this stage keep the value but no new studies will enter it.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       await remove(stage.id);
-      toast.success(`Removed "${stage.label}"`);
+      toast.success(stamped(`Removed "${stage.label}"`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Remove failed"));
     }
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
@@ -133,6 +136,7 @@ export function StageDesigner() {
         subtitle="Design the stages every study moves through, the colour they're shown in, how long they should take, and which stages are terminal."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
+      <AutoSaveNote />
 
       {/* COMPOSER */}
       <Card primary className="mt-6 mb-6">

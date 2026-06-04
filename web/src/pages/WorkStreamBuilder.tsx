@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -36,12 +38,14 @@ import type {
 } from "../lib/types";
 
 import { Card } from "../components/ui/Card";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
+import { InfoTip } from "../components/ui/Tip";
 import { EmptyState } from "../components/ui/EmptyState";
 
 /** WorkStreamBuilder — admin-driven canvas for designing the operating model
@@ -113,7 +117,7 @@ export function WorkStreamBuilder() {
         position: nextPos,
       } as any);
       if (error) throw error;
-      toast.success("Module added");
+      toast.success(stamped("Module added"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't add module"));
     }
@@ -136,7 +140,7 @@ export function WorkStreamBuilder() {
     try {
       const { error } = await supabase.from("workflow_modules").delete().eq("id", id);
       if (error) throw error;
-      toast.success("Module removed");
+      toast.success(stamped("Module removed"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Remove failed"));
     }
@@ -212,7 +216,7 @@ export function WorkStreamBuilder() {
     const nextPos = stageModules.reduce((m, x) => Math.max(m, x.position), 0) + 10;
     try {
       const { taskCount } = await deepCopyModule(src, src.stage_key, nextPos, `${src.name} (copy)`);
-      toast.success(`Duplicated "${src.name}" — ${taskCount} task${taskCount === 1 ? "" : "s"} copied`);
+      toast.success(stamped(`Duplicated "${src.name}" — ${taskCount} task${taskCount === 1 ? "" : "s"} copied`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't duplicate the module"));
     }
@@ -242,7 +246,7 @@ export function WorkStreamBuilder() {
         const { taskCount } = await deepCopyModule(m, selectedStageKey, pos);
         tasks += taskCount;
       }
-      toast.success(`Copied ${srcMods.length} module${srcMods.length === 1 ? "" : "s"} · ${tasks} task${tasks === 1 ? "" : "s"} from ${srcLabel}`);
+      toast.success(stamped(`Copied ${srcMods.length} module${srcMods.length === 1 ? "" : "s"} · ${tasks} task${tasks === 1 ? "" : "s"} from ${srcLabel}`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Copy failed part-way — review the modules below"));
     } finally {
@@ -267,7 +271,7 @@ export function WorkStreamBuilder() {
   /* ---------- gating ---------- */
 
   if (memberLoading) {
-    return <div className="max-w-page-wide mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
   if (!isAdmin) {
     return (
@@ -294,6 +298,7 @@ export function WorkStreamBuilder() {
         subtitle="Design the operating model. When a study enters a stage, the modules configured here fire and spawn tasks automatically — assigned to the right roles, with the right due dates."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
+      <AutoSaveNote />
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 mt-6">
         {/* LEFT — stage rail */}
@@ -917,6 +922,7 @@ function TemplateRow({
       <div className="mt-1.5 ml-7 flex items-center gap-2 text-[11px] text-slate-600">
         <Icon name="arrow-right" size={11} className="text-slate-400 flex-shrink-0" />
         <span className="font-semibold whitespace-nowrap">Hands off to</span>
+        <InfoTip side="top" label="When the sending role completes this task, a receipt task is created for the role picked here — the handoff is measurable on both sides." />
         <Select
           value={template.handoff_to_role_id ?? ""}
           onChange={(e) => void onUpdate({ handoff_to_role_id: e.target.value || null })}

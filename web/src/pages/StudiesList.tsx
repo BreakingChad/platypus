@@ -244,7 +244,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   }, [studies.rows]);
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8"><Loader label="Checking permissions…" /></div>;
   }
 
   return (
@@ -706,7 +706,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           existingCodes={studies.rows.map((s) => s.code)}
           onClose={() => setCreating(false)}
           onCreated={(s) => {
-            toast.success(`Created ${s.code}`);
+            toast.success(stamped(`Created ${s.code}`));
             setCreating(false);
             onNavigate(`#/studies/${s.id}`);
           }}

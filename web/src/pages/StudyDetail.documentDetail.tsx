@@ -173,7 +173,7 @@ export function DocumentDetailPanel({
         archived: !v.archived,
       });
       toast.success(
-        v.archived ? `Restored ${v.version_label}` : `Archived ${v.version_label}`
+        stamped(v.archived ? `Restored ${v.version_label}` : `Archived ${v.version_label}`)
       );
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't update version"));

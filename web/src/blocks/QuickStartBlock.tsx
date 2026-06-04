@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { stamped } from "../lib/stamp";
 import { useState } from "react";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -72,7 +73,7 @@ export function QuickStartBlock({ ctx: _ctx }: { ctx: BlockContext }) {
             if (parts.length === 0) {
               toast.info("Demo content already loaded");
             } else {
-              toast.success(`Added ${parts.join(" + ")}`);
+              toast.success(stamped(`Added ${parts.join(" + ")}`));
             }
           } catch (e: any) {
             toast.error(friendlyError(e, "Couldn't load demo content"));

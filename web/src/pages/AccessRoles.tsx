@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -30,7 +32,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 const MODULES = [
   { key: "studies",      label: "Studies",       desc: "Study records and lifecycle" },
   { key: "documents",    label: "Documents",     desc: "TMF / ISF document management" },
-  { key: "workflows",    label: "Workflows",     desc: "Work Stream Builder and pipelines" },
+  { key: "workflows",    label: "Workflows",     desc: "Work streams and pipelines" },
   { key: "approvals",    label: "Approvals",     desc: "Approval queues and e-signatures" },
   { key: "analytics",    label: "Analytics",     desc: "Reports, dashboards, audit logs" },
   { key: "admin",        label: "Admin",         desc: "Org configuration surfaces" },
@@ -75,7 +77,7 @@ export function AccessRoles() {
         status: "active",
         former_names: [],
       });
-      toast.success(`Added access role "${composer.name.trim()}"`);
+      toast.success(stamped(`Added access role "${composer.name.trim()}"`));
       setComposer({ name: "", description: "" });
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't add role"));
@@ -83,7 +85,7 @@ export function AccessRoles() {
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
@@ -186,7 +188,7 @@ export function AccessRoles() {
               if (!(await confirmDialog({ title: "Remove role", message: `Remove "${role.name}"? This can\u2019t be undone.`, confirmLabel: "Remove", danger: true }))) return;
               try {
                 await roles.remove(role.id);
-                toast.success(`Removed "${role.name}"`);
+                toast.success(stamped(`Removed "${role.name}"`));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Remove failed"));
               }

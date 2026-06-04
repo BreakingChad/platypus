@@ -238,7 +238,7 @@ export function Inbox({
       toast.success(stamped(`Completed: ${t.title}`));
       if (orgId && userId) {
         const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
-        if (handoff.spawned) toast.success(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`);
+        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`));
       }
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't complete task"));
@@ -530,7 +530,7 @@ export function Inbox({
           stages={stages.rows}
           onClose={() => setAddingTask(false)}
           onCreated={() => {
-            toast.success("Task added");
+            toast.success(stamped("Task added"));
             setAddingTask(false);
           }}
         />

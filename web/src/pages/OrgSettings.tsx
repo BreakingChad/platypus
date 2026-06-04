@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { stamped } from "../lib/stamp";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -91,7 +92,7 @@ export function OrgSettings() {
       if (error) throw error;
       setOrg(data as OrgRow);
       setDraft(data as Partial<OrgRow>);
-      toast.success("Saved organization settings");
+      toast.success(stamped("Saved organization settings"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Save failed"));
     } finally {
@@ -100,7 +101,7 @@ export function OrgSettings() {
   };
 
   if (memberLoading || loading) {
-    return <div className="max-w-page-narrow mx-auto px-6 py-8 text-sm text-slate-500">Loading…</div>;
+    return <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">Loading…</div>;
   }
 
   if (!isAdmin) {

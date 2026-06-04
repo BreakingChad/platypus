@@ -208,7 +208,7 @@ export function WorkStreamPanel({
               variant="ghost"
               size="sm"
               onClick={() => onNavigate("#/settings/work-streams")}
-              title="Open Work Stream Builder"
+              title="Open Work streams"
             >
               <Icon name="workflow" size={12} /> Edit work streams
             </Button>
@@ -222,7 +222,7 @@ export function WorkStreamPanel({
             No work stream configured
           </div>
           <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
-            When admins set up modules in Work Stream Builder for{" "}
+            When admins set up modules in Work streams for{" "}
             <strong>{stage.label}</strong>, advancing a study to this stage will spawn
             their task templates automatically.
           </p>

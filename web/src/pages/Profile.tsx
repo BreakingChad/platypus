@@ -168,7 +168,7 @@ export function Profile() {
       if (error) throw error;
       setProfile(data as ProfileRow);
       setDraft(data as Partial<ProfileRow>);
-      toast.success("Profile saved");
+      toast.success(stamped("Profile saved"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Save failed"));
     } finally {
@@ -177,11 +177,11 @@ export function Profile() {
   };
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-6 py-8 text-sm text-slate-500">Loading…</div>;
+    return <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">Loading…</div>;
   }
 
   if (!profile) {
-    return <div className="max-w-2xl mx-auto px-6 py-8 text-sm text-slate-500">No profile.</div>;
+    return <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">No profile.</div>;
   }
 
   return (

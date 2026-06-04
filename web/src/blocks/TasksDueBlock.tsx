@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { stamped } from "../lib/stamp";
+import { maybeSpawnHandoffReceipt } from "../lib/handoff";
 import { fmtDate } from "../lib/dates";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -92,7 +94,11 @@ export function TasksDueBlock({ ctx }: { ctx: BlockContext }) {
           payload: { title: t.title, study_id: t.study_id, source: "home_block" },
         });
       }
-      toast.success(`Completed: ${t.title}`);
+      toast.success(stamped(`Completed: ${t.title}`));
+      if (orgId && userId) {
+        const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
+        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`));
+      }
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't complete task"));
     }

@@ -495,7 +495,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },
   "#/audit": { kicker: "Audit", title: "Audit feed" },
-  "#/settings/work-streams": { kicker: "Configure", title: "Work Stream Builder" },
+  "#/settings/work-streams": { kicker: "Configure", title: "Work streams" },
   "#/setup": { kicker: "Get started", title: "Guided setup" },
   "#/profile": { kicker: "You", title: "Profile" },
   "#/settings": { kicker: "Configure", title: "Settings" },
@@ -574,6 +574,15 @@ function Breadcrumb({
 }
 
 /* ───────────────────── Contextual configure menu ───────────────────── */
+
+/* Z-INDEX LADDER (canon — don't invent new tiers):
+ *   0  page content
+ *  20  sticky header / rails
+ *  40  drawers & standard modals
+ *  50  sidebar sheet · command palette · menus · toasts
+ *  60  confirm + e-signature dialogs (must beat 40-tier modals)
+ *  70  preview-as-role exit pill (must beat everything)
+ */
 
 /** Admin-only gear in the header. Its items change with where you are —
  *  configuration presents itself when (and where) it's needed instead of

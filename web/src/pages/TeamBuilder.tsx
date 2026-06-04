@@ -1,9 +1,12 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useOrgTable } from "../lib/useOrgTable";
+import { useDismissable } from "../lib/useDismissable";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import type {
@@ -19,6 +22,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { MicroField } from "../components/ui/MicroField";
+import { InfoTip } from "../components/ui/Tip";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
@@ -97,7 +101,7 @@ export function TeamBuilder() {
           }
         }
       }
-      toast.success("Recommended teams loaded — rename or reshape them freely");
+      toast.success(stamped("Recommended teams loaded — rename or reshape them freely"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn’t load recommended teams"));
     } finally {
@@ -166,7 +170,7 @@ export function TeamBuilder() {
         status: "active",
         position: nextPos,
       });
-      toast.success(`Added team "${composer.name.trim()}"`);
+      toast.success(stamped(`Added team "${composer.name.trim()}"`));
       setComposer({ name: "", color: TEAM_COLORS[0], charter: "" });
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't add team"));
@@ -174,7 +178,7 @@ export function TeamBuilder() {
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
@@ -317,7 +321,7 @@ export function TeamBuilder() {
                   status: "active",
                   former_names: [],
                 } as any);
-                if (created) toast.success(`Created access role "${name}"`);
+                if (created) toast.success(stamped(`Created access role "${name}"`));
                 return (created as AccessRoleRow) ?? null;
               } catch (e: any) {
                 toast.error(friendlyError(e, "Couldn't create access role"));
@@ -336,7 +340,7 @@ export function TeamBuilder() {
                 return;
               try {
                 await teams.remove(team.id);
-                toast.success(`Removed "${team.name}"`);
+                toast.success(stamped(`Removed "${team.name}"`));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Remove failed"));
               }
@@ -352,7 +356,7 @@ export function TeamBuilder() {
                   level: data.level,
                   position: nextPos,
                 } as any);
-                toast.success(`Added role "${data.title}" at Level ${data.level}`);
+                toast.success(stamped(`Added role "${data.title}" at Level ${data.level}`));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Couldn't add role"));
               }
@@ -366,7 +370,7 @@ export function TeamBuilder() {
               if (!(await confirmDialog({ title: "Remove role", message: `Remove role "${title}"?`, confirmLabel: "Remove", danger: true }))) return;
               try {
                 await roles.remove(roleId);
-                toast.success(`Removed role "${title}"`);
+                toast.success(stamped(`Removed role "${title}"`));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Remove failed"));
               }
@@ -374,7 +378,7 @@ export function TeamBuilder() {
             onAssignHolder={async (roleId, userId) => {
               try {
                 await holders.insert({ team_role_id: roleId, user_id: userId });
-                toast.success("Assigned");
+                toast.success(stamped("Assigned"));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Couldn't assign"));
               }
@@ -382,7 +386,7 @@ export function TeamBuilder() {
             onRemoveHolder={async (holderId) => {
               try {
                 await holders.remove(holderId);
-                toast.success("Removed");
+                toast.success(stamped("Removed"));
               } catch (e: any) {
                 toast.error(friendlyError(e, "Couldn't remove"));
               }
@@ -627,6 +631,7 @@ function TeamCard({
                         className="accent-brand-500 w-3.5 h-3.5"
                       />
                       Manages assignments
+                      <InfoTip side="bottom" label="The level that hands out work. Roles at this level can assign tasks to their own level and every level below it." />
                     </label>
                     {isAssign && (
                       <span className="text-[10px] text-brand-700">
@@ -765,13 +770,14 @@ function SiteScopePicker({
   onChange: (next: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useDismissable("[data-site-scope]", () => setOpen(false), open);
   const byId: Record<string, string> = {};
   sites.forEach((s) => (byId[s.id] = s.name));
   const toggle = (id: string) =>
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
 
   return (
-    <div className="relative">
+    <div className="relative" data-site-scope>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -937,6 +943,7 @@ function HolderList({
   onRemove: (holderId: string) => void;
 }) {
   const [picking, setPicking] = useState(false);
+  useDismissable("[data-holder-picker]", () => setPicking(false), picking);
 
   const assignedIds = new Set(holders.map((h) => h.user_id));
   const available = members.filter((m) => !assignedIds.has(m.user_id));
@@ -964,7 +971,7 @@ function HolderList({
           </button>
         </span>
       ))}
-      <div className="relative">
+      <div className="relative" data-holder-picker>
         <button
           onClick={() => setPicking((p) => !p)}
           className="text-[11px] font-semibold text-slate-500 hover:text-brand-700 transition px-1.5 py-0.5 rounded border border-dashed border-slate-300 hover:border-brand-300"

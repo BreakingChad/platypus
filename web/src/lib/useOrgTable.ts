@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { uniqueChannelName } from "./uniqueChannel";
 import { useCurrentOrg } from "./OrgContext";
+import { friendlyError } from "./errors";
 
 type Opts = {
   /** Postgrest select() expression. Default "*". */
@@ -47,7 +48,7 @@ export function useOrgTable<T extends { id: string }>(
     if (opts.orderBy) q = q.order(opts.orderBy, { ascending: opts.ascending ?? true });
     const { data, error } = await q;
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error, "Couldn't load this list"));
       setLoading(false);
       return;
     }
@@ -92,7 +93,7 @@ export function useOrgTable<T extends { id: string }>(
       .select()
       .single();
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error, "Couldn't add that"));
       return null;
     }
     await refresh();
@@ -102,7 +103,7 @@ export function useOrgTable<T extends { id: string }>(
   const update = async (id: string, patch: Partial<T>) => {
     const { error } = await sb.from(table).update(patch).eq("id", id);
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error, "That change didn't save"));
       return;
     }
     await refresh();
@@ -111,7 +112,7 @@ export function useOrgTable<T extends { id: string }>(
   const remove = async (id: string) => {
     const { error } = await sb.from(table).delete().eq("id", id);
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error, "That change didn't save"));
       return;
     }
     await refresh();

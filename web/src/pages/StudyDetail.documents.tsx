@@ -2,7 +2,7 @@ import { friendlyError } from "../lib/errors";
 import { fmtDate } from "../lib/dates";
 import { useModalA11y } from "../lib/useModalA11y";
 import { stamped } from "../lib/stamp";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -557,10 +557,9 @@ function NewVersionButton({
           className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
+          <A11yDialogBody
+            onClose={() => setOpen(false)}
+            label="Upload new version"
             className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
           >
             <div className="px-5 py-4 border-b border-slate-200">
@@ -620,10 +619,38 @@ function NewVersionButton({
                 {busy ? "Uploading…" : "Upload"}
               </Button>
             </div>
-          </div>
+          </A11yDialogBody>
         </div>
       )}
     </>
+  );
+}
+
+/** Dialog body that mounts with the modal — gives conditionally-rendered
+ *  modals the same Esc/focus-trap/restore treatment as everything else. */
+function A11yDialogBody({
+  onClose,
+  label,
+  className,
+  children,
+}: {
+  onClose: () => void;
+  label: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const ref = useModalA11y<HTMLDivElement>(onClose);
+  return (
+    <div
+      ref={ref}
+      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      className={className}
+    >
+      {children}
+    </div>
   );
 }
 

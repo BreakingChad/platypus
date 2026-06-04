@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -139,7 +141,7 @@ export function FieldsDesigner() {
         edit_tier: "admin",
         position: nextPos,
       });
-      toast.success(`Added "${composer.label.trim()}" to ${composer.section}`);
+      toast.success(stamped(`Added "${composer.label.trim()}" to ${composer.section}`));
       setComposer({ label: "", section: composer.section, field_type: "text", required: false });
       labelInputRef.current?.focus();
     } catch (e: any) {
@@ -159,7 +161,7 @@ export function FieldsDesigner() {
     if (!(await confirmDialog({ title: "Remove field", message: `Remove "${label}"? Existing records keep their value, but the field disappears from forms.`, confirmLabel: "Remove", danger: true }))) return;
     try {
       await remove(id);
-      toast.success(`Removed "${label}"`);
+      toast.success(stamped(`Removed "${label}"`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Remove failed"));
     }
@@ -202,7 +204,7 @@ export function FieldsDesigner() {
         );
       }
       if (res.inserted + res.updated > 0) {
-        toast.success(`Standard catalog loaded — ${res.inserted} field${res.inserted === 1 ? "" : "s"} added, ${res.updated} updated.`);
+        toast.success(stamped(`Standard catalog loaded — ${res.inserted} field${res.inserted === 1 ? "" : "s"} added, ${res.updated} updated`));
       }
     } finally {
       setCatalogBusy(false);
@@ -214,7 +216,7 @@ export function FieldsDesigner() {
   if (memberLoading) {
     return (
       <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
-        <div className="text-sm text-slate-500">Checking permissions…</div>
+        <div className="text-sm text-slate-500"><Loader label="Checking permissions…" /></div>
       </div>
     );
   }
@@ -726,12 +728,40 @@ function ChoicesEditor({
         Choices — these appear everywhere this field renders: the study record, intake, and filters.
       </div>
       <div className="flex flex-wrap gap-1.5 mb-2">
-        {values.map((v) => (
+        {values.map((v, i) => (
           <span
             key={v}
             className="inline-flex items-center gap-1.5 text-xs rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-700"
           >
             {v}
+            <button
+              onClick={() => {
+                if (i === 0) return;
+                const next = [...values];
+                [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                onSave(next);
+              }}
+              disabled={i === 0}
+              className="text-slate-300 hover:text-slate-700 transition leading-none disabled:opacity-25"
+              aria-label={`Move choice ${v} earlier`}
+              title="Move earlier — choice order is the order users see"
+            >
+              ↑
+            </button>
+            <button
+              onClick={() => {
+                if (i === values.length - 1) return;
+                const next = [...values];
+                [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                onSave(next);
+              }}
+              disabled={i === values.length - 1}
+              className="text-slate-300 hover:text-slate-700 transition leading-none disabled:opacity-25"
+              aria-label={`Move choice ${v} later`}
+              title="Move later"
+            >
+              ↓
+            </button>
             <button
               onClick={() => onSave(values.filter((x) => x !== v))}
               className="text-slate-300 hover:text-red-500 transition leading-none"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Loader } from "../components/ui/Loader";
 import { fmtDateTime } from "../lib/dates";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
@@ -175,7 +176,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
   if (!isAdmin) {
     return (

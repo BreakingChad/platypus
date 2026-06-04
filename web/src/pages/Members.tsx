@@ -1,4 +1,6 @@
 import { friendlyError } from "../lib/errors";
+import { Loader } from "../components/ui/Loader";
+import { stamped } from "../lib/stamp";
 import { fmtDate } from "../lib/dates";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
@@ -10,6 +12,7 @@ import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import type { MemberTier } from "../lib/types";
 import { Card } from "../components/ui/Card";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Input } from "../components/ui/Input";
@@ -135,7 +138,7 @@ export function Members() {
           },
         });
       }
-      toast.success(`${m.email}: access role → ${roleName}`);
+      toast.success(stamped(`${m.email}: access role → ${roleName}`));
       load();
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't change access role"));
@@ -210,7 +213,7 @@ export function Members() {
           payload: { target_email: m.email, from: m.tier, to: next },
         });
       }
-      toast.success(`${m.email} is now ${next}`);
+      toast.success(stamped(`${m.email} is now ${next}`));
       load();
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't update tier"));
@@ -238,7 +241,7 @@ export function Members() {
           payload: { target_email: m.email, target_user_id: m.user_id },
         });
       }
-      toast.success(`Removed ${m.email}`);
+      toast.success(stamped(`Removed ${m.email}`));
       load();
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't remove"));
@@ -248,7 +251,7 @@ export function Members() {
   const inviteUrl = window.location.origin + window.location.pathname;
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
@@ -274,6 +277,7 @@ export function Members() {
         subtitle="Everyone in your organization with access to Platypus. Promote members to admin, or remove access when teammates leave."
         actions={<Pill tone="brand">admin</Pill>}
       />
+      <AutoSaveNote />
 
       {/* INVITE PANEL — two-action: send by email OR share link */}
       <Card primary className="mt-6">

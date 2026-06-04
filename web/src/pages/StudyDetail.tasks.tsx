@@ -155,7 +155,7 @@ export function TasksTab({
         action: "task_created",
         payload: { title: newTitle.trim(), study_id: studyId, stage_key: newStage || null },
       });
-      toast.success("Task added");
+      toast.success(stamped("Task added"));
       setNewTitle("");
       setNewDue("");
       setAdding(false);
@@ -189,7 +189,7 @@ export function TasksTab({
       }
       if (status === "done" && orgId && userId) {
         const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
-        if (handoff.spawned) toast.success(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`);
+        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`));
       }
     } catch (e: any) {
       toast.error(friendlyError(e, "Update failed"));
