@@ -150,6 +150,33 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
     }
   };
 
+  const issueTempPassword = async (org: OrgRow, email: string, tier: MemberTier): Promise<string | null> => {
+    const clean = email.trim().toLowerCase();
+    if (!/.+@.+\..+/.test(clean)) {
+      toast.error("That doesn't look like an email address");
+      return null;
+    }
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin-user", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${sess.session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ email: clean, orgId: org.id, tier }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out?.error ?? `Request failed (${res.status})`);
+      toast.success(stamped(`Temp password issued for ${clean} — they'll set their own at first sign-in`));
+      void load();
+      return out.tempPassword as string;
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't issue a temp password"));
+      return null;
+    }
+  };
+
   const openAsDeveloper = async (org: OrgSummary) => {
     if (!userId) return;
     const already = org.members.some((m) => m.user_id === userId);
@@ -261,6 +288,7 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
             summary={s}
             meId={userId}
             onInvite={(email, tier) => void invite(s.org, email, tier)}
+            onTempPassword={(email, tier) => issueTempPassword(s.org, email, tier)}
             onRevoke={(inv) => void revokeInvite(inv)}
             onOpen={() => void openAsDeveloper(s)}
           />
@@ -302,15 +330,18 @@ function OrgCard({
   summary,
   meId,
   onInvite,
+  onTempPassword,
   onRevoke,
   onOpen,
 }: {
   summary: OrgSummary;
   meId: string | null;
   onInvite: (email: string, tier: MemberTier) => void;
+  onTempPassword: (email: string, tier: MemberTier) => Promise<string | null>;
   onRevoke: (inv: OrgInviteRow) => void;
   onOpen: () => void;
 }) {
+  const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
   const { org, members, invites } = summary;
   const [expanded, setExpanded] = useState(false);
   const [email, setEmail] = useState("");
@@ -420,7 +451,50 @@ function OrgCard({
             >
               Invite
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Email down or rate-limited? Create the account directly with a temporary password — they're forced to set their own and confirm their details at first sign-in."
+              onClick={async () => {
+                if (!email.trim()) return;
+                const pw = await onTempPassword(email, tier);
+                if (pw) {
+                  setIssued({ email: email.trim().toLowerCase(), password: pw });
+                  setEmail("");
+                }
+              }}
+              disabled={!email.trim()}
+            >
+              Temp password
+            </Button>
           </div>
+
+          {issued && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs text-amber-900">
+                <strong>{issued.email}</strong> can sign in with{" "}
+                <code className="font-mono bg-white border border-amber-200 rounded px-1.5 py-0.5">{issued.password}</code>
+                {" "}— shown once, send it over a secure channel. First sign-in forces a reset + identity confirmation.
+              </div>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(issued.password);
+                  } catch { /* clipboard unavailable */ }
+                }}
+              >
+                Copy
+              </Button>
+              <button
+                onClick={() => setIssued(null)}
+                className="text-amber-400 hover:text-red-600 leading-none text-lg"
+                aria-label="Dismiss temp password"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

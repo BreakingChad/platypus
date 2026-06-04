@@ -1,5 +1,6 @@
 import { useAuth } from "./useAuth";
 import { MagicLinkForm } from "./MagicLinkForm";
+import { ForcedReset } from "./ForcedReset";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const state = useAuth();
@@ -36,6 +37,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // Temp-password holders set their own + confirm identity before anything else.
+  if (state.status === "signedIn" && (state.user.user_metadata as any)?.must_reset_password) {
+    return <ForcedReset user={state.user} />;
   }
 
   return <>{children}</>;
