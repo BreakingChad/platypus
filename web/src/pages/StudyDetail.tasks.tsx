@@ -11,6 +11,7 @@ import { writeAuditEvent } from "../lib/auditLog";
 import type { TaskRow, PipelineStageRow, TeamRoleRow, TeamRoleHolderRow } from "../lib/types";
 import { useOrgTable } from "../lib/useOrgTable";
 import { escalateTask } from "../lib/escalation";
+import { maybeSpawnHandoffReceipt } from "../lib/handoff";
 import { confirmDialog } from "../lib/confirm";
 import { stamped } from "../lib/stamp";
 
@@ -184,6 +185,10 @@ export function TasksTab({
           action: audit,
           payload: { title: t.title, study_id: studyId },
         });
+      }
+      if (status === "done" && orgId && userId) {
+        const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
+        if (handoff.spawned) toast.success(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`);
       }
     } catch (e: any) {
       toast.error(friendlyError(e, "Update failed"));

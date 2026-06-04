@@ -158,6 +158,98 @@ export function WorkStreamBuilder() {
     }
   };
 
+  /* ---------- copy tools — clients iterate; they don't author from scratch ---------- */
+
+  const [copyBusy, setCopyBusy] = useState(false);
+
+  /** Deep-copy one module (+ its task templates) onto a stage. */
+  const deepCopyModule = async (
+    src: WorkflowModuleRow,
+    toStageKey: string,
+    position: number,
+    name?: string
+  ): Promise<{ taskCount: number }> => {
+    const { data: created, error } = await supabase
+      .from("workflow_modules")
+      .insert({
+        org_id: src.org_id,
+        stage_key: toStageKey,
+        owner_team_id: src.owner_team_id,
+        name: name ?? src.name,
+        description: src.description,
+        enabled: src.enabled,
+        position,
+      } as any)
+      .select("id")
+      .single();
+    if (error) throw error;
+    const newId = (created as any).id as string;
+    const { data: tpls, error: tplErr } = await supabase
+      .from("workflow_task_templates")
+      .select("*")
+      .eq("module_id", src.id)
+      .order("position", { ascending: true });
+    if (tplErr) throw tplErr;
+    if (tpls && tpls.length > 0) {
+      const { error: insErr } = await supabase.from("workflow_task_templates").insert(
+        (tpls as any[]).map((t) => ({
+          module_id: newId,
+          kind: t.kind,
+          title: t.title,
+          description: t.description,
+          due_offset_days: t.due_offset_days,
+          assigned_to_role_id: t.assigned_to_role_id,
+          handoff_to_role_id: t.handoff_to_role_id ?? null,
+          position: t.position,
+        })) as any
+      );
+      if (insErr) throw insErr;
+    }
+    return { taskCount: tpls?.length ?? 0 };
+  };
+
+  const duplicateModule = async (src: WorkflowModuleRow) => {
+    const nextPos = stageModules.reduce((m, x) => Math.max(m, x.position), 0) + 10;
+    try {
+      const { taskCount } = await deepCopyModule(src, src.stage_key, nextPos, `${src.name} (copy)`);
+      toast.success(`Duplicated "${src.name}" — ${taskCount} task${taskCount === 1 ? "" : "s"} copied`);
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't duplicate the module"));
+    }
+  };
+
+  const copyFromStage = async (srcStageKey: string) => {
+    if (!selectedStageKey || copyBusy) return;
+    const srcMods = modules.rows
+      .filter((m) => m.stage_key === srcStageKey)
+      .sort((a, b) => a.position - b.position);
+    if (srcMods.length === 0) return;
+    const srcLabel = stages.rows.find((s) => s.key === srcStageKey)?.label ?? srcStageKey;
+    if (
+      !(await confirmDialog({
+        title: "Copy modules from a stage",
+        message: `Copy ${srcMods.length} module${srcMods.length === 1 ? "" : "s"} (with their task templates) from "${srcLabel}" onto this stage? They arrive enabled and fully editable — adjust them instead of authoring from scratch.`,
+        confirmLabel: "Copy modules",
+      }))
+    )
+      return;
+    setCopyBusy(true);
+    try {
+      let pos = stageModules.reduce((m, x) => Math.max(m, x.position), 0);
+      let tasks = 0;
+      for (const m of srcMods) {
+        pos += 10;
+        const { taskCount } = await deepCopyModule(m, selectedStageKey, pos);
+        tasks += taskCount;
+      }
+      toast.success(`Copied ${srcMods.length} module${srcMods.length === 1 ? "" : "s"} · ${tasks} task${tasks === 1 ? "" : "s"} from ${srcLabel}`);
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Copy failed part-way — review the modules below"));
+    } finally {
+      setCopyBusy(false);
+    }
+  };
+
   /* ---------- dnd ---------- */
 
   const onDragStart = (e: DragStartEvent) => setActiveDragId(String(e.active.id));
@@ -275,9 +367,33 @@ export function WorkStreamBuilder() {
               </div>
             </div>
             {selectedStage && (
-              <Button variant="primary" size="sm" onClick={addModule}>
-                <Icon name="plus" size={12} /> Add module
-              </Button>
+              <div className="flex items-center gap-2">
+                <Select
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) void copyFromStage(v);
+                  }}
+                  className="text-xs py-1.5 w-48"
+                  aria-label="Copy modules from another stage"
+                  title="Start from a stage that already works — copies its modules and tasks here"
+                  disabled={copyBusy}
+                >
+                  <option value="">{copyBusy ? "Copying…" : "Copy from stage…"}</option>
+                  {stages.rows
+                    .filter((s) => s.key !== selectedStageKey)
+                    .map((s) => ({ s, n: modules.rows.filter((m) => m.stage_key === s.key).length }))
+                    .filter((x) => x.n > 0)
+                    .map(({ s, n }) => (
+                      <option key={s.id} value={s.key}>
+                        {s.label} ({n} module{n === 1 ? "" : "s"})
+                      </option>
+                    ))}
+                </Select>
+                <Button variant="primary" size="sm" onClick={addModule}>
+                  <Icon name="plus" size={12} /> Add module
+                </Button>
+              </div>
             )}
           </div>
 
@@ -315,6 +431,7 @@ export function WorkStreamBuilder() {
                       teams={teams.rows}
                       roles={roles.rows}
                       onUpdate={(patch) => updateModule(mod.id, patch)}
+                      onDuplicate={() => void duplicateModule(mod)}
                       onRemove={() => removeModule(mod.id, mod.name)}
                     />
                   ))}
@@ -351,12 +468,14 @@ function ModuleCard({
   teams,
   roles,
   onUpdate,
+  onDuplicate,
   onRemove,
 }: {
   module: WorkflowModuleRow;
   teams: TeamRow[];
   roles: TeamRoleRow[];
   onUpdate: (patch: Partial<WorkflowModuleRow>) => Promise<void>;
+  onDuplicate: () => void;
   onRemove: () => Promise<void>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -471,6 +590,14 @@ function ModuleCard({
         </label>
 
         <button
+          onClick={onDuplicate}
+          className="text-slate-400 hover:text-brand-700 transition px-1"
+          title="Duplicate this module (with its tasks)"
+          aria-label="Duplicate module"
+        >
+          <Icon name="copy" size={13} />
+        </button>
+        <button
           onClick={onRemove}
           className="text-slate-400 hover:text-red-600 transition text-lg leading-none px-1"
           title="Remove module"
@@ -524,6 +651,7 @@ function ModuleCard({
               templates={templates}
               setTemplates={setTemplates}
               availableRoles={availableRoles}
+              allRoles={roles}
             />
           </div>
         </div>
@@ -541,11 +669,13 @@ function TemplatesList({
   templates,
   setTemplates,
   availableRoles,
+  allRoles,
 }: {
   moduleId: string;
   templates: WorkflowTaskTemplateRow[] | null;
   setTemplates: (rows: WorkflowTaskTemplateRow[]) => void;
   availableRoles: TeamRoleRow[];
+  allRoles: TeamRoleRow[];
 }) {
   const toast = useToast();
   const sensors = useSensors(
@@ -640,6 +770,7 @@ function TemplatesList({
                   key={t.id}
                   template={t}
                   availableRoles={availableRoles}
+                  allRoles={allRoles}
                   onUpdate={(patch) => updateTemplate(t.id, patch)}
                   onRemove={() => removeTemplate(t.id)}
                 />
@@ -661,11 +792,13 @@ function TemplatesList({
 function TemplateRow({
   template,
   availableRoles,
+  allRoles,
   onUpdate,
   onRemove,
 }: {
   template: WorkflowTaskTemplateRow;
   availableRoles: TeamRoleRow[];
+  allRoles: TeamRoleRow[];
   onUpdate: (patch: Partial<WorkflowTaskTemplateRow>) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
@@ -689,8 +822,9 @@ function TemplateRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[20px_1fr_110px_90px_180px_24px] gap-2 items-center px-2 py-1.5 rounded-md border border-slate-200 bg-white"
+      className="px-2 py-1.5 rounded-md border border-slate-200 bg-white"
     >
+    <div className="grid grid-cols-[20px_1fr_110px_90px_180px_24px] gap-2 items-center">
       <button
         {...attributes}
         {...listeners}
@@ -778,6 +912,32 @@ function TemplateRow({
       >
         ×
       </button>
+    </div>
+    {template.kind === "handoff" && (
+      <div className="mt-1.5 ml-7 flex items-center gap-2 text-[11px] text-slate-600">
+        <Icon name="arrow-right" size={11} className="text-slate-400 flex-shrink-0" />
+        <span className="font-semibold whitespace-nowrap">Hands off to</span>
+        <Select
+          value={template.handoff_to_role_id ?? ""}
+          onChange={(e) => void onUpdate({ handoff_to_role_id: e.target.value || null })}
+          className="text-xs py-0.5 px-2 w-52"
+          aria-label="Role that receives this handoff"
+          title="When the sending role completes this task, a receipt task is created for this role — measurable on both sides"
+        >
+          <option value="">— Pick the receiving role —</option>
+          {allRoles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.title}
+            </option>
+          ))}
+        </Select>
+        {!template.handoff_to_role_id && (
+          <span className="text-amber-600 font-semibold">
+            pick a role so the receipt task can fire
+          </span>
+        )}
+      </div>
+    )}
     </div>
   );
 }

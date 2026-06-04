@@ -14,6 +14,7 @@ import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import { actionTypeByKey, recordDocumentSignature } from "../lib/documents";
 import { escalateTask } from "../lib/escalation";
+import { maybeSpawnHandoffReceipt } from "../lib/handoff";
 import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import type {
@@ -234,6 +235,10 @@ export function Inbox({
         });
       }
       toast.success(stamped(`Completed: ${t.title}`));
+      if (orgId && userId) {
+        const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
+        if (handoff.spawned) toast.success(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`);
+      }
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't complete task"));
     }

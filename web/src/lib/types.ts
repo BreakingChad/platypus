@@ -137,6 +137,8 @@ export type TaskRow = {
   due_at: string | null;
   assigned_to_user_id: string | null;
   assigned_to_role_id: string | null;
+  /** Handoff tasks: the role that receives the work (0021). */
+  handoff_to_role_id: string | null;
   completed_at: string | null;
   completed_by: string | null;
   created_by: string | null;
@@ -166,6 +168,8 @@ export type WorkflowTaskTemplateRow = {
   description: string | null;
   due_offset_days: number | null;
   assigned_to_role_id: string | null;
+  /** Handoff templates: the role that receives the work (0021). */
+  handoff_to_role_id: string | null;
   position: number;
   created_at: string;
 };
