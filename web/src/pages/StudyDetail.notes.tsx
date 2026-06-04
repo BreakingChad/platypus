@@ -116,7 +116,7 @@ export function NotesCard({ studyId }: { studyId: string }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void add();
           }}
-          placeholder="Add a note — decisions, sponsor calls, context the next person needs. ⌘↵ to save."
+          placeholder="Add a note — decisions, sponsor calls, context the next person needs."
           rows={2}
           className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition resize-y"
         />

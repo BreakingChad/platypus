@@ -207,9 +207,6 @@ export function CommandPalette({
               }
             }}
           />
-          <kbd className="text-[10px] font-mono text-slate-400 border border-slate-200 rounded px-1.5 py-0.5">
-            esc
-          </kbd>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -254,14 +251,8 @@ export function CommandPalette({
           ))}
         </div>
 
-        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50/80 text-[10px] font-mono text-slate-400 flex items-center justify-between">
-          <span>
-            <kbd className="text-[10px] mr-1">↑↓</kbd> navigate
-            <kbd className="text-[10px] mx-2">↵</kbd> open
-          </span>
-          <span>
-            <kbd className="text-[10px] mr-1">⌘K</kbd>or<kbd className="text-[10px] mx-1">/</kbd>to open
-          </span>
+        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50/80 text-[10px] font-mono text-slate-400">
+          Arrow keys to navigate · Enter to open
         </div>
       </div>
     </div>

@@ -8,7 +8,6 @@ import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
 import { CommandPalette } from "./CommandPalette";
-import { HelpOverlay } from "./HelpOverlay";
 
 /** App shell — persistent left rail + header + content slot.
  *
@@ -224,7 +223,7 @@ export function AppShell({
                 }}
                 className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition px-2.5 py-1 text-[11px] font-mono text-slate-500"
                 title="Open universal search"
-                aria-label="Open universal search (Cmd K)"
+                aria-label="Open universal search"
               >
                 <Icon name="search" size={11} aria-hidden="true" />
                 Universal search
@@ -314,9 +313,6 @@ export function AppShell({
 
       {/* Global Cmd-K palette */}
       <CommandPalette onNavigate={onNavigate} />
-
-      {/* Global help overlay (press ?) */}
-      <HelpOverlay />
 
       <style>{`
         @keyframes slideIn {
