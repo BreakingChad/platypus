@@ -35,7 +35,7 @@ import { Loader } from "../components/ui/Loader";
  *  Every intake study shows a data-completeness score computed from the
  *  org's enabled study fields (required fields weigh double). Triage is
  *  per-study and intentional: open the record to fill gaps, COMMIT to the
- *  portfolio (with a preview of the workstream tasks that will fire), or
+ *  portfolio (with a preview of the work stream tasks that will fire), or
  *  DECLINE (audited, study closes).
  */
 export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }) {
@@ -329,7 +329,7 @@ function completeness(
   return { pct: Math.round((score / Math.max(1, weight)) * 100), missingRequired };
 }
 
-/* ---------- Commit modal: the workstream moment ---------- */
+/* ---------- Commit modal: the work stream moment ---------- */
 
 function CommitModal({
   study,
@@ -369,7 +369,7 @@ function CommitModal({
           <h2 className="text-lg font-display font-bold text-slate-900">Commit to portfolio</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Moves to <strong>{commitStage.label}</strong>, stamps the commit date, and fires the
-            stage's workstream.
+            stage's work stream.
           </p>
         </div>
         <div className="p-5 space-y-4">
@@ -383,11 +383,11 @@ function CommitModal({
           )}
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Workstream that fires on entry
+              Work stream that fires on entry
             </div>
             {modules.length === 0 ? (
               <div className="text-sm text-slate-500">
-                No workstream modules configured for {commitStage.label} — no tasks auto-spawn.
+                No work stream modules configured for {commitStage.label} — no tasks auto-spawn.
                 Configure them in Work Streams.
               </div>
             ) : (

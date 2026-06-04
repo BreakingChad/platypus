@@ -21,7 +21,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { EmptyState } from "../components/ui/EmptyState";
-import { WorkStreamPanel } from "./StudyDetail.workstream";
+import { WorkStreamPanel } from "./StudyDetail.work stream";
 
 /** TasksTab — per-study task list inside StudyDetail. Shares semantics with
  *  Inbox (complete, skip, reopen, manual add) but filtered to this study. */

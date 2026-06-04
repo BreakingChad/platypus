@@ -305,7 +305,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
         {([
           ["mine", "Mine", counts.mine],
-          ["team", "My team's roles", counts.team],
+          ["team", "My team", counts.team],
           ...(isAdmin ? [["all", "All open", counts.all] as const] : []),
         ] as [Tab, string, number][]).map(([k, label, n]) => (
           <button

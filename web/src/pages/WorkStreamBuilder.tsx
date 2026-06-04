@@ -180,7 +180,7 @@ export function WorkStreamBuilder() {
   if (!isAdmin) {
     return (
       <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
-        <PageHeader kicker="Configure" title="Work Stream Builder" />
+        <PageHeader kicker="Configure" title="Work streams" />
         <Card className="mt-6">
           <EmptyState
             iconName="lock"
@@ -198,7 +198,7 @@ export function WorkStreamBuilder() {
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
-        title="Work Stream Builder"
+        title="Work streams"
         subtitle="Design the operating model. When a study enters a stage, the modules configured here fire and spawn tasks automatically — assigned to the right roles, with the right due dates."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
