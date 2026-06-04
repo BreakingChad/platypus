@@ -18,6 +18,15 @@ import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
+import { useModalA11y } from "../lib/useModalA11y";
+import {
+  EMPTY_ADV_FILTERS,
+  advFilterCount,
+  matchesAdvFilters,
+  describeAdvFilters,
+  optionCounts,
+  type AdvFilters,
+} from "../lib/portfolioFilters";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
 import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
 import { InfoTip } from "../components/ui/Tip";
@@ -82,6 +91,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   // Column sort: "smart" (pinned → health → newest) is the default; clicking
   // a header sorts by it, again flips direction, a third click restores smart.
   const [sortBy, setSortBy] = useStickyState<string>("studies/sortBy", "smart");
+  const [viewMode, setViewMode] = useStickyState<"list" | "table">("studies/viewMode", "list");
+  const [advRaw, setAdvFilters] = useStickyState<AdvFilters>("studies/advFilters", EMPTY_ADV_FILTERS);
+  // Merge over defaults so older stored shapes never break.
+  const advFilters: AdvFilters = { ...EMPTY_ADV_FILTERS, ...advRaw };
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortDir, setSortDir] = useStickyState<"asc" | "desc">("studies/sortDir", "asc");
   const onSort = (col: string) => {
     if (sortBy !== col) {
@@ -229,6 +243,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       })
       .filter(({ row }) => (stageFilter === "all" ? true : row.stage_key === stageFilter))
       .filter(({ health }) => (healthFilter === "all" ? true : health.level === healthFilter))
+      .filter(({ row }) => matchesAdvFilters(row, advFilters))
       .filter(({ row }) => {
         if (!staleOnly) return true;
         if (!row.updated_at) return false;
@@ -264,6 +279,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             case "stage": return stageByKey[x.row.stage_key ?? ""]?.position ?? 999;
             case "health": return healthSortWeight(x.health);
             case "pi": return (x.row.pi_name ?? "").toLowerCase();
+            case "nct": return x.row.nct ?? "";
+            case "ta": return (x.row.therapeutic_area ?? "").toLowerCase();
+            case "updated": return x.row.updated_at ?? "";
             case "created": return x.row.created_at ?? "";
             default: return 0;
           }
@@ -274,7 +292,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         if (av > bv) return 1 * dir;
         return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
       });
-  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab, staleOnly, sortBy, sortDir, stageByKey, starred]);
+  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab, staleOnly, sortBy, sortDir, stageByKey, starred, advRaw]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -395,6 +413,45 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         />
         Show closed
       </label>
+      <button
+        onClick={() => setFiltersOpen(true)}
+        className={
+          "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition " +
+          (advFilterCount(advFilters) > 0
+            ? "border-brand-300 bg-brand-50 text-brand-700"
+            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+        }
+        title="Every filter — sponsor, phase, therapeutic area, PI, kind, priority, dates, NCT"
+        aria-label="Open filters"
+      >
+        <Icon name="filter" size={12} />
+        Filters
+        {advFilterCount(advFilters) > 0 && (
+          <span className="rounded-full bg-brand-600 text-white text-[10px] font-bold px-1.5">
+            {advFilterCount(advFilters)}
+          </span>
+        )}
+      </button>
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="group" aria-label="View mode">
+        {([
+          ["list", "menu", "List view — rich rows"],
+          ["table", "layout", "Table view — dense, every column"],
+        ] as const).map(([mode, icon, tip]) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            className={
+              "px-2 py-1 rounded-md transition " +
+              (viewMode === mode ? "bg-brand-gradient text-white shadow" : "text-slate-500 hover:text-slate-800")
+            }
+            title={tip}
+            aria-label={tip}
+            aria-pressed={viewMode === mode}
+          >
+            <Icon name={icon} size={13} />
+          </button>
+        ))}
+      </div>
       </div>
 
       {/* TOOLBAR row 2 — stage chips · health chips, one wrapping row */}
@@ -497,6 +554,33 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         </div>
       )}
 
+      {/* Active advanced-filter chips — each removable on its own */}
+      {advFilterCount(advFilters) > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {describeAdvFilters(advFilters).map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700"
+            >
+              {chip.label}
+              <button
+                onClick={() => setAdvFilters(chip.without)}
+                className="text-brand-400 hover:text-red-600 leading-none"
+                aria-label={`Remove filter ${chip.label}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={() => setAdvFilters(EMPTY_ADV_FILTERS)}
+            className="text-[11px] font-semibold text-slate-500 hover:text-brand-700 transition"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div
@@ -569,7 +653,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           />
         )}
 
-        {filtered.length > 0 && (
+        {viewMode === "list" && filtered.length > 0 && (
           <div className="overflow-x-auto">
           <div className="min-w-[820px]">
             <div
@@ -750,6 +834,23 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           </div>
         )}
 
+        {viewMode === "table" && filtered.length > 0 && (
+          <DenseTable
+            rows={filtered}
+            stageByKey={stageByKey}
+            selected={selected}
+            toggleSel={toggleSel}
+            onToggleAll={(checked) =>
+              setSelected(checked ? new Set(filtered.map(({ row }) => row.id)) : new Set())
+            }
+            starred={starred}
+            onNavigate={onNavigate}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={onSort}
+          />
+        )}
+
         {studies.rows.length > 0 && filtered.length === 0 && (
           <div className="px-6 py-12 text-center">
             <div className="text-sm text-slate-500">
@@ -773,6 +874,14 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
       <PageBlocks pageKey="studies" region="bottom" navigate={onNavigate} />
 
+      {filtersOpen && (
+        <FilterModal
+          filters={advFilters}
+          rows={studies.rows}
+          onChange={setAdvFilters}
+          onClose={() => setFiltersOpen(false)}
+        />
+      )}
       {creating && (
         <NewStudyModal
           stages={stages.rows}
@@ -790,6 +899,284 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 }
 
 /** Tiny star icon (inline so we don't bloat the shared Icon component). */
+/* ---------- dense table view (Wave L2) ---------- */
+
+const DENSE_GT =
+  "32px 110px minmax(220px,1.4fr) 130px 110px 120px 70px 130px 150px 120px 95px 95px";
+
+function DenseTable({
+  rows,
+  stageByKey,
+  selected,
+  toggleSel,
+  onToggleAll,
+  starred,
+  onNavigate,
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  rows: { row: StudyRow; health: ReturnType<typeof computeHealth> }[];
+  stageByKey: Record<string, PipelineStageRow>;
+  selected: Set<string>;
+  toggleSel: (id: string) => void;
+  onToggleAll: (checked: boolean) => void;
+  starred: { isStarred: (id: string) => boolean; toggle: (id: string) => void };
+  onNavigate: (h: string) => void;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  onSort: (col: string) => void;
+}) {
+  const all = rows.length > 0 && rows.every(({ row }) => selected.has(row.id));
+  const some = rows.some(({ row }) => selected.has(row.id));
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[1180px]">
+        <div
+          className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-2.5 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold"
+          style={{ gridTemplateColumns: DENSE_GT }}
+        >
+          <span className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              aria-label="Select all visible studies"
+              checked={all}
+              ref={(el) => {
+                if (el) el.indeterminate = some && !all;
+              }}
+              onChange={(e) => onToggleAll(e.target.checked)}
+              className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+            />
+          </span>
+          <SortHeader label="Code" col="code" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Study" col="title" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Sponsor" col="sponsor" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="NCT" col="nct" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="TA" col="ta" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Phase" col="phase" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="PI" col="pi" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Stage" col="stage" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Health" col="health" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Created" col="created" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+          <SortHeader label="Updated" col="updated" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+        </div>
+        {rows.map(({ row: s, health }) => {
+          const stage = s.stage_key ? stageByKey[s.stage_key] : null;
+          const nav = () => onNavigate(`#/studies/${s.id}`);
+          return (
+            <div
+              key={s.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${s.code}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  nav();
+                }
+              }}
+              onClick={nav}
+              className={
+                "px-4 py-1.5 border-b border-slate-100 last:border-b-0 grid gap-2.5 items-center text-xs cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-brand-500/30 " +
+                (selected.has(s.id) ? "bg-brand-50/60" : "hover:bg-brand-50/30")
+              }
+              style={{ gridTemplateColumns: DENSE_GT }}
+            >
+              <span className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${s.code}`}
+                  checked={selected.has(s.id)}
+                  onChange={() => toggleSel(s.id)}
+                  className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+                />
+              </span>
+              <span className="font-mono text-slate-600 flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    starred.toggle(s.id);
+                  }}
+                  className={
+                    "flex-shrink-0 transition " +
+                    (starred.isStarred(s.id) ? "text-amber-500" : "text-slate-300 hover:text-amber-500")
+                  }
+                  aria-label={starred.isStarred(s.id) ? "Unpin study" : "Pin study"}
+                >
+                  <StarIcon filled={starred.isStarred(s.id)} />
+                </button>
+                {s.code}
+              </span>
+              <span className="font-semibold text-slate-900 truncate">{s.title}</span>
+              <span className="text-slate-700 truncate">{s.sponsor || "—"}</span>
+              <span className="font-mono text-slate-500 truncate">{s.nct || "—"}</span>
+              <span className="text-slate-700 truncate">{s.therapeutic_area || "—"}</span>
+              <span className="font-mono text-slate-600">{s.phase || "—"}</span>
+              <span className="text-slate-700 truncate">{s.pi_name || "—"}</span>
+              <span className="flex items-center gap-1.5 truncate">
+                {stage ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+                    <span className="truncate text-slate-700">{stage.label}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 italic">unassigned</span>
+                )}
+              </span>
+              <span title={health.summary}>
+                <HealthDot health={health} variant="pill" />
+              </span>
+              <span className="font-mono text-slate-500">{s.created_at ? fmtDate(s.created_at) : "—"}</span>
+              <span className="font-mono text-slate-500">{s.updated_at ? fmtDate(s.updated_at) : "—"}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- filter modal (Wave L2) ---------- */
+
+function FilterModal({
+  filters,
+  rows,
+  onChange,
+  onClose,
+}: {
+  filters: AdvFilters;
+  rows: StudyRow[];
+  onChange: (f: AdvFilters) => void;
+  onClose: () => void;
+}) {
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
+  const open = rows.filter((r) => !r.closed);
+
+  const section = (
+    label: string,
+    key: keyof Pick<AdvFilters, "sponsors" | "phases" | "tas" | "pis" | "kinds" | "priorities">,
+    get: (r: StudyRow) => string | null | undefined
+  ) => {
+    const opts = optionCounts(open, get);
+    if (opts.length === 0) return null;
+    const active = filters[key];
+    const toggle = (v: string) =>
+      onChange({
+        ...filters,
+        [key]: active.includes(v) ? active.filter((x) => x !== v) : [...active, v],
+      });
+    return (
+      <div key={key}>
+        <div className="text-xs font-semibold text-slate-500 mb-1.5">{label}</div>
+        <div className="flex flex-wrap gap-1.5">
+          {opts.map(({ value, count }) => (
+            <button
+              key={value}
+              onClick={() => toggle(value)}
+              className={
+                "text-xs rounded-full border px-2.5 py-1 transition flex items-center gap-1.5 " +
+                (active.includes(value)
+                  ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+              }
+            >
+              {active.includes(value) ? "✓ " : ""}
+              {value}
+              <span className="text-[10px] font-mono text-slate-400">{count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dlgRef}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Portfolio filters"
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[85vh] flex flex-col"
+      >
+        <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
+          <Icon name="filter" size={14} className="text-slate-500" />
+          <h2 className="text-base font-display font-bold text-slate-900 flex-1">Filters</h2>
+          <span className="text-[11px] text-slate-500">Changes apply immediately</span>
+          <Button size="sm" variant="ghost" onClick={() => onChange(EMPTY_ADV_FILTERS)} disabled={advFilterCount(filters) === 0}>
+            Clear all
+          </Button>
+          <Button size="sm" variant="primary" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-5">
+          {section("Sponsor", "sponsors", (r) => r.sponsor)}
+          {section("Phase", "phases", (r) => r.phase)}
+          {section("Therapeutic area", "tas", (r) => r.therapeutic_area)}
+          {section("Principal investigator", "pis", (r) => r.pi_name)}
+          {section("Study kind", "kinds", (r) => r.study_kind)}
+          {section("Priority", "priorities", (r) => r.priority)}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">Created between</div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={filters.createdFrom ?? ""}
+                  onChange={(e) => onChange({ ...filters, createdFrom: e.target.value || undefined })}
+                  aria-label="Created from"
+                />
+                <span className="text-slate-400 text-xs">to</span>
+                <Input
+                  type="date"
+                  value={filters.createdTo ?? ""}
+                  onChange={(e) => onChange({ ...filters, createdTo: e.target.value || undefined })}
+                  aria-label="Created to"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">NCT registration</div>
+              <div className="flex items-center gap-2">
+                {([
+                  ["any", "Any"],
+                  ["yes", "Has NCT"],
+                  ["no", "No NCT"],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => onChange({ ...filters, nct: v })}
+                    className={
+                      "text-xs rounded-full border px-2.5 py-1 transition " +
+                      (filters.nct === v
+                        ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Filters combine: within a group any selected value matches; across groups all must
+            match. Stage and Health stay on the toolbar. Counts show open studies. Your filters
+            stick per browser — the CSV export always respects them.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Click-to-sort column header. Third click returns to smart order. */
 function SortHeader({
   label,
