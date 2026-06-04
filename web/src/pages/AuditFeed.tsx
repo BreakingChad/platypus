@@ -12,6 +12,7 @@ import { Icon } from "../components/ui/Icon";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/ui/PageHeader";
+import { PageBlocks } from "../blocks/PageBlocks";
 import { useStickyState } from "../lib/useStickyState";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -191,6 +192,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      <PageBlocks pageKey="audit" region="top" navigate={onNavigate} />
       <PageHeader
         kicker="Audit"
         title="Audit feed"
@@ -412,6 +414,8 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
           )}
         </Card>
       )}
+
+      <PageBlocks pageKey="audit" region="bottom" navigate={onNavigate} />
     </div>
   );
 }

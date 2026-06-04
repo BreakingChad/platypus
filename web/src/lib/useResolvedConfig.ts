@@ -4,6 +4,7 @@ import { uniqueChannelName } from "./uniqueChannel";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "./OrgContext";
 import { useCurrentMember } from "./useCurrentMember";
+import { usePreviewRole } from "./previewRole";
 import {
   DEFAULT_NAV,
   resolveNav,
@@ -31,6 +32,11 @@ export function useResolvedConfig() {
   const { orgId } = useCurrentOrg();
   const { isAdmin } = useCurrentMember();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
+
+  // Admin-only layout preview: resolve everything from a chosen role instead
+  // of my own. Read reactively so entering/exiting preview re-renders the app.
+  const previewRole = usePreviewRole();
+  const previewing = isAdmin && previewRole !== null;
 
   const [memberRow, setMemberRow] = useState<{
     access_role_id: string | null;
@@ -91,7 +97,9 @@ export function useResolvedConfig() {
       setLoading(false);
       return;
     }
-    const accessRoleId = memberRow?.access_role_id ?? null;
+    const accessRoleId = previewing
+      ? previewRole!.id
+      : memberRow?.access_role_id ?? null;
 
     let cancelled = false;
     (async () => {
@@ -141,12 +149,15 @@ export function useResolvedConfig() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [orgId, memberRow?.access_role_id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, memberRow?.access_role_id, previewing ? previewRole?.id : null]);
 
   // Resolve into the final shapes used by the UI.
+  // While previewing, gate nav as the previewed (non-admin) audience sees it —
+  // the floating pill is the way back; permissions themselves are unchanged.
   const navGroups = useMemo(
-    () => resolveNav(navConfig, { isAdmin }),
-    [navConfig, isAdmin]
+    () => resolveNav(navConfig, { isAdmin: isAdmin && !previewing }),
+    [navConfig, isAdmin, previewing]
   );
 
   const layoutFor = (pageKey: string): PageBlockConfig[] =>
@@ -157,7 +168,8 @@ export function useResolvedConfig() {
 
   return {
     loading,
-    accessRoleId: memberRow?.access_role_id ?? null,
+    accessRoleId: previewing ? previewRole!.id : memberRow?.access_role_id ?? null,
+    previewRole: previewing ? previewRole : null,
     navGroups,                   // resolved & permission-gated nav
     rawNavConfig: navConfig,     // raw value (or null if default)
     pageLayouts,                 // raw page layouts (or null)

@@ -304,6 +304,14 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     ],
   },
   {
+    key: "audit",
+    label: "Audit feed",
+    description: "The org-wide audit chain (admin).",
+    coreLabel: "Audit chain (filters, CSV export, verify)",
+    allowedBlocks: ALL_BLOCK_KEYS,
+    defaultLayout: [],
+  },
+  {
     key: "study-detail",
     label: "Study record",
     description: "The study page itself — reorder, rename, or hide its tabs; set the default tab; add blocks above or below the record.",

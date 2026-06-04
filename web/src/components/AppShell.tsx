@@ -4,6 +4,7 @@ import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
+import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
 import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
@@ -46,6 +47,7 @@ export function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [fromSetup, setFromSetup] = useState(false);
+  const previewRole = usePreviewRole();
 
   // Look up org name once we know the orgId.
   useEffect(() => {
@@ -282,6 +284,21 @@ export function AppShell({
         </header>
 
         {/* CONTENT */}
+        {previewRole && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 rounded-full bg-slate-900 text-white pl-4 pr-2 py-2 shadow-xl">
+            <span className="text-xs">
+              Previewing layout as <strong>{previewRole.name}</strong>
+              <span className="text-slate-400"> · your permissions still apply</span>
+            </span>
+            <button
+              onClick={() => setPreviewRole(null)}
+              className="text-xs font-bold bg-white text-slate-900 rounded-full px-3 py-1 hover:bg-slate-200 transition"
+            >
+              Exit preview
+            </button>
+          </div>
+        )}
+
         {fromSetup && currentHash !== "#/setup" && (
           <div className="bg-brand-50 border-b border-brand-100 px-4 md:px-6 py-2 flex items-center gap-3 text-sm">
             <Icon name="check" size={14} className="text-brand-600 flex-shrink-0" />

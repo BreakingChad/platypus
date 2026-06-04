@@ -1,5 +1,6 @@
 import { confirmDialog } from "../lib/confirm";
 import { stamped } from "../lib/stamp";
+import { setPreviewRole } from "../lib/previewRole";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -327,6 +328,23 @@ export function PageLayoutDesigner() {
                   </option>
                 ))}
             </select>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (!selectedRole) return;
+                setPreviewRole({ id: selectedRole.id, name: selectedRole.name });
+                const HASH: Record<string, string> = {
+                  home: "#/", intake: "#/intake", studies: "#/studies",
+                  pipeline: "#/pipeline", sites: "#/sites", inbox: "#/inbox",
+                  "study-detail": "#/studies",
+                };
+                window.location.hash = HASH[selectedPageKey] ?? "#/";
+              }}
+              title="See the app exactly as this role does (last saved layout — save first to preview changes)"
+            >
+              Preview as role
+            </Button>
             <Button variant="ghost" size="sm" onClick={resetToDefault}>
               Reset page
             </Button>
@@ -478,6 +496,16 @@ export function PageLayoutDesigner() {
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {selectedPageKey === "study-detail" && (
+                      <div className="mt-3 pt-3 border-t border-slate-200 text-[11px] text-slate-500">
+                        The Overview tab's field sections (order, grouping, required fields) are
+                        arranged org-wide in the{" "}
+                        <a href="#/settings/fields" className="font-semibold text-brand-700 hover:underline">
+                          Field designer →
+                        </a>
                       </div>
                     )}
 
