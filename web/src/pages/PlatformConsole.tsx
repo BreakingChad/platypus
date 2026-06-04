@@ -26,7 +26,7 @@ import { Loader } from "../components/ui/Loader";
 
 type OrgSummary = {
   org: OrgRow;
-  members: (OrgMemberRow & { email: string })[];
+  members: (OrgMemberRow & { email: string; name?: string | null })[];
   invites: OrgInviteRow[];
 };
 
@@ -48,12 +48,22 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
       supabase.from("orgs").select("*").order("created_at", { ascending: true }),
       supabase.from("org_members").select("*"),
       supabase.from("org_invites").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, email"),
+      supabase.from("profiles").select("id, email, full_name"),
     ]);
     const emailById: Record<string, string> = {};
-    ((p ?? []) as Pick<ProfileRow, "id" | "email">[]).forEach((x) => (emailById[x.id] = x.email));
+    const nameById: Record<string, string | null> = {};
+    ((p ?? []) as Pick<ProfileRow, "id" | "email" | "full_name">[]).forEach((x) => {
+      emailById[x.id] = x.email;
+      nameById[x.id] = x.full_name;
+    });
     setOrgs((o ?? []) as OrgRow[]);
-    setMembers(((m ?? []) as OrgMemberRow[]).map((x) => ({ ...x, email: emailById[x.user_id] ?? "(unknown)" })));
+    setMembers(
+      ((m ?? []) as OrgMemberRow[]).map((x) => ({
+        ...x,
+        email: emailById[x.user_id] ?? "(unknown)",
+        name: nameById[x.user_id] ?? null,
+      }))
+    );
     setInvites((i ?? []) as OrgInviteRow[]);
     setLoading(false);
   };
@@ -147,6 +157,37 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
       void load();
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't revoke the invite"));
+    }
+  };
+
+  const setMemberTier = async (m: OrgMemberRow & { email: string }, tier: MemberTier) => {
+    try {
+      const { error } = await supabase.from("org_members").update({ tier } as any).eq("id", m.id);
+      if (error) throw error;
+      toast.success(stamped(`${m.email} → ${tier}`));
+      void load();
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't change that tier"));
+    }
+  };
+
+  const removeMember = async (org: OrgRow, m: OrgMemberRow & { email: string }) => {
+    if (
+      !(await confirmDialog({
+        title: "Remove from org",
+        message: `Remove ${m.email} from "${org.name}"? Their account survives; their access to this org ends now.`,
+        confirmLabel: "Remove",
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      const { error } = await supabase.from("org_members").delete().eq("id", m.id);
+      if (error) throw error;
+      toast.success(stamped(`${m.email} removed from ${org.name}`));
+      void load();
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't remove them"));
     }
   };
 
@@ -290,6 +331,8 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
             meId={userId}
             onInvite={(email, tier) => void invite(s.org, email, tier)}
             onTempPassword={(email, tier) => issueTempPassword(s.org, email, tier)}
+            onSetTier={(m, tier) => void setMemberTier(m, tier)}
+            onRemoveMember={(m) => void removeMember(s.org, m)}
             onRevoke={(inv) => void revokeInvite(inv)}
             onOpen={() => void openAsDeveloper(s)}
           />
@@ -332,6 +375,8 @@ function OrgCard({
   meId,
   onInvite,
   onTempPassword,
+  onSetTier,
+  onRemoveMember,
   onRevoke,
   onOpen,
 }: {
@@ -339,6 +384,8 @@ function OrgCard({
   meId: string | null;
   onInvite: (email: string, tier: MemberTier) => void;
   onTempPassword: (email: string, tier: MemberTier) => Promise<string | null>;
+  onSetTier: (m: OrgSummary["members"][number], tier: MemberTier) => void;
+  onRemoveMember: (m: OrgSummary["members"][number]) => void;
   onRevoke: (inv: OrgInviteRow) => void;
   onOpen: () => void;
 }) {
@@ -381,18 +428,77 @@ function OrgCard({
 
       {expanded && (
         <div className="border-t border-slate-100 px-4 py-3 space-y-3">
-          {/* members */}
+          {/* USERS — manage tiers, access, credentials per org */}
           <div>
-            <div className="text-[11px] font-semibold text-slate-500 mb-1.5">Members</div>
-            <div className="flex flex-wrap gap-1.5">
-              {members.length === 0 && <span className="text-xs text-slate-400 italic">Nobody yet — invite the owner below.</span>}
-              {members.map((m) => (
-                <span key={m.id} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700">
-                  {m.email}
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{m.tier}</span>
-                </span>
-              ))}
-            </div>
+            <div className="text-[11px] font-semibold text-slate-500 mb-1.5">Users</div>
+            {members.length === 0 ? (
+              <span className="text-xs text-slate-400 italic">Nobody yet — invite the owner below.</span>
+            ) : (
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 grid grid-cols-[1.4fr_120px_110px_220px] gap-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                  <span>User</span>
+                  <span>Tier</span>
+                  <span>Joined</span>
+                  <span className="text-right">Actions</span>
+                </div>
+                {members.map((m) => {
+                  const isOrgOwner = m.user_id === org.owner_id;
+                  return (
+                    <div
+                      key={m.id}
+                      className="px-3 py-2 border-b border-slate-100 last:border-b-0 grid grid-cols-[1.4fr_120px_110px_220px] gap-3 items-center"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-900 truncate">
+                          {m.name || m.email}
+                          {m.user_id === meId && <span className="ml-1.5 text-[10px] text-slate-400">you</span>}
+                        </span>
+                        {m.name && <span className="block text-[11px] text-slate-500 truncate">{m.email}</span>}
+                      </span>
+                      <span>
+                        {isOrgOwner ? (
+                          <Pill tone="brand">owner</Pill>
+                        ) : (
+                          <Select
+                            value={m.tier}
+                            onChange={(e) => onSetTier(m, e.target.value as MemberTier)}
+                            className="text-xs py-1 px-2"
+                            aria-label={`Tier for ${m.email}`}
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="member">Member</option>
+                            <option value="developer">Developer</option>
+                          </Select>
+                        )}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500">{fmtDate(m.created_at)}</span>
+                      <span className="flex items-center gap-1.5 justify-end">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Rotate their credentials: issues a temp password, forces a reset + identity confirmation at next sign-in"
+                          onClick={async () => {
+                            const pw = await onTempPassword(m.email, m.tier);
+                            if (pw) setIssued({ email: m.email, password: pw });
+                          }}
+                        >
+                          Temp password
+                        </Button>
+                        {!isOrgOwner && (
+                          <button
+                            onClick={() => onRemoveMember(m)}
+                            className="text-xs font-semibold text-slate-400 hover:text-red-600 transition"
+                            aria-label={`Remove ${m.email} from this org`}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* pending invites */}
