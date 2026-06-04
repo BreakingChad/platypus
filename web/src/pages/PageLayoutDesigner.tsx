@@ -242,11 +242,11 @@ export function PageLayoutDesigner() {
   /* ---------- gating ---------- */
 
   if (memberLoading) {
-    return <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-wide mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
   }
   if (!isAdmin) {
     return (
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
         <PageHeader kicker="Configure" title="Page designer" />
         <Card className="mt-6">
           <EmptyState
@@ -274,7 +274,7 @@ export function PageLayoutDesigner() {
   const bottomBlocks = working.filter((b) => (b.region ?? "top") === "bottom");
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
         title="Page designer"
@@ -376,7 +376,7 @@ export function PageLayoutDesigner() {
       </Card>
 
       {/* Editor */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px_300px] gap-4 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] xl:grid-cols-[1fr_280px_300px] gap-4 mt-4">
         {/* CENTER — the page, top to bottom, core content locked in place */}
         <div>
           <div className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
@@ -652,8 +652,10 @@ export function PageLayoutDesigner() {
           </div>
         </div>
 
-        {/* RIGHTMOST — selected block settings */}
-        <div>
+        {/* RIGHTMOST — selected block settings. On laptop widths (lg) it
+            spans the full row below the canvas; the third column only exists
+            at xl and up. */}
+        <div className="lg:col-span-2 xl:col-span-1">
           <div className="text-xs font-semibold text-slate-500 mb-2">
             {selectedBlock ? "Block settings" : "Settings"}
           </div>

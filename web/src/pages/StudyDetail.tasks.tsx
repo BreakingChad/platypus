@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { KindPill } from "./Inbox";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -348,7 +349,7 @@ export function TasksTab({
                           }
                         >
                           {overdue ? "Overdue " : "Due "}
-                          {due.toLocaleDateString()}
+                          {fmtDate(due)}
                         </span>
                       )}
                     </div>

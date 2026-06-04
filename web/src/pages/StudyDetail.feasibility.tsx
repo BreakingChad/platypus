@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate, fmtDateTime } from "../lib/dates";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -140,7 +141,7 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
               <Pill tone="brand">M11 v1.0</Pill>
               <span className="flex-1" />
               <span className="text-[10px] font-mono text-slate-400">
-                ingested {new Date(m11.ingestedAt).toLocaleDateString()}
+                ingested {fmtDate(m11.ingestedAt)}
               </span>
             </div>
             <ul className="divide-y divide-slate-100">
@@ -263,7 +264,7 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
             {savedAcuity ? (
               <span className="text-[11px] text-slate-500">
-                Last scored {new Date(savedAcuity.scoredAt).toLocaleString()} ·{" "}
+                Last scored {fmtDateTime(savedAcuity.scoredAt)} ·{" "}
                 {savedAcuity.scoredByEmail ?? "—"} · {savedAcuity.standardLabel}
               </span>
             ) : (
@@ -393,7 +394,7 @@ function ResourcePillar({ study }: { study: StudyRow }) {
                       <Tip label="Out of office — new role-based assignments route to the delegate automatically until this date. Set from each member's Profile.">
                         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
                           <Icon name="clock" size={10} />
-                          OOO until {new Date(m.ooo_until!).toLocaleDateString()}
+                          OOO until {fmtDate(m.ooo_until!)}
                           {m.ooo_delegate_user_id && <> → {nameOf(m.ooo_delegate_user_id)}</>}
                         </span>
                       </Tip>

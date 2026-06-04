@@ -26,6 +26,18 @@ const PATHS: Record<string, string> = {
   external: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3",
   copy: "M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
   "arrow-right": "M5 12h14 M12 5l7 7-7 7",
+  layout: "M3 3h18v18H3z M3 9h18 M9 21V9",
+  calendar: "M3 5h18v16H3z M16 3v4 M8 3v4 M3 11h18",
+  mail: "M2 4h20v16H2z M22 6l-10 7L2 6",
+  clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+  chart: "M12 20V10 M18 20V4 M6 20v-4",
+  dollar: "M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  building: "M3 21h18 M5 21V7l7-4 7 4v14 M9 9h.01 M9 13h.01 M9 17h.01 M15 9h.01 M15 13h.01 M15 17h.01",
+  menu: "M3 12h18 M3 6h18 M3 18h18",
+  edit: "M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
+  trash: "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
+  filter: "M22 3H2l8 9.46V19l4 2v-8.54z",
 };
 
 type IconProps = SVGProps<SVGSVGElement> & {

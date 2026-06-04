@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -164,7 +165,7 @@ export function TasksDueBlock({ ctx }: { ctx: BlockContext }) {
                   }
                 >
                   {overdue ? "Overdue " : "Due "}
-                  {due.toLocaleDateString()}
+                  {fmtDate(due)}
                 </div>
                 <Button size="sm" variant="primary" onClick={() => complete(t)}>
                   Complete

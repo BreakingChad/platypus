@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { fmtDate } from "../lib/dates";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { PipelineStageRow, StudyRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
@@ -87,5 +88,5 @@ function timeAgo(d: Date): string {
   if (hr < 24) return `${hr}h ago`;
   const day = Math.floor(hr / 24);
   if (day < 14) return `${day}d ago`;
-  return d.toLocaleDateString();
+  return fmtDate(d);
 }

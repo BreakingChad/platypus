@@ -20,7 +20,7 @@ export function ComingSoon({
   onBackToHome: () => void;
 }) {
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
       <PageHeader kicker={kicker} title={title} subtitle={description} />
       <Card className="mt-6">
         <EmptyState

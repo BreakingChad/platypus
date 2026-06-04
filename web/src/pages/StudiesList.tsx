@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { confirmDialog } from "../lib/confirm";
 import { Loader } from "../components/ui/Loader";
@@ -243,11 +244,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   }, [studies.rows]);
 
   if (memberLoading) {
-    return <div className="max-w-6xl mx-auto px-6 py-8"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-standard mx-auto px-6 py-8"><Loader label="Checking permissions…" /></div>;
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Workspace"
         title="Studies"
@@ -667,7 +668,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                       className="text-xs text-slate-500 font-mono cursor-pointer"
                       onClick={() => onNavigate(`#/studies/${s.id}`)}
                     >
-                      {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
+                      {s.created_at ? fmtDate(s.created_at) : "—"}
                     </span>
                   )}
                 </div>

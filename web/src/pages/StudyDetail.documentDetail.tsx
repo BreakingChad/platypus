@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDateTime } from "../lib/dates";
 import { useModalA11y } from "../lib/useModalA11y";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -321,7 +322,7 @@ export function DocumentDetailPanel({
                             )}
                             <span className="text-slate-300">·</span>
                             <span className="font-mono">
-                              {new Date(v.uploaded_at).toLocaleString()}
+                              {fmtDateTime(v.uploaded_at)}
                             </span>
                           </div>
                         </div>
@@ -401,7 +402,7 @@ export function DocumentDetailPanel({
                           {e.actor_email ?? "system"}
                         </span>
                         <span className="text-[11px] text-slate-400 font-mono">
-                          {new Date(e.created_at).toLocaleString()}
+                          {fmtDateTime(e.created_at)}
                         </span>
                       </div>
                       <div className="mt-1 grid grid-cols-1 md:grid-cols-2 gap-1 text-[10px] font-mono text-slate-500">

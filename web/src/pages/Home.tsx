@@ -23,7 +23,7 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
   const blocks: PageBlockConfig[] = layoutFor("home");
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Workspace"
         title="Welcome back."

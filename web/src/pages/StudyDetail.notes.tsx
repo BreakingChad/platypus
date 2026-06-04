@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDateTime } from "../lib/dates";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
@@ -146,7 +147,7 @@ export function NotesCard({ studyId }: { studyId: string }) {
                     {n.author_email ?? "unknown"}
                   </span>
                   <span className="text-[10px] font-mono text-slate-400">
-                    {new Date(n.created_at).toLocaleString()}
+                    {fmtDateTime(n.created_at)}
                   </span>
                 </div>
                 <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">{n.body}</p>

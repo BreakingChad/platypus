@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtDate } from "../lib/dates";
 import type { StudyRow } from "../lib/types";
 import { aiStatus, generateStudySummary } from "../lib/ai";
 import { friendlyError } from "../lib/errors";
@@ -88,7 +89,7 @@ export function AiSummaryCard({ study, aiEnabled }: { study: StudyRow; aiEnabled
             </h3>
             {at && (
               <p className="text-[10px] font-mono text-slate-400">
-                generated {new Date(at).toLocaleDateString()}
+                generated {fmtDate(at)}
               </p>
             )}
           </div>

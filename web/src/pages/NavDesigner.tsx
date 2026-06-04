@@ -251,12 +251,12 @@ export function NavDesigner() {
   /* ---------- gating ---------- */
 
   if (memberLoading) {
-    return <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-wide mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
   }
 
   if (!isAdmin) {
     return (
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
         <PageHeader kicker="Configure" title="Nav designer" />
         <Card className="mt-6">
           <EmptyState
@@ -278,7 +278,7 @@ export function NavDesigner() {
   const resolvedPreview = resolveNav(working, { isAdmin: previewAsAdmin });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
         title="Nav designer"
@@ -395,6 +395,7 @@ export function NavDesigner() {
               <div className="flex items-center gap-1.5 text-[10px]">
                 <button
                   onClick={() => setPreviewAsAdmin(true)}
+                  aria-label="Preview the sidebar as an admin"
                   className={
                     "rounded px-2 py-0.5 font-semibold transition " +
                     (previewAsAdmin
@@ -406,6 +407,7 @@ export function NavDesigner() {
                 </button>
                 <button
                   onClick={() => setPreviewAsAdmin(false)}
+                  aria-label="Preview the sidebar as a member"
                   className={
                     "rounded px-2 py-0.5 font-semibold transition " +
                     (!previewAsAdmin
@@ -516,6 +518,7 @@ function SortableGroup({
           {...listeners}
           className="cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing"
           title="Drag group"
+          aria-label="Drag to reorder this group"
         >
           <GripIcon />
         </button>
@@ -545,6 +548,7 @@ function SortableGroup({
             onClick={() => setRenaming(true)}
             className="text-sm font-semibold text-slate-700 hover:text-brand-700 transition"
             title="Rename group"
+            aria-label={`Rename group ${group.group}`}
           >
             {group.group}
           </button>
@@ -562,12 +566,14 @@ function SortableGroup({
           onClick={onToggleGroupHidden}
           className="text-[10px] font-mono text-slate-500 hover:text-slate-900 transition px-1.5 py-0.5 rounded hover:bg-slate-100"
           title={group.hidden ? "Show group" : "Hide group"}
+          aria-label={group.hidden ? "Show this group in the sidebar" : "Hide this group from the sidebar"}
         >
           {group.hidden ? "show" : "hide"}
         </button>
         <button
           onClick={onRemoveGroup}
           title="Remove group"
+          aria-label="Remove this group"
           className="text-slate-400 hover:text-red-600 transition text-lg leading-none px-1"
         >
           ×
@@ -691,6 +697,7 @@ function SortableItem({
         {...listeners}
         className="cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing"
         title="Drag item"
+        aria-label="Drag to reorder this item"
       >
         <GripIcon />
       </button>
@@ -724,6 +731,7 @@ function SortableItem({
           onClick={() => setRenaming(true)}
           className="text-sm font-semibold text-slate-900 hover:text-brand-700 transition flex-1 min-w-0 truncate text-left"
           title="Click to rename"
+        aria-label={`Rename ${effectiveLabel}`}
         >
           {effectiveLabel}
         </button>
@@ -741,6 +749,7 @@ function SortableItem({
       <button
         onClick={() => onUpdate({ hidden: !item.hidden })}
         title={item.hidden ? "Show item" : "Hide item"}
+        aria-label={item.hidden ? "Show this item in the sidebar" : "Hide this item from the sidebar"}
         className={
           "text-[11px] font-semibold px-1.5 py-0.5 rounded transition " +
           (item.hidden
@@ -753,6 +762,7 @@ function SortableItem({
       <button
         onClick={onRemove}
         title="Remove item"
+        aria-label="Remove this item"
         className="text-slate-400 hover:text-red-600 transition text-lg leading-none px-1"
       >
         ×

@@ -82,14 +82,14 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
 
   if (memberLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-6 py-8">
         <Loader label="Checking permissions…" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Workspace"
         title="Sites"

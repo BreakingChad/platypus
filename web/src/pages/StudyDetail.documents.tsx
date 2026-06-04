@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { useModalA11y } from "../lib/useModalA11y";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
@@ -479,8 +480,8 @@ function DocumentRowView({
         </div>
         <div className="text-xs text-slate-500 font-mono">
           {version?.uploaded_at
-            ? new Date(version.uploaded_at).toLocaleDateString()
-            : new Date(doc.created_at).toLocaleDateString()}
+            ? fmtDate(version.uploaded_at)
+            : fmtDate(doc.created_at)}
         </div>
         <div className="text-xs text-slate-500 truncate" title={version?.original_filename ?? ""}>
           {version?.original_filename ?? <span className="italic text-slate-400">no file</span>}

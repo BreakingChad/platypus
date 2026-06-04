@@ -1,4 +1,5 @@
 import { useOrgTable } from "../lib/useOrgTable";
+import { fmtDate } from "../lib/dates";
 import type { TaskRow, StudyRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Icon } from "../components/ui/Icon";
@@ -60,7 +61,7 @@ export function EscalationsBlock({ ctx }: { ctx: BlockContext }) {
                       }
                     >
                       {overdue ? "overdue " : "due "}
-                      {new Date(t.due_at).toLocaleDateString()}
+                      {fmtDate(t.due_at)}
                     </span>
                   )}
                   <Icon name="chevron-right" size={13} className="text-slate-300" />

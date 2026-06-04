@@ -257,14 +257,14 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
 
   if (memberLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-6 py-8">
         <Loader label="Checking permissions…" />
       </div>
     );
   }
   if (!isAdmin) {
     return (
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
         <Card>
           <EmptyState
             iconName="lock"
@@ -277,7 +277,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Get started"
         title="Guided setup"

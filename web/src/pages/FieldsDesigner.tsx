@@ -213,7 +213,7 @@ export function FieldsDesigner() {
 
   if (memberLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
         <div className="text-sm text-slate-500">Checking permissions…</div>
       </div>
     );
@@ -221,7 +221,7 @@ export function FieldsDesigner() {
 
   if (!isAdmin) {
     return (
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
         <PageHeader
           kicker="Configure"
           title="Field definitions"
@@ -241,7 +241,7 @@ export function FieldsDesigner() {
   /* ---------- admin view ---------- */
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure · Field definitions"
         title={ENTITY_META[entityType].label}

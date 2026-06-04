@@ -1,4 +1,5 @@
 import { useOrgTable } from "../lib/useOrgTable";
+import { fmtDate } from "../lib/dates";
 import { useAuth } from "../auth/useAuth";
 import type { TaskRow, StudyRow } from "../lib/types";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -23,7 +24,7 @@ export function Approvals({ onNavigate }: { onNavigate: (h: string) => void }) {
   const now = Date.now();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Team work"
         title="Approvals"
@@ -60,7 +61,7 @@ export function Approvals({ onNavigate }: { onNavigate: (h: string) => void }) {
                       {t.due_at && (
                         <span className={"text-[11px] font-mono whitespace-nowrap " + (overdue ? "text-red-700 font-bold" : "text-slate-500")}>
                           {overdue ? "overdue " : "due "}
-                          {new Date(t.due_at).toLocaleDateString()}
+                          {fmtDate(t.due_at)}
                         </span>
                       )}
                       <Icon name="chevron-right" size={13} className="text-slate-300" />

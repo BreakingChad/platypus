@@ -230,6 +230,18 @@ export function AppShell({
                 <Icon name="search" size={11} aria-hidden="true" />
                 Search
               </button>
+              {/* Mobile: search was Cmd-K-only — unreachable on touch. */}
+              <button
+                onClick={() => {
+                  const evt = new KeyboardEvent("keydown", { key: "k", metaKey: true });
+                  window.dispatchEvent(evt);
+                }}
+                className="md:hidden inline-flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 hover:bg-white p-1.5 text-slate-500 transition"
+                title="Search everything"
+                aria-label="Search everything"
+              >
+                <Icon name="search" size={14} aria-hidden="true" />
+              </button>
             </div>
 
             {isAdmin && (
@@ -592,37 +604,38 @@ function ConfigGearMenu({
   }, [open]);
 
   const path = currentHash.split("?")[0];
-  type Item = { href: string; label: string; sub: string };
+  type Item = { href: string; label: string; sub: string; icon: string };
   const items: Item[] = [];
-  const add = (href: string, label: string, sub: string) => items.push({ href, label, sub });
+  const add = (href: string, label: string, sub: string, icon = "settings") =>
+    items.push({ href, label, sub, icon });
 
   if (path.startsWith("#/studies/")) {
-    add("#/settings/pages?page=study-detail", "Study record layout", "Tabs, default tab, blocks — per role");
-    add("#/settings/fields", "Study fields", "Sections, order, required fields");
-    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage");
+    add("#/settings/pages?page=study-detail", "Study record layout", "Tabs, default tab, blocks — per role", "layout");
+    add("#/settings/fields", "Study fields", "Sections, order, required fields", "file");
+    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage", "workflow");
   } else if (path === "#/studies") {
-    add("#/settings/pages?page=studies", "This page's layout", "Blocks, columns, default filters — per role");
-    add("#/settings/fields", "Study fields", "Sections, order, required fields");
+    add("#/settings/pages?page=studies", "This page's layout", "Blocks, columns, default filters — per role", "layout");
+    add("#/settings/fields", "Study fields", "Sections, order, required fields", "file");
   } else if (path === "#/pipeline") {
-    add("#/settings/pages?page=pipeline", "This page's layout", "Blocks, default board view — per role");
-    add("#/settings/stages", "Pipeline stages", "Names, colors, target days (Health)");
-    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage");
+    add("#/settings/pages?page=pipeline", "This page's layout", "Blocks, default board view — per role", "layout");
+    add("#/settings/stages", "Pipeline stages", "Names, colors, target days (Health)", "layers");
+    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage", "workflow");
   } else if (path === "#/intake") {
-    add("#/settings/pages?page=intake", "This page's layout", "Blocks around the triage queue — per role");
-    add("#/settings/fields", "Study fields", "Drives the completeness score");
-    add("#/settings/work-streams", "Work streams", "What fires at commit");
+    add("#/settings/pages?page=intake", "This page's layout", "Blocks around the triage queue — per role", "layout");
+    add("#/settings/fields", "Study fields", "Drives the completeness score", "file");
+    add("#/settings/work-streams", "Work streams", "What fires at commit", "workflow");
   } else if (path === "#/sites") {
-    add("#/settings/pages?page=sites", "This page's layout", "Blocks around the site list — per role");
-    add("#/settings/fields", "Site fields", "The site profile schema");
+    add("#/settings/pages?page=sites", "This page's layout", "Blocks around the site list — per role", "layout");
+    add("#/settings/fields", "Site fields", "The site profile schema", "hospital");
   } else if (path === "#/inbox") {
-    add("#/settings/pages?page=inbox", "This page's layout", "Blocks, default queue — per role");
-    add("#/settings/teams", "Teams & roles", "Who tasks route to; escalation hierarchy");
-    add("#/settings/access", "Access roles", "Permissions per role");
+    add("#/settings/pages?page=inbox", "This page's layout", "Blocks, default queue — per role", "layout");
+    add("#/settings/teams", "Teams & roles", "Who tasks route to; escalation hierarchy", "users");
+    add("#/settings/access", "Access roles", "Permissions per role", "shield");
   } else if (path === "#/audit") {
-    add("#/settings/access", "Access roles", "Who can see what");
+    add("#/settings/access", "Access roles", "Who can see what", "shield");
   } else {
-    add("#/settings/pages?page=home", "Home layout", "The blocks each role lands on");
-    add("#/settings/nav", "Nav designer", "The sidebar, per role");
+    add("#/settings/pages?page=home", "Home layout", "The blocks each role lands on", "home");
+    add("#/settings/nav", "Nav designer", "The sidebar, per role", "menu");
   }
 
   return (
@@ -662,7 +675,7 @@ function ConfigGearMenu({
               className="w-full text-left px-3 py-2.5 hover:bg-brand-50/40 transition flex items-start gap-2.5"
             >
               <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon name="settings" size={12} />
+                <Icon name={it.icon} size={12} />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-slate-900">{it.label}</span>

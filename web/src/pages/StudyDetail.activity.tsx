@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtDateTime } from "../lib/dates";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
 import type { AuditEventRow } from "../lib/types";
@@ -178,7 +179,7 @@ export function ActivityTab({
                     {e.actor_email ?? "system"}
                   </span>
                   <span className="text-[11px] text-slate-400 font-mono">
-                    {new Date(e.created_at).toLocaleString()}
+                    {fmtDateTime(e.created_at)}
                   </span>
                 </div>
                 {renderDetails(e)}

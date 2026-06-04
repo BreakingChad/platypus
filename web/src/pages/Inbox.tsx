@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
 import { Loader } from "../components/ui/Loader";
@@ -288,7 +289,7 @@ export function Inbox({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Workspace"
         title="Inbox"
@@ -477,7 +478,7 @@ export function Inbox({
                         }
                       >
                         {overdue ? "Overdue " : "Due "}
-                        {due.toLocaleDateString()}
+                        {fmtDate(due)}
                       </span>
                     ) : (
                       <span className="text-slate-400 italic">No due date</span>

@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
@@ -260,7 +261,7 @@ export function StudyDetail({
 
   if (loadError) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-6 py-8">
         <Card>
           <EmptyState
             iconName="alert"
@@ -279,7 +280,7 @@ export function StudyDetail({
 
   if (!study) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-8"><Loader label="Loading study…" /></div>
+      <div className="max-w-page-standard mx-auto px-6 py-8"><Loader label="Loading study…" /></div>
     );
   }
 
@@ -408,7 +409,7 @@ export function StudyDetail({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       {/* Back button */}
       <button
         onClick={onBack}
@@ -940,7 +941,7 @@ function formatValue(v: unknown, type: FieldType): React.ReactNode {
   if (type === "boolean") return v ? "Yes" : "No";
   if (type === "date" && typeof v === "string") {
     try {
-      return new Date(v).toLocaleDateString();
+      return fmtDate(v);
     } catch {
       return String(v);
     }

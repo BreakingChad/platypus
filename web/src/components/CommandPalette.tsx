@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { fmtDate } from "../lib/dates";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { StudyRow, PipelineStageRow, TaskRow, DocumentRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -342,7 +343,7 @@ function taskToResult(t: TaskRow, study: StudyRow | undefined, score: number): R
     subtitle: [
       study?.code,
       t.kind,
-      t.due_at ? `due ${new Date(t.due_at).toLocaleDateString()}` : null,
+      t.due_at ? `due ${fmtDate(t.due_at)}` : null,
     ].filter(Boolean).join(" · ") || undefined,
     icon: "check",
     score,

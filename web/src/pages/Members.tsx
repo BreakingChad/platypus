@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { fmtDate } from "../lib/dates";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -247,12 +248,12 @@ export function Members() {
   const inviteUrl = window.location.origin + window.location.pathname;
 
   if (memberLoading) {
-    return <div className="max-w-4xl mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
   }
 
   if (!isAdmin) {
     return (
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
         <PageHeader kicker="Configure" title="Members" />
         <Card className="mt-6">
           <EmptyState
@@ -266,7 +267,7 @@ export function Members() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Configure"
         title="Members"
@@ -407,7 +408,7 @@ export function Members() {
                     {m.title || <span className="italic text-slate-400">—</span>}
                   </div>
                   <div className="text-xs text-slate-500 font-mono">
-                    {new Date(m.created_at).toLocaleDateString()}
+                    {fmtDate(m.created_at)}
                   </div>
                   <div>
                     <select

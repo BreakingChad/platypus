@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fmtDateTime } from "../lib/dates";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -174,11 +175,11 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
   };
 
   if (memberLoading) {
-    return <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
+    return <div className="max-w-page-standard mx-auto px-6 py-8 text-sm text-slate-500">Checking permissions…</div>;
   }
   if (!isAdmin) {
     return (
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
         <PageHeader kicker="Audit" title="Audit feed" />
         <Card className="mt-6">
           <EmptyState
@@ -192,7 +193,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
       <PageBlocks pageKey="audit" region="top" navigate={onNavigate} />
       <PageHeader
         kicker="Audit"
@@ -363,7 +364,7 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
                 className="px-4 py-2.5 border-b border-slate-100 last:border-b-0 grid grid-cols-[160px_120px_1fr_180px_140px] gap-3 items-center text-sm hover:bg-slate-50/50 transition"
               >
                 <span className="text-xs font-mono text-slate-600">
-                  {new Date(e.created_at).toLocaleString()}
+                  {fmtDateTime(e.created_at)}
                 </span>
                 <span>
                   <button
