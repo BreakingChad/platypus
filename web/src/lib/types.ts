@@ -248,6 +248,9 @@ export type StudyRow = {
   closed_at: string | null;
   pi_name: string | null;
   custom_field_values: Record<string, unknown>;
+  ai_summary?: string | null;
+  ai_summary_at?: string | null;
+  ai_summary_by?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -256,6 +259,7 @@ export type OrgRow = {
   id: string; name: string; slug: string | null;
   sponsor_mode: SponsorMode; region: string | null; timezone: string | null;
   project_id_prefix: string | null; owner_id: string; created_at: string;
+  ai_enabled?: boolean; ai_model?: string;
 };
 
 export type ProfileRow = {
