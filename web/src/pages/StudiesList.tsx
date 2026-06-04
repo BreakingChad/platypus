@@ -64,6 +64,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const [showClosed, setShowClosed] = useStickyStateWithRoleDefault<boolean>(
     "studies/showClosed", false, pageOpts.showClosed as boolean | undefined
   );
+  // Lifecycle tabs (June notes): how orgs actually think about the portfolio.
+  // Pipeline = committed, still in startup · Active = reached Activation ·
+  // Closed = done. Prospective (uncommitted) studies live on the Intake page.
+  type LifeTab = "pipeline" | "active" | "closed";
+  const [lifeTab, setLifeTab] = useStickyState<LifeTab>("studies/lifeTab", "pipeline");
   const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
   const [creating, setCreating] = useState(false);
 
@@ -192,7 +197,13 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       health: computeHealth(r, stages.rows),
     }));
     return withHealth
-      .filter(({ row }) => (showClosed ? true : !row.closed))
+      .filter(({ row }) => {
+        if (lifeTab === "closed") return row.closed;
+        if (row.closed) return showClosed;
+        if (!row.committed_at) return false; // prospective — lives in Intake
+        const isActive = row.stage_key === "activation";
+        return lifeTab === "active" ? isActive : !isActive;
+      })
       .filter(({ row }) => (stageFilter === "all" ? true : row.stage_key === stageFilter))
       .filter(({ health }) => (healthFilter === "all" ? true : health.level === healthFilter))
       .filter(({ row }) => {
@@ -219,7 +230,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         if (hw !== 0) return hw;
         return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
       });
-  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed]);
+  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -286,6 +297,34 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       />
 
       <PageBlocks pageKey="studies" region="top" navigate={onNavigate} />
+
+      {/* Lifecycle tabs — how orgs think about the portfolio (June notes) */}
+      <div className="mt-6 -mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+        {([
+          ["pipeline", "Pipeline"],
+          ["active", "Active"],
+          ["closed", "Closed"],
+        ] as ["pipeline" | "active" | "closed", string][]).map(([k, label]) => {
+          const n = studies.rows.filter((r) => {
+            if (k === "closed") return r.closed;
+            if (r.closed || !r.committed_at) return false;
+            return k === "active" ? r.stage_key === "activation" : r.stage_key !== "activation";
+          }).length;
+          return (
+            <button
+              key={k}
+              onClick={() => setLifeTab(k)}
+              className={
+                "px-3 py-1.5 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
+                (lifeTab === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+              }
+            >
+              {label}
+              <span className={"text-[10px] font-mono " + (lifeTab === k ? "text-white/80" : "text-slate-400")}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Stage chips strip — shows the live count per stage */}
       {stages.rows.length > 0 && (

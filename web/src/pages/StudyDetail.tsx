@@ -35,6 +35,7 @@ import { NotesCard } from "./StudyDetail.notes";
 import { FeasibilityTab } from "./StudyDetail.feasibility";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { AiSummaryCard } from "./StudyDetail.aiSummary";
+import { IntakeDecisionBar } from "../components/CommitToPortfolio";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { pageEntry } from "../lib/navConfig";
 
@@ -91,6 +92,7 @@ export function StudyDetail({
 
   const [study, setStudy] = useState<StudyRow | null>(null);
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Tabs are designable per role (Page designer → Study record): order,
@@ -165,7 +167,7 @@ export function StudyDetail({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [studyId]);
+  }, [studyId, reloadTick]);
 
   // Tab badge counts (audit events + open tasks). Cheap COUNT queries.
   useEffect(() => {
@@ -226,7 +228,7 @@ export function StudyDetail({
       supabase.removeChannel(ch2);
       supabase.removeChannel(ch3);
     };
-  }, [studyId]);
+  }, [studyId, reloadTick]);
 
   const stage = useMemo(
     () => (study?.stage_key ? stages.rows.find((s) => s.key === study.stage_key) : null),
@@ -417,6 +419,12 @@ export function StudyDetail({
       </button>
 
       <PageBlocks pageKey="study-detail" region="top" navigate={(h) => { window.location.hash = h; }} />
+
+      <IntakeDecisionBar
+        study={study}
+        onChanged={() => setReloadTick((t) => t + 1)}
+        onNavigate={(h) => { window.location.hash = h; }}
+      />
 
       <PageHeader
         kicker={`Study · ${study.code}`}

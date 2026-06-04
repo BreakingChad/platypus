@@ -51,7 +51,6 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", { orderBy: "position" });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", { orderBy: "position" });
 
-  const [committing, setCommitting] = useState<StudyRow | null>(null);
 
   const studyFields = useMemo(
     () => fields.rows.filter((f) => f.entity_type === "study" && f.enabled),
@@ -67,10 +66,6 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
   );
 
   // First non-intake stage = the commit destination.
-  const commitStage = useMemo(() => {
-    const sorted = [...stages.rows].sort((a, b) => a.position - b.position);
-    return sorted.find((s) => s.key !== "intake") ?? null;
-  }, [stages.rows]);
 
   if (memberLoading) {
     return (
@@ -167,58 +162,9 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
                   </div>
                   <div className="flex items-center gap-1.5 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => onNavigate(`#/studies/${s.id}`)}>
-                      Review
+                      Open →
                     </Button>
-                    {isAdmin && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => setCommitting(s)}
-                          title="Commit to portfolio"
-                        >
-                          <Icon name="check" size={11} /> Commit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={async () => {
-                            if (!orgId || !userId) return;
-                            if (
-                              !(await confirmDialog({
-                                title: "Decline study",
-                                message: `Decline ${s.code}? It closes with a declined status — fully audited, restorable by reopening.`,
-                                confirmLabel: "Decline",
-                                danger: true,
-                              }))
-                            )
-                              return;
-                            try {
-                              const { error } = await supabase
-                                .from("studies")
-                                .update({
-                                  closed: true,
-                                  closed_at: new Date().toISOString(),
-                                  intake_status: "declined",
-                                } as any)
-                                .eq("id", s.id);
-                              if (error) throw error;
-                              void writeAuditEvent({
-                                orgId, actorId: userId, actorEmail: userEmail,
-                                entityType: "study", entityId: s.id,
-                                action: "intake_declined",
-                                payload: { code: s.code, title: s.title },
-                              });
-                              toast.success(stamped(`Declined ${s.code}`));
-                            } catch (e: any) {
-                              toast.error(friendlyError(e, "Couldn't decline"));
-                            }
-                          }}
-                        >
-                          Decline
-                        </Button>
-                      </>
-                    )}
+
                   </div>
                 </div>
               );
@@ -229,77 +175,11 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
 
       <PageBlocks pageKey="intake" region="bottom" navigate={onNavigate} />
 
-      {committing && orgId && userId && commitStage && (
-        <CommitModal
-          study={committing}
-          commitStage={commitStage}
-          modules={modules.rows.filter((m) => m.stage_key === commitStage.key && m.enabled)}
-          completenessInfo={completeness(committing, studyFields)}
-          onClose={() => setCommitting(null)}
-          onCommit={async () => {
-            try {
-              const { error } = await supabase
-                .from("studies")
-                .update({
-                  stage_key: commitStage.key,
-                  committed_at: new Date().toISOString(),
-                  intake_status: "committed",
-                } as any)
-                .eq("id", committing.id);
-              if (error) throw error;
-              void supabase
-                .from("studies")
-                .update({ stage_entered_at: new Date().toISOString() } as any)
-                .eq("id", committing.id);
-              void writeAuditEvent({
-                orgId, actorId: userId, actorEmail: userEmail,
-                entityType: "study", entityId: committing.id,
-                action: "committed_to_portfolio",
-                payload: { code: committing.code, to_stage: commitStage.key, to_label: commitStage.label },
-              });
-              void writeAuditEvent({
-                orgId, actorId: userId, actorEmail: userEmail,
-                entityType: "study", entityId: committing.id,
-                action: "stage_changed",
-                payload: {
-                  from: committing.stage_key ?? null,
-                  to: commitStage.key,
-                  from_label: "Intake",
-                  to_label: commitStage.label,
-                  source: "intake_commit",
-                },
-              });
-              let spawned = 0;
-              try {
-                const res = await spawnTasksForStageEntry({
-                  orgId,
-                  studyId: committing.id,
-                  stageKey: commitStage.key,
-                  actorUserId: userId,
-                });
-                spawned = res.spawned;
-              } catch {
-                /* engine failure shouldn't block commit */
-              }
-              toast.success(
-                stamped(
-                  `Committed ${committing.code} to ${commitStage.label}` +
-                    (spawned > 0 ? ` — ${spawned} task${spawned === 1 ? "" : "s"} spawned` : "")
-                )
-              );
-              setCommitting(null);
-              onNavigate(`#/studies/${committing.id}`);
-            } catch (e: any) {
-              toast.error(friendlyError(e, "Commit failed"));
-            }
-          }}
-        />
-      )}
-    </div>
+          </div>
   );
 }
 
-function completeness(
+export function completeness(
   study: StudyRow,
   defs: FieldDefinitionRow[]
 ): { pct: number; missingRequired: string[] } {
@@ -331,97 +211,3 @@ function completeness(
 
 /* ---------- Commit modal: the work stream moment ---------- */
 
-function CommitModal({
-  study,
-  commitStage,
-  modules,
-  completenessInfo,
-  onClose,
-  onCommit,
-}: {
-  study: StudyRow;
-  commitStage: PipelineStageRow;
-  modules: WorkflowModuleRow[];
-  completenessInfo: { pct: number; missingRequired: string[] };
-  onClose: () => void;
-  onCommit: () => Promise<void>;
-}) {
-  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div
-      className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        ref={dlgRef}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Commit to portfolio"
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
-      >
-        <div className="px-5 py-4 border-b border-slate-200">
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            {study.code}
-          </div>
-          <h2 className="text-lg font-display font-bold text-slate-900">Commit to portfolio</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Moves to <strong>{commitStage.label}</strong>, stamps the commit date, and fires the
-            stage's work stream.
-          </p>
-        </div>
-        <div className="p-5 space-y-4">
-          {completenessInfo.missingRequired.length > 0 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
-              <strong>{completenessInfo.missingRequired.length} required field
-              {completenessInfo.missingRequired.length === 1 ? "" : "s"} still empty:</strong>{" "}
-              {completenessInfo.missingRequired.join(", ")}. You can commit anyway — the gaps stay
-              visible on the record.
-            </div>
-          )}
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Work stream that fires on entry
-            </div>
-            {modules.length === 0 ? (
-              <div className="text-sm text-slate-500">
-                No work stream modules configured for {commitStage.label} — no tasks auto-spawn.
-                Configure them in Work Streams.
-              </div>
-            ) : (
-              <ul className="space-y-1.5">
-                {modules.map((m) => (
-                  <li key={m.id} className="flex items-center gap-2 text-sm text-slate-800">
-                    <Icon name="workflow" size={13} className="text-brand-600 flex-shrink-0" />
-                    <span className="truncate">{m.name}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onCommit();
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy ? "Committing…" : "Commit to portfolio"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
