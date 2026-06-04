@@ -312,7 +312,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
     <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Workspace"
-        title="Studies"
+        title="All studies"
         subtitle="Every study you're running. Sorted newest first. Click into a study to see its full record."
         actions={
           <div className="flex items-center gap-2">
