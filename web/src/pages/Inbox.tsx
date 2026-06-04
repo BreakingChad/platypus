@@ -2,6 +2,7 @@ import { friendlyError } from "../lib/errors";
 import { fmtDate } from "../lib/dates";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
+import { dueBucket, BUCKET_LABELS, type DueBucket } from "../lib/inboxBuckets";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
@@ -71,6 +72,10 @@ export function Inbox({
   );
   const tab: Tab = fixedTab ?? tabSticky;
   const [statusFilter, setStatusFilter] = useStickyState<TaskStatus | "open_only">("inbox/statusFilter", "open_only");
+  const [q, setQ] = useState("");                                                      // search resets per session
+  const [kindFilter, setKindFilter] = useStickyState<string>("inbox/kindFilter", "all");
+  const [overdueOnly, setOverdueOnly] = useStickyState<boolean>("inbox/overdueOnly", false);
+  const [sortMode, setSortMode] = useStickyState<"due" | "created" | "title" | "study">("inbox/sortMode", "due");
   const [addingTask, setAddingTask] = useState(false);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
   const [coveringFor, setCoveringFor] = useState<string[]>([]);
@@ -182,9 +187,43 @@ export function Inbox({
     } else {
       xs = xs.filter((t) => t.status === statusFilter);
     }
-    // Sort: overdue first by due_at, then no-due, then by created_at
+    // Kind filter ("action" = document send-for-action tasks)
+    if (kindFilter === "action") {
+      xs = xs.filter((t) => t.action_type != null);
+    } else if (kindFilter !== "all") {
+      xs = xs.filter((t) => t.kind === kindFilter && t.action_type == null);
+    }
+    // Overdue only
     const now = Date.now();
+    if (overdueOnly) {
+      xs = xs.filter(
+        (t) => t.due_at && new Date(t.due_at).getTime() < now && t.status !== "done" && t.status !== "skipped"
+      );
+    }
+    // Search — title, description, study code/title
+    const needle = q.trim().toLowerCase();
+    if (needle) {
+      xs = xs.filter((t) => {
+        const study = t.study_id ? studyById[t.study_id] : null;
+        return (
+          t.title.toLowerCase().includes(needle) ||
+          (t.description ?? "").toLowerCase().includes(needle) ||
+          (study?.code ?? "").toLowerCase().includes(needle) ||
+          (study?.title ?? "").toLowerCase().includes(needle)
+        );
+      });
+    }
+    // Sort
     return [...xs].sort((a, b) => {
+      if (sortMode === "created") return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+      if (sortMode === "title") return a.title.localeCompare(b.title);
+      if (sortMode === "study") {
+        const ac = a.study_id ? studyById[a.study_id]?.code ?? "" : "";
+        const bc = b.study_id ? studyById[b.study_id]?.code ?? "" : "";
+        if (ac !== bc) return ac.localeCompare(bc);
+        return (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999");
+      }
+      // "due" — overdue first by due_at, then no-due, then newest
       const aDue = a.due_at ? new Date(a.due_at).getTime() : null;
       const bDue = b.due_at ? new Date(b.due_at).getTime() : null;
       const aOver = aDue !== null && aDue < now;
@@ -197,7 +236,27 @@ export function Inbox({
       }
       return (b.created_at ?? "").localeCompare(a.created_at ?? "");
     });
-  }, [tasks.rows, tab, statusFilter, userId, myRoleIds]);
+  }, [tasks.rows, tab, statusFilter, userId, myRoleIds, kindFilter, overdueOnly, q, sortMode, studyById]);
+
+  // Outlook-style due-date grouping — only in the default sort, only for
+  // open work (a Done list grouped by due date reads as noise).
+  type ListItem = { type: "header"; label: string } | { type: "task"; task: TaskRow };
+  const withGroupHeaders = useMemo<ListItem[]>(() => {
+    if (sortMode !== "due" || statusFilter !== "open_only") {
+      return filtered.map((t) => ({ type: "task" as const, task: t }));
+    }
+    const out: ListItem[] = [];
+    let current: DueBucket | null = null;
+    for (const t of filtered) {
+      const b = dueBucket(t.due_at);
+      if (b !== current) {
+        current = b;
+        out.push({ type: "header", label: BUCKET_LABELS[b] });
+      }
+      out.push({ type: "task", task: t });
+    }
+    return out;
+  }, [filtered, sortMode, statusFilter]);
 
   const counts = useMemo(() => {
     const mine = tasks.rows.filter(
@@ -315,8 +374,9 @@ export function Inbox({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className={(fixedTab ? "hidden " : "") + "mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-0.5"}>
+      {/* TOOLBAR row 1 — tabs · search · status · sort (Wave L3) */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className={(fixedTab ? "hidden " : "") + "inline-flex rounded-lg border border-slate-200 bg-white p-0.5"}>
         {([
           ["mine", "Mine", counts.mine],
           ["team", "My team", counts.team],
@@ -358,6 +418,75 @@ export function Inbox({
           </Select>
         </div>
       </div>
+      <div className="flex-1 min-w-[220px]">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search tasks, studies…"
+          aria-label="Search tasks"
+        />
+      </div>
+      <Select
+        value={sortMode}
+        onChange={(e) => setSortMode(e.target.value as any)}
+        className="text-xs py-1.5 px-2 w-40"
+        aria-label="Sort tasks"
+        title="Smart groups by due date; the others are flat sorts"
+      >
+        <option value="due">Sort: Due (smart)</option>
+        <option value="created">Sort: Newest</option>
+        <option value="title">Sort: Title A–Z</option>
+        <option value="study">Sort: Study</option>
+      </Select>
+      </div>
+
+      {/* TOOLBAR row 2 — task-type chips + overdue toggle */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {([
+          ["all", "All types"],
+          ["action", "Sign-offs & reviews"],
+          ["handoff", "Handoffs"],
+          ["escalation", "Escalations"],
+          ["date", "Date milestones"],
+          ["manual", "Manual"],
+        ] as const).map(([k, label]) => {
+          const n =
+            k === "all"
+              ? tasks.rows.length
+              : k === "action"
+                ? tasks.rows.filter((t) => t.action_type != null).length
+                : tasks.rows.filter((t) => t.kind === k && t.action_type == null).length;
+          if (k !== "all" && n === 0) return null;
+          return (
+            <button
+              key={k}
+              onClick={() => setKindFilter(k)}
+              className={
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
+                (kindFilter === k
+                  ? "border-brand-300 bg-brand-50 text-brand-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+              }
+            >
+              {label}
+              <span className="text-[10px] font-mono text-slate-400">{n}</span>
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setOverdueOnly(!overdueOnly)}
+          className={
+            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
+            (overdueOnly
+              ? "border-red-300 bg-red-50 text-red-700"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+          }
+          aria-pressed={overdueOnly}
+        >
+          <span className={"w-1.5 h-1.5 rounded-full " + (overdueOnly ? "bg-red-500" : "bg-slate-300")} />
+          Overdue only
+        </button>
+      </div>
 
       {/* List */}
       <Card flush className="mt-4 overflow-hidden">
@@ -392,7 +521,21 @@ export function Inbox({
 
         {filtered.length > 0 && (
           <ul className="divide-y divide-slate-100">
-            {filtered.map((t) => {
+            {withGroupHeaders.map((item) => {
+              if (item.type === "header") {
+                return (
+                  <li
+                    key={`h-${item.label}`}
+                    className={
+                      "px-4 py-1.5 text-[11px] font-semibold border-b border-slate-100 " +
+                      (item.label === "Overdue" ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-500")
+                    }
+                  >
+                    {item.label}
+                  </li>
+                );
+              }
+              const t = item.task;
               const study = t.study_id ? studyById[t.study_id] : null;
               const stage = t.stage_key ? stageByKey[t.stage_key] : null;
               const role = t.assigned_to_role_id ? roleById[t.assigned_to_role_id] : null;
@@ -404,7 +547,7 @@ export function Inbox({
                 <li
                   key={t.id}
                   className={
-                    "px-4 py-3 grid grid-cols-[24px_1fr_140px_140px_180px] gap-3 items-center group " +
+                    "px-4 py-3 grid grid-cols-[24px_1fr_140px_140px_180px] xl:grid-cols-[24px_1.3fr_220px_140px_140px_180px] gap-3 items-center group " +
                     (t.status === "done" || t.status === "skipped"
                       ? "opacity-60"
                       : "")
@@ -440,7 +583,7 @@ export function Inbox({
                         {study && (
                           <button
                             onClick={() => onNavigate(`#/studies/${study.id}`)}
-                            className="hover:text-brand-700 transition font-mono"
+                            className="hover:text-brand-700 transition font-mono xl:hidden"
                             title={study.title}
                           >
                             {study.code}
@@ -458,6 +601,21 @@ export function Inbox({
                           <span className="text-slate-400">· role: {role.title}</span>
                         )}
                       </div>
+                    )}
+                  </div>
+                  {/* Study (xl) */}
+                  <div className="hidden xl:block min-w-0">
+                    {study ? (
+                      <button
+                        onClick={() => onNavigate(`#/studies/${study.id}`)}
+                        className="text-left min-w-0 w-full hover:text-brand-700 transition"
+                        title={study.title}
+                      >
+                        <span className="block font-mono text-xs text-slate-600">{study.code}</span>
+                        <span className="block text-[11px] text-slate-500 truncate">{study.title}</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic">org-level</span>
                     )}
                   </div>
                   {/* Kind */}
