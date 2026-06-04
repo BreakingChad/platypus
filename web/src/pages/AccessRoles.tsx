@@ -1,6 +1,7 @@
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
+import type { TeamRoleRow, TeamRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import type { AccessRoleRow } from "../lib/types";
@@ -51,6 +52,8 @@ export function AccessRoles() {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
   const roles = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
+  const teamRoles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
+  const teamsTbl = useOrgTable<TeamRow>("teams");
 
   const [composer, setComposer] = useState({ name: "", description: "" });
 
@@ -163,6 +166,10 @@ export function AccessRoles() {
           <RoleCard
             key={role.id}
             role={role}
+            usedBy={teamRoles.rows
+              .filter((tr) => tr.access_role_id === role.id)
+              .map((tr) => teamsTbl.rows.find((t) => t.id === tr.team_id)?.name ?? "team")
+              .filter((v, i, a) => a.indexOf(v) === i)}
             onUpdate={(patch) =>
               roles
                 .update(role.id, patch)
@@ -198,10 +205,12 @@ export function AccessRoles() {
 
 function RoleCard({
   role,
+  usedBy,
   onUpdate,
   onRemove,
 }: {
   role: AccessRoleRow;
+  usedBy?: string[];
   onUpdate: (patch: Partial<AccessRoleRow>) => void;
   onRemove: () => void;
 }) {
@@ -263,6 +272,16 @@ function RoleCard({
           </button>
         )}
         {role.builtin && <Pill tone="neutral">built-in</Pill>}
+        {(usedBy ?? []).map((t) => (
+          <span
+            key={t}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+            title={`In use by the ${t} team`}
+          >
+            <Icon name="users" size={9} />
+            {t}
+          </span>
+        ))}
         {grants.length > 0 && (
           <span className="text-[10px] font-mono text-slate-400 truncate hidden md:inline">
             {grants.slice(0, 3).join(" · ")}

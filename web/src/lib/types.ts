@@ -62,6 +62,7 @@ export type TeamRoleRow = {
   id: string;
   org_id?: string | null;
   team_id: string;
+  access_role_id?: string | null;
   title: string;
   hierarchy_key: HierarchyKey;
   level: number;

@@ -6,6 +6,7 @@ import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import type {
+  AccessRoleRow,
   TeamRow,
   TeamRoleRow,
   TeamRoleHolderRow,
@@ -88,6 +89,7 @@ export function TeamBuilder() {
   const teams = useOrgTable<TeamRow>("teams", { orderBy: "position", realtime: true });
   const roles = useOrgTable<TeamRoleRow>("team_roles", { orderBy: "position", realtime: true });
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders", { realtime: true });
+  const accessRolesTbl = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
 
@@ -272,6 +274,29 @@ export function TeamBuilder() {
             key={team.id}
             team={team}
             roles={rolesFor(team.id)}
+            accessRoles={accessRolesTbl.rows}
+            onCreateAccessRole={async (name) => {
+              try {
+                const created = await accessRolesTbl.insert({
+                  name,
+                  description: null,
+                  builtin: false,
+                  modules: { studies: "read" } as any,
+                  portfolio_scope: "assigned",
+                  ta_scope: [],
+                  site_scope: [],
+                  function_overrides: {} as any,
+                  admin_scope: [],
+                  status: "active",
+                  former_names: [],
+                } as any);
+                if (created) toast.success(`Created access role "${name}"`);
+                return (created as AccessRoleRow) ?? null;
+              } catch (e: any) {
+                toast.error(e?.message || "Couldn't create access role");
+                return null;
+              }
+            }}
             holdersFor={holdersFor}
             members={members}
             onUpdate={(patch) =>
@@ -295,10 +320,11 @@ export function TeamBuilder() {
                 await roles.insert({
                   team_id: team.id,
                   title: data.title,
+                  access_role_id: data.access_role_id ?? null,
                   hierarchy_key: data.hierarchy_key,
                   level: HIERARCHIES.find((h) => h.key === data.hierarchy_key)?.level ?? 3,
                   position: nextPos,
-                });
+                } as any);
                 toast.success(`Added role "${data.title}"`);
               } catch (e: any) {
                 toast.error(e?.message || "Couldn't add role");
@@ -352,6 +378,8 @@ export function TeamBuilder() {
 function TeamCard({
   team,
   roles,
+  accessRoles,
+  onCreateAccessRole,
   holdersFor,
   members,
   onUpdate,
@@ -364,11 +392,13 @@ function TeamCard({
 }: {
   team: TeamRow;
   roles: TeamRoleRow[];
+  accessRoles: AccessRoleRow[];
+  onCreateAccessRole: (name: string) => Promise<AccessRoleRow | null>;
   holdersFor: (roleId: string) => TeamRoleHolderRow[];
   members: MemberSummary[];
   onUpdate: (patch: Partial<TeamRow>) => void;
   onRemove: () => void;
-  onAddRole: (data: { title: string; hierarchy_key: HierarchyKey }) => void;
+  onAddRole: (data: { title: string; hierarchy_key: HierarchyKey; access_role_id?: string | null }) => void;
   onUpdateRole: (roleId: string, patch: Partial<TeamRoleRow>) => void;
   onRemoveRole: (roleId: string, title: string) => void;
   onAssignHolder: (roleId: string, userId: string) => void;
@@ -377,9 +407,34 @@ function TeamCard({
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(team.name);
   const [roleComposer, setRoleComposer] = useState({
-    title: "",
+    accessRoleId: "",
+    newName: "",
     hierarchy_key: "coordinator" as HierarchyKey,
   });
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [busyAdd, setBusyAdd] = useState(false);
+
+  const submitRole = async () => {
+    if (busyAdd) return;
+    setBusyAdd(true);
+    try {
+      if (creatingNew) {
+        const name = roleComposer.newName.trim();
+        if (!name) return;
+        const created = await onCreateAccessRole(name);
+        if (!created) return;
+        onAddRole({ title: name, hierarchy_key: roleComposer.hierarchy_key, access_role_id: created.id });
+      } else {
+        const ar = accessRoles.find((r) => r.id === roleComposer.accessRoleId);
+        if (!ar) return;
+        onAddRole({ title: ar.name, hierarchy_key: roleComposer.hierarchy_key, access_role_id: ar.id });
+      }
+      setRoleComposer({ accessRoleId: "", newName: "", hierarchy_key: "coordinator" });
+      setCreatingNew(false);
+    } finally {
+      setBusyAdd(false);
+    }
+  };
   const [expanded, setExpanded] = useState(true);
 
   const commitName = () => {
@@ -461,6 +516,7 @@ function TeamCard({
                   >
                     <RoleRow
                       role={role}
+                      accessRole={accessRoles.find((ar) => ar.id === role.access_role_id) ?? null}
                       onUpdate={(patch) => onUpdateRole(role.id, patch)}
                       onRemove={() => onRemoveRole(role.id, role.title)}
                     />
@@ -477,55 +533,69 @@ function TeamCard({
             </div>
           )}
 
-          {/* Role composer */}
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-            <Input
-              value={roleComposer.title}
-              onChange={(e) =>
-                setRoleComposer({ ...roleComposer, title: e.target.value })
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && roleComposer.title.trim()) {
-                  onAddRole({
-                    title: roleComposer.title.trim(),
-                    hierarchy_key: roleComposer.hierarchy_key,
-                  });
-                  setRoleComposer({ title: "", hierarchy_key: "coordinator" });
+          {/* Role composer — roles come from Access Roles (one role concept).
+              Quick-create makes the access role inline and returns here. */}
+          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+            <div className="flex items-center gap-2">
+              {creatingNew ? (
+                <Input
+                  value={roleComposer.newName}
+                  onChange={(e) => setRoleComposer({ ...roleComposer, newName: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void submitRole();
+                  }}
+                  placeholder="New access role name (e.g. Startup Coordinator)"
+                  className="text-sm"
+                  autoFocus
+                />
+              ) : (
+                <Select
+                  value={roleComposer.accessRoleId}
+                  onChange={(e) => setRoleComposer({ ...roleComposer, accessRoleId: e.target.value })}
+                  className="text-sm"
+                  aria-label="Pick an access role"
+                >
+                  <option value="">— Pick an access role —</option>
+                  {accessRoles
+                    .filter((r) => r.status === "active")
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                </Select>
+              )}
+              <Select
+                value={roleComposer.hierarchy_key}
+                onChange={(e) =>
+                  setRoleComposer({
+                    ...roleComposer,
+                    hierarchy_key: e.target.value as HierarchyKey,
+                  })
                 }
-              }}
-              placeholder="Role title (e.g. Startup Coordinator)"
-              className="text-sm"
-            />
-            <Select
-              value={roleComposer.hierarchy_key}
-              onChange={(e) =>
-                setRoleComposer({
-                  ...roleComposer,
-                  hierarchy_key: e.target.value as HierarchyKey,
-                })
-              }
-              className="w-36"
+                className="w-36"
+                aria-label="Escalation hierarchy"
+              >
+                {HIERARCHIES.map((h) => (
+                  <option key={h.key} value={h.key}>
+                    L{h.level} {h.label}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                onClick={() => void submitRole()}
+                disabled={busyAdd || (creatingNew ? !roleComposer.newName.trim() : !roleComposer.accessRoleId)}
+              >
+                + Role
+              </Button>
+            </div>
+            <button
+              onClick={() => setCreatingNew((v) => !v)}
+              className="text-[11px] font-semibold text-brand-700 hover:underline"
             >
-              {HIERARCHIES.map((h) => (
-                <option key={h.key} value={h.key}>
-                  L{h.level} {h.label}
-                </option>
-              ))}
-            </Select>
-            <Button
-              size="sm"
-              onClick={() => {
-                if (!roleComposer.title.trim()) return;
-                onAddRole({
-                  title: roleComposer.title.trim(),
-                  hierarchy_key: roleComposer.hierarchy_key,
-                });
-                setRoleComposer({ title: "", hierarchy_key: "coordinator" });
-              }}
-              disabled={!roleComposer.title.trim()}
-            >
-              + Role
-            </Button>
+              {creatingNew ? "← Pick an existing access role instead" : "+ New access role (creates it and adds it here)"}
+            </button>
           </div>
         </div>
       )}
@@ -535,10 +605,12 @@ function TeamCard({
 
 function RoleRow({
   role,
+  accessRole,
   onUpdate,
   onRemove,
 }: {
   role: TeamRoleRow;
+  accessRole: AccessRoleRow | null;
   onUpdate: (patch: Partial<TeamRoleRow>) => void;
   onRemove: () => void;
 }) {
@@ -583,6 +655,22 @@ function RoleRow({
         >
           {role.title}
         </button>
+      )}
+      {accessRole ? (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-brand-100 bg-brand-50 text-brand-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+          title={`Access role: ${accessRole.name} — permissions defined in Access Roles`}
+        >
+          <Icon name="shield" size={9} />
+          {accessRole.name !== role.title ? accessRole.name : "linked"}
+        </span>
+      ) : (
+        <span
+          className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 text-slate-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+          title="Not linked to an access role — re-add this role from the access-role picker to link it"
+        >
+          unlinked
+        </span>
       )}
       <Select
         value={role.hierarchy_key}
