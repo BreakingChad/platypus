@@ -172,7 +172,8 @@ export function PlatformConsole({ onNavigate }: { onNavigate: (h: string) => voi
       void load();
       return out.tempPassword as string;
     } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't issue a temp password"));
+      // The endpoint writes human errors — show them verbatim.
+      toast.error(e?.message || "Couldn't issue a temp password");
       return null;
     }
   };
