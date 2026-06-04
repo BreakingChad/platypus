@@ -26,6 +26,7 @@ import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Loader } from "../components/ui/Loader";
+import { SubmissionsQueue } from "../components/SubmissionsQueue";
 
 /** Intake — centralized triage for studies sitting in the intake stage.
  *
@@ -91,6 +92,13 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
       />
 
       <PageBlocks pageKey="intake" region="top" navigate={onNavigate} />
+
+      {/* External form submissions — triage them INTO intake (G3). */}
+      <SubmissionsQueue
+        studyFields={studyFields}
+        existingCodes={studies.rows.map((s) => s.code)}
+        onNavigate={onNavigate}
+      />
 
       <Card flush className="mt-6 overflow-hidden">
         {studies.loading && intakeStudies.length === 0 && (

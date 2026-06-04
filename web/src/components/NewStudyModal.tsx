@@ -29,27 +29,7 @@ import { Icon } from "./ui/Icon";
  *  non-terminal stage by default (intake when present).
  */
 
-const TYPED_COLUMN_KEYS = new Set<string>([
-  "shortTitle",     // → title
-  "sponsor",
-  "nct",
-  "therapeuticArea",
-  "phase",
-  "piName",
-  "studyKind",
-  "priority",
-]);
-
-const KEY_TO_COLUMN: Record<string, keyof StudyRow> = {
-  shortTitle: "title",
-  sponsor: "sponsor",
-  nct: "nct",
-  therapeuticArea: "therapeutic_area",
-  phase: "phase",
-  piName: "pi_name",
-  studyKind: "study_kind",
-  priority: "priority",
-};
+import { TYPED_COLUMN_KEYS, KEY_TO_COLUMN } from "../lib/submissions";
 
 type Draft = Record<string, string | number | boolean | null>;
 
