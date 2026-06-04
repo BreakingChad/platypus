@@ -16,6 +16,7 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
+import { Tip } from "../components/ui/Tip";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -565,23 +566,25 @@ function TeamCard({
                     ))}
                 </Select>
               )}
-              <Select
-                value={roleComposer.hierarchy_key}
-                onChange={(e) =>
-                  setRoleComposer({
-                    ...roleComposer,
-                    hierarchy_key: e.target.value as HierarchyKey,
-                  })
-                }
-                className="w-36"
-                aria-label="Escalation hierarchy"
-              >
-                {HIERARCHIES.map((h) => (
-                  <option key={h.key} value={h.key}>
-                    L{h.level} {h.label}
-                  </option>
-                ))}
-              </Select>
+              <Tip label="Seniority for escalation routing: L1 most senior. When a task escalates, it goes to the team's lowest level — auto-assigned if exactly one person holds that role.">
+                <Select
+                  value={roleComposer.hierarchy_key}
+                  onChange={(e) =>
+                    setRoleComposer({
+                      ...roleComposer,
+                      hierarchy_key: e.target.value as HierarchyKey,
+                    })
+                  }
+                  className="w-36"
+                  aria-label="Escalation hierarchy"
+                >
+                  {HIERARCHIES.map((h) => (
+                    <option key={h.key} value={h.key}>
+                      L{h.level} {h.label}
+                    </option>
+                  ))}
+                </Select>
+              </Tip>
               <Button
                 size="sm"
                 onClick={() => void submitRole()}

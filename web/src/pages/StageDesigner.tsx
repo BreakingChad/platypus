@@ -11,6 +11,7 @@ import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Tip } from "../components/ui/Tip";
 
 /** Pipeline Stage Designer — admin-only.
  *  Studies move through stages. Stages are owned by exactly one team. The
@@ -155,14 +156,16 @@ export function StageDesigner() {
             }}
             placeholder="Stage name (e.g. Feasibility)"
           />
-          <Input
-            type="number"
-            min={1}
-            value={composer.target_days}
-            onChange={(e) => setComposer({ ...composer, target_days: Number(e.target.value) || 1 })}
-            placeholder="Target days"
-            title="Target days for a study to spend in this stage"
-          />
+          <Tip label="How many days a study should spend in this stage. Powers the Health signal everywhere — studies read amber as they approach this number and red past it." block>
+            <Input
+              type="number"
+              min={1}
+              value={composer.target_days}
+              onChange={(e) => setComposer({ ...composer, target_days: Number(e.target.value) || 1 })}
+              placeholder="Target days"
+              aria-label="Target days for a study to spend in this stage"
+            />
+          </Tip>
           <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
             <input
               type="checkbox"

@@ -1,4 +1,5 @@
 import { PageBlocks } from "../blocks/PageBlocks";
+import { InfoTip } from "../components/ui/Tip";
 import { useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -113,7 +114,10 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
             <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[110px_1fr_190px_200px] gap-3 text-[10px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Code</span>
               <span>Study</span>
-              <span>Data completeness</span>
+              <span className="flex items-center gap-1">
+                Data completeness
+                <InfoTip side="bottom" label="How much of the org's study schema is filled, with required fields weighted double. Studies missing startup data become tonight's nightmares — commit with eyes open." />
+              </span>
               <span className="text-right">Triage</span>
             </div>
             {intakeStudies.map((s) => {

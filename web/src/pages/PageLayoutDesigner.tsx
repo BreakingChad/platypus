@@ -1,6 +1,7 @@
 import { confirmDialog } from "../lib/confirm";
 import { stamped } from "../lib/stamp";
 import { setPreviewRole } from "../lib/previewRole";
+import { InfoTip } from "../components/ui/Tip";
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -61,7 +62,17 @@ export function PageLayoutDesigner() {
   const roles = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
 
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [selectedPageKey, setSelectedPageKey] = useState<string>(PAGE_REGISTRY[0]?.key ?? "home");
+  const [selectedPageKey, setSelectedPageKey] = useState<string>(() => {
+    // Deep link: #/settings/pages?page=<key> (from the header gear menu).
+    try {
+      const q = window.location.hash.split("?")[1];
+      const want = q ? new URLSearchParams(q).get("page") : null;
+      if (want && PAGE_REGISTRY.some((p) => p.key === want)) return want;
+    } catch {
+      /* fall through to default */
+    }
+    return PAGE_REGISTRY[0]?.key ?? "home";
+  });
   const [working, setWorking] = useState<PageBlockConfig[]>([]);
   const [workingTabs, setWorkingTabs] = useState<PageTabConfig[]>([]);
   const [workingOptions, setWorkingOptions] = useState<Record<string, unknown>>({});
@@ -367,8 +378,9 @@ export function PageLayoutDesigner() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px_300px] gap-4 mt-4">
         {/* CENTER — the page, top to bottom, core content locked in place */}
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
             This page, top to bottom
+            <InfoTip side="bottom" label="The canvas mirrors the real page. Blocks above the grey anchor render before the page's built-in content; blocks below render after. Drag across the divider or use a row's above/below chip." />
           </div>
           <DndContext
             sensors={sensors}

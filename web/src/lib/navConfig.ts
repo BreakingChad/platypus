@@ -98,6 +98,7 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "audit",       label: "Audit feed",       icon: "shield",    hash: "#/audit",              adminOnly: true, description: "Org-wide audit trail with CSV export." },
   { key: "work-streams", label: "Work Streams",    icon: "workflow",  hash: "#/settings/work-streams", adminOnly: true, description: "Pattern Builder — auto-spawn tasks per stage." },
   { key: "setup",        label: "Guided setup",    icon: "check",     hash: "#/setup",                 adminOnly: true, description: "First-run guided configuration." },
+  { key: "settings",     label: "Settings",        icon: "settings",  hash: "#/settings",              adminOnly: true, description: "All configuration tools, explained." },
 ];
 
 export function navEntry(key: string): NavRegistryEntry | undefined {
@@ -124,17 +125,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
   {
     group: "Configure",
     items: [
-      { key: "setup" },
-      { key: "org" },
-      { key: "members" },
-      { key: "stages" },
-      { key: "fields" },
-      { key: "teams" },
-      { key: "access" },
-      { key: "nav" },
-      { key: "pages" },
-      { key: "audit" },
-      { key: "work-streams" },
+      { key: "settings" },
     ],
   },
 ];

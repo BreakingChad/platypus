@@ -13,6 +13,7 @@ import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageBlocks } from "../blocks/PageBlocks";
+import { Tip } from "../components/ui/Tip";
 import { useStickyState } from "../lib/useStickyState";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -199,7 +200,9 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
         subtitle="The defensible record: every action in your org, hash-chained per entity — who did what, when, from where. Filter or export for inspection; open any study to verify its chain link-by-link."
         actions={
           <div className="flex items-center gap-2">
-            <Pill tone="brand">21 CFR Part 11 ready</Pill>
+            <Tip side="bottom" label="FDA's rule for electronic records & signatures: attributable, time-stamped, tamper-evident. Every action here records who, when, and where, chained by hash so nothing can be altered silently.">
+              <Pill tone="brand">21 CFR Part 11 ready</Pill>
+            </Tip>
             <Button variant="primary" size="sm" onClick={exportCsv} disabled={!filtered || filtered.length === 0}>
               <Icon name="external" size={12} /> Export CSV
             </Button>

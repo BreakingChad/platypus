@@ -232,6 +232,10 @@ export function AppShell({
               </button>
             </div>
 
+            {isAdmin && (
+              <ConfigGearMenu currentHash={currentHash} onNavigate={onNavigate} />
+            )}
+
             {/* User menu */}
             <div className="relative" data-user-menu>
               <button
@@ -393,7 +397,7 @@ function SidebarBody({
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const active =
-                  currentHash === item.hash ||
+                  currentHash.split("?")[0] === item.hash ||
                   (item.hash === "#/" && (currentHash === "" || currentHash === "#"));
                 return (
                   <li key={item.key}>
@@ -482,6 +486,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/work-streams": { kicker: "Configure", title: "Work Stream Builder" },
   "#/setup": { kicker: "Get started", title: "Guided setup" },
   "#/profile": { kicker: "You", title: "Profile" },
+  "#/settings": { kicker: "Configure", title: "Settings" },
 };
 
 function Breadcrumb({
@@ -510,12 +515,15 @@ function Breadcrumb({
   }
 
   // Prefer the resolved (admin-configurable) nav so renamed items stay in sync.
+  // Query strings (deep links like #/settings/pages?page=pipeline) don't
+  // change which page you're on — strip before matching.
+  const hashPath = hash.split("?")[0];
   let kicker = "";
   let title = "";
   let groupHash = "#/";
   for (const g of groups) {
     const item = g.items.find(
-      (it) => it.hash === hash || (it.hash === "#/" && (hash === "" || hash === "#"))
+      (it) => it.hash === hashPath || (it.hash === "#/" && (hashPath === "" || hashPath === "#"))
     );
     if (item) {
       kicker = g.group;
@@ -526,7 +534,7 @@ function Breadcrumb({
   }
   // Fall back to the static map for routes outside the sidebar (e.g. Profile).
   if (!title) {
-    const meta = CRUMBS[hash] ?? CRUMBS["#/"];
+    const meta = CRUMBS[hashPath] ?? CRUMBS["#/"];
     kicker = meta.kicker;
     title = meta.title;
   }
@@ -542,5 +550,130 @@ function Breadcrumb({
       <Icon name="chevron-right" size={12} className="text-slate-300" />
       <span className="text-sm font-semibold text-slate-900">{title}</span>
     </nav>
+  );
+}
+
+/* ───────────────────── Contextual configure menu ───────────────────── */
+
+/** Admin-only gear in the header. Its items change with where you are —
+ *  configuration presents itself when (and where) it's needed instead of
+ *  living as ten permanent sidebar entries. */
+function ConfigGearMenu({
+  currentHash,
+  onNavigate,
+}: {
+  currentHash: string;
+  onNavigate: (h: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.("[data-config-gear]")) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onClick);
+    };
+  }, [open]);
+
+  const path = currentHash.split("?")[0];
+  type Item = { href: string; label: string; sub: string };
+  const items: Item[] = [];
+  const add = (href: string, label: string, sub: string) => items.push({ href, label, sub });
+
+  if (path.startsWith("#/studies/")) {
+    add("#/settings/pages?page=study-detail", "Study record layout", "Tabs, default tab, blocks — per role");
+    add("#/settings/fields", "Study fields", "Sections, order, required fields");
+    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage");
+  } else if (path === "#/studies") {
+    add("#/settings/pages?page=studies", "This page's layout", "Blocks, columns, default filters — per role");
+    add("#/settings/fields", "Study fields", "Sections, order, required fields");
+  } else if (path === "#/pipeline") {
+    add("#/settings/pages?page=pipeline", "This page's layout", "Blocks, default board view — per role");
+    add("#/settings/stages", "Pipeline stages", "Names, colors, target days (Health)");
+    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage");
+  } else if (path === "#/intake") {
+    add("#/settings/pages?page=intake", "This page's layout", "Blocks around the triage queue — per role");
+    add("#/settings/fields", "Study fields", "Drives the completeness score");
+    add("#/settings/work-streams", "Work streams", "What fires at commit");
+  } else if (path === "#/sites") {
+    add("#/settings/pages?page=sites", "This page's layout", "Blocks around the site list — per role");
+    add("#/settings/fields", "Site fields", "The site profile schema");
+  } else if (path === "#/inbox") {
+    add("#/settings/pages?page=inbox", "This page's layout", "Blocks, default queue — per role");
+    add("#/settings/teams", "Teams & roles", "Who tasks route to; escalation hierarchy");
+    add("#/settings/access", "Access roles", "Permissions per role");
+  } else if (path === "#/audit") {
+    add("#/settings/access", "Access roles", "Who can see what");
+  } else {
+    add("#/settings/pages?page=home", "Home layout", "The blocks each role lands on");
+    add("#/settings/nav", "Nav designer", "The sidebar, per role");
+  }
+
+  return (
+    <div className="relative" data-config-gear>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Configure (contextual)"
+        className={
+          "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-mono transition " +
+          (open
+            ? "border-brand-300 bg-brand-50 text-brand-700"
+            : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white hover:border-slate-300")
+        }
+      >
+        <Icon name="settings" size={11} aria-hidden="true" />
+        <span className="hidden md:inline">Configure</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden"
+        >
+          <div className="px-3 py-2 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Configure what you're looking at
+          </div>
+          {items.map((it) => (
+            <button
+              key={it.href}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onNavigate(it.href);
+              }}
+              className="w-full text-left px-3 py-2.5 hover:bg-brand-50/40 transition flex items-start gap-2.5"
+            >
+              <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon name="settings" size={12} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-900">{it.label}</span>
+                <span className="block text-[11px] text-slate-500 leading-snug">{it.sub}</span>
+              </span>
+            </button>
+          ))}
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onNavigate("#/settings");
+            }}
+            className="w-full text-left px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition text-xs font-semibold text-brand-700"
+          >
+            All settings →
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

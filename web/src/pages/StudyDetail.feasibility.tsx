@@ -22,6 +22,7 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
+import { Tip, InfoTip } from "../components/ui/Tip";
 
 /** FeasibilityTab — two of the four pillars, production-grade:
  *    UNDERSTANDING — the M11 structured protocol accordion. Coordinators
@@ -206,6 +207,7 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
                 {total}
                 <span className="text-sm font-bold text-slate-400">/30</span>
               </span>
+              <InfoTip label="Sum of six 1–5 dimensions. ≤12 Routine · ≤18 Moderate · ≤24 Complex · 25+ High-acuity. Scored by a human on purpose — clinical judgment first; AI assist arrives once we have a protocol corpus." />
               {filled === ACUITY_DIMENSIONS.length && <Pill tone={cat.tone}>{cat.label}</Pill>}
             </div>
           </div>
@@ -387,11 +389,13 @@ function ResourcePillar({ study }: { study: StudyRow }) {
                       {nameOf(m.user_id)}
                     </span>
                     {ooo && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
-                        <Icon name="clock" size={10} />
-                        OOO until {new Date(m.ooo_until!).toLocaleDateString()}
-                        {m.ooo_delegate_user_id && <> → {nameOf(m.ooo_delegate_user_id)}</>}
-                      </span>
+                      <Tip label="Out of office — new role-based assignments route to the delegate automatically until this date. Set from each member's Profile.">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
+                          <Icon name="clock" size={10} />
+                          OOO until {new Date(m.ooo_until!).toLocaleDateString()}
+                          {m.ooo_delegate_user_id && <> → {nameOf(m.ooo_delegate_user_id)}</>}
+                        </span>
+                      </Tip>
                     )}
                   </span>
                   <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">

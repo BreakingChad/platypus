@@ -18,6 +18,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { HealthDot } from "../components/ui/HealthDot";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
 import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
+import { InfoTip } from "../components/ui/Tip";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { useStarredStudies } from "../lib/useStarred";
 import { toCsv, downloadCsv } from "../lib/csv";
@@ -509,11 +510,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               <span>Study</span>
               <span>Stage</span>
               {showHealthCol && (
-                <span
-                  className="cursor-help"
-                  title="Health = time in the current stage vs that stage's target days."
-                >
+                <span className="flex items-center gap-1">
                   Health
+                  <InfoTip side="bottom" label="How long the study has been in its current stage vs that stage's target days. Green = on pace, amber = approaching target, red = past it." />
                 </span>
               )}
               {showPiCol && <span>PI</span>}
