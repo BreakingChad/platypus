@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -15,7 +15,9 @@ import {
   type M11Data,
   type AcuityData,
 } from "../lib/feasibility";
-import type { StudyRow } from "../lib/types";
+import type { StudyRow, TaskRow, SiteRow, FieldDefinitionRow, OrgMemberRow } from "../lib/types";
+import { useOrgTable } from "../lib/useOrgTable";
+import { supabase } from "../lib/supabase";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
@@ -278,14 +280,11 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
         </Card>
       </section>
 
-      {/* ───────────── Coming pillars ───────────── */}
+      {/* ───────────── RESOURCE — workforce + site capability ───────────── */}
+      <ResourcePillar study={study} />
+
+      {/* ───────────── Coming pillar ───────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <ComingPillar
-          icon="users"
-          pillar="Resource"
-          title="Workforce & site capability"
-          sub="Capacity vs current workload, fed by site profiles and the coordinator workload model."
-        />
         <ComingPillar
           icon="check"
           pillar="Assessment"
@@ -294,6 +293,178 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
         />
       </div>
     </div>
+  );
+}
+
+/* ───────────────────── RESOURCE pillar ───────────────────── */
+
+/** Can this team absorb this study, and can this site run it?
+ *  Left: workforce snapshot — every member's open/overdue load, with
+ *  vacation coverage surfaced (OOO → delegate). Right: the linked site's
+ *  capability read — profile completeness + the filled capability fields.
+ */
+function ResourcePillar({ study }: { study: StudyRow }) {
+  const members = useOrgTable<OrgMemberRow>("org_members", { orderBy: "created_at" });
+  const tasks = useOrgTable<TaskRow>("tasks", { orderBy: "created_at" });
+  const sites = useOrgTable<SiteRow>("sites", { orderBy: "name" });
+  const fields = useOrgTable<FieldDefinitionRow>("field_definitions", { orderBy: "position" });
+  const [profiles, setProfiles] = useState<Record<string, { full_name: string | null; email: string | null }>>({});
+
+  useEffect(() => {
+    const ids = members.rows.map((m) => m.user_id).filter(Boolean);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", ids);
+      if (cancelled) return;
+      const byId: Record<string, { full_name: string | null; email: string | null }> = {};
+      for (const p of (data ?? []) as any[]) byId[p.id] = { full_name: p.full_name, email: p.email };
+      setProfiles(byId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [members.rows.map((m) => m.user_id).join(",")]);
+
+  const now = Date.now();
+  const nameOf = (uid: string | null): string => {
+    if (!uid) return "—";
+    const p = profiles[uid];
+    return p?.full_name || p?.email || "Member";
+  };
+
+  const workforce = members.rows.map((m) => {
+    const mine = tasks.rows.filter(
+      (t) => t.assigned_to_user_id === m.user_id && t.status !== "done"
+    );
+    const overdue = mine.filter((t) => t.due_at && new Date(t.due_at).getTime() < now);
+    const ooo = m.ooo_until && new Date(m.ooo_until).getTime() > now;
+    return { m, open: mine.length, overdue: overdue.length, ooo };
+  });
+
+  const site = study.site_id ? sites.rows.find((s) => s.id === study.site_id) ?? null : null;
+  const siteFields = fields.rows.filter((f) => f.entity_type === "site" && f.enabled);
+  const SITE_COL: Record<string, keyof SiteRow> = {
+    siteName: "name", city: "city", state: "state", country: "country", siteStatus: "status",
+  };
+  const valueOf = (f: FieldDefinitionRow): unknown => {
+    if (!site) return null;
+    const col = SITE_COL[f.key];
+    return col ? (site as any)[col] : ((site.profile ?? {}) as any)[f.key];
+  };
+  const filledFields = siteFields
+    .map((f) => ({ f, v: valueOf(f) }))
+    .filter(({ v }) => v !== null && v !== undefined && v !== "");
+  const fillPct = siteFields.length
+    ? Math.round((filledFields.length / siteFields.length) * 100)
+    : 0;
+
+  return (
+    <section>
+      <PillarHeading
+        icon="users"
+        pillar="Resource"
+        title="Workforce & site capability"
+        sub="Can the team absorb this study — and can the site run it? Live load per member (vacation coverage included) next to the site's own capability profile."
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+        {/* Workforce */}
+        <Card flush className="overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Workforce snapshot
+          </div>
+          {workforce.length === 0 ? (
+            <div className="px-4 py-6 text-xs text-slate-400 italic">No members yet.</div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {workforce.map(({ m, open, overdue, ooo }) => (
+                <li key={m.user_id} className="px-4 py-2.5 flex items-center gap-3">
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-slate-900 truncate">
+                      {nameOf(m.user_id)}
+                    </span>
+                    {ooo && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
+                        <Icon name="clock" size={10} />
+                        OOO until {new Date(m.ooo_until!).toLocaleDateString()}
+                        {m.ooo_delegate_user_id && <> → {nameOf(m.ooo_delegate_user_id)}</>}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                    {open} open
+                  </span>
+                  {overdue > 0 && (
+                    <Pill tone="danger">{overdue} overdue</Pill>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {/* Site capability */}
+        <Card flush className="overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Site capability
+            </span>
+            {site && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <span
+                    className={
+                      "block h-full rounded-full " +
+                      (fillPct >= 80 ? "bg-emerald-500" : fillPct >= 40 ? "bg-amber-500" : "bg-slate-300")
+                    }
+                    style={{ width: `${fillPct}%` }}
+                  />
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">{fillPct}% profiled</span>
+              </span>
+            )}
+          </div>
+          {!site ? (
+            <div className="px-4 py-6 text-xs text-slate-500">
+              No site linked to this study yet — set one in the{" "}
+              <a href="#/sites" className="font-semibold text-brand-700 hover:underline">
+                Sites module
+              </a>{" "}
+              to read capability here.
+            </div>
+          ) : (
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon name="hospital" size={14} className="text-slate-400" />
+                <span className="text-sm font-semibold text-slate-900">{site.name}</span>
+                <span className="text-[11px] text-slate-500">
+                  {[site.city, site.state].filter(Boolean).join(", ")}
+                </span>
+              </div>
+              {filledFields.length === 0 ? (
+                <div className="text-xs text-slate-400 italic">
+                  Profile is empty — fill it from the Sites module.
+                </div>
+              ) : (
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                  {filledFields.slice(0, 8).map(({ f, v }) => (
+                    <div key={f.key} className="min-w-0">
+                      <dt className="text-[10px] uppercase tracking-wider text-slate-400 font-bold truncate">
+                        {f.label}
+                      </dt>
+                      <dd className="text-xs text-slate-800 truncate">{String(v)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+    </section>
   );
 }
 
