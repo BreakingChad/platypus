@@ -12,6 +12,9 @@ import { DirectorsPulseBlock } from "./DirectorsPulseBlock";
 import { CycleTimeBlock } from "./CycleTimeBlock";
 import { WorkloadBlock } from "./WorkloadBlock";
 import { MyStudiesBlock } from "./MyStudiesBlock";
+import { EscalationsBlock } from "./EscalationsBlock";
+import { IntakeQueueBlock } from "./IntakeQueueBlock";
+import { SiteCoverageBlock } from "./SiteCoverageBlock";
 
 /** Block registry — every block the PageLayoutDesigner can place onto a page.
  *
@@ -146,6 +149,27 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
     description: "Grid of admin-editable configuration surfaces.",
     icon: "settings",
     component: SetupHubBlock,
+  },
+  "escalations": {
+    key: "escalations",
+    label: "Open escalations",
+    description: "Every open escalation across the portfolio, most overdue first. Hides when quiet.",
+    icon: "alert",
+    component: EscalationsBlock,
+  },
+  "intake-queue": {
+    key: "intake-queue",
+    label: "Intake queue",
+    description: "Studies awaiting triage with their data-completeness. Hides when the queue is clear.",
+    icon: "inbox",
+    component: IntakeQueueBlock,
+  },
+  "site-coverage": {
+    key: "site-coverage",
+    label: "Site coverage",
+    description: "Active sites with study counts and profile completeness.",
+    icon: "hospital",
+    component: SiteCoverageBlock,
   },
   "work-tiles": {
     key: "work-tiles",

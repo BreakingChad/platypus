@@ -45,6 +45,15 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
   const { configFor } = useResolvedConfig();
   const pageOpts = configFor("studies").options ?? {};
+  // Per-role column visibility (Page designer). Unset = shown.
+  const showHealthCol = pageOpts.showHealthColumn !== false;
+  const showPiCol = pageOpts.showPiColumn !== false;
+  const showCreatedCol = pageOpts.showCreatedColumn !== false;
+  const gridTemplate =
+    "32px 120px 1fr 160px" +
+    (showHealthCol ? " 140px" : "") +
+    (showPiCol ? " 140px" : "") +
+    (showCreatedCol ? " 110px" : "");
   const [search, setSearch] = useState("");                                                // search resets per session
   const [stageFilter, setStageFilter] = useStickyState<string>("studies/stageFilter", "all");
   const [healthFilter, setHealthFilter] = useStickyStateWithRoleDefault<"all" | HealthLevel>(
@@ -470,7 +479,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
         {filtered.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            <div
+              className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-3 items-center text-[10px] uppercase tracking-wider text-slate-500 font-bold"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
               <span className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -496,9 +508,16 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               <span>Code</span>
               <span>Study</span>
               <span>Stage</span>
-              <span>Health</span>
-              <span>PI</span>
-              <span>Created</span>
+              {showHealthCol && (
+                <span
+                  className="cursor-help"
+                  title="Health = time in the current stage vs that stage's target days."
+                >
+                  Health
+                </span>
+              )}
+              {showPiCol && <span>PI</span>}
+              {showCreatedCol && <span>Created</span>}
             </div>
             {filtered.map(({ row: s, health }) => {
               const stage = s.stage_key ? stageByKey[s.stage_key] : null;
@@ -515,9 +534,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                     }
                   }}
                   className={
-                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid grid-cols-[32px_120px_1fr_160px_140px_140px_110px] gap-3 items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:bg-brand-50/40 " +
+                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid gap-3 items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:bg-brand-50/40 " +
                     (selected.has(s.id) ? "bg-brand-50/60" : "hover:bg-brand-50/30")
                   }
+                  style={{ gridTemplateColumns: gridTemplate }}
                 >
                   <span className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -586,25 +606,31 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                       <span className="text-xs text-slate-400 italic">unassigned</span>
                     )}
                   </span>
-                  <span
-                    className="text-xs text-slate-600 truncate cursor-pointer"
-                    title={health.summary}
-                    onClick={() => onNavigate(`#/studies/${s.id}`)}
-                  >
-                    <HealthDot health={health} variant="pill" />
-                  </span>
-                  <span
-                    className="text-xs text-slate-700 truncate cursor-pointer"
-                    onClick={() => onNavigate(`#/studies/${s.id}`)}
-                  >
-                    {s.pi_name || <span className="text-slate-400 italic">—</span>}
-                  </span>
-                  <span
-                    className="text-xs text-slate-500 font-mono cursor-pointer"
-                    onClick={() => onNavigate(`#/studies/${s.id}`)}
-                  >
-                    {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
-                  </span>
+                  {showHealthCol && (
+                    <span
+                      className="text-xs text-slate-600 truncate cursor-pointer"
+                      title={health.summary}
+                      onClick={() => onNavigate(`#/studies/${s.id}`)}
+                    >
+                      <HealthDot health={health} variant="pill" />
+                    </span>
+                  )}
+                  {showPiCol && (
+                    <span
+                      className="text-xs text-slate-700 truncate cursor-pointer"
+                      onClick={() => onNavigate(`#/studies/${s.id}`)}
+                    >
+                      {s.pi_name || <span className="text-slate-400 italic">—</span>}
+                    </span>
+                  )}
+                  {showCreatedCol && (
+                    <span
+                      className="text-xs text-slate-500 font-mono cursor-pointer"
+                      onClick={() => onNavigate(`#/studies/${s.id}`)}
+                    >
+                      {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}
+                    </span>
+                  )}
                 </div>
               );
             })}

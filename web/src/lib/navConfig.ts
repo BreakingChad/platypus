@@ -214,6 +214,9 @@ export const ALL_BLOCK_KEYS = [
   "cycle-time",
   "setup-hub",
   "work-tiles",
+  "escalations",
+  "intake-queue",
+  "site-coverage",
 ];
 
 export const PAGE_REGISTRY: PageRegistryEntry[] = [
@@ -254,6 +257,9 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
         { value: "yellow", label: "At risk" },
         { value: "green", label: "Healthy" },
       ] },
+      { key: "showHealthColumn", label: "Show the Health column", kind: "boolean", description: "Unchecked hides it for this role; the dot on the code stays." },
+      { key: "showPiColumn", label: "Show the PI column", kind: "boolean" },
+      { key: "showCreatedColumn", label: "Show the Created column", kind: "boolean" },
     ],
   },
   {
@@ -265,6 +271,10 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     defaultLayout: [],
     optionsSchema: [
       { key: "showClosed", label: "Show closed studies by default", kind: "boolean" },
+      { key: "viewMode", label: "Default board view", kind: "select", choices: [
+        { value: "scroll", label: "Columns (horizontal scroll)" },
+        { value: "tabbed", label: "Tabbed by stage" },
+      ], description: "Users can still switch views; this sets the starting point." },
     ],
   },
   {

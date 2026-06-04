@@ -45,9 +45,14 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
   });
 
   const { configFor } = useResolvedConfig();
+  const pipelineOpts = configFor("pipeline").options ?? {};
   const [showClosed, setShowClosed] = useStickyStateWithRoleDefault<boolean>(
-    "pipeline/showClosed", false, (configFor("pipeline").options ?? {}).showClosed as boolean | undefined
+    "pipeline/showClosed", false, pipelineOpts.showClosed as boolean | undefined
   );
+  const [viewMode, setViewMode] = useStickyStateWithRoleDefault<"scroll" | "tabbed">(
+    "pipeline/viewMode", "scroll", pipelineOpts.viewMode as "scroll" | "tabbed" | undefined
+  );
+  const [tabStageKey, setTabStageKey] = useStickyState<string | null>("pipeline/tabStage", null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
 
@@ -155,15 +160,37 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
             : "Every active study, grouped by the stage it's in. Click a card to open the study."
         }
         actions={
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="accent-brand-500 w-4 h-4"
-            />
-            Show closed
-          </label>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="group" aria-label="Board view">
+              <button
+                onClick={() => setViewMode("scroll")}
+                className={
+                  "px-2.5 py-1 rounded-md text-xs font-semibold transition " +
+                  (viewMode === "scroll" ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+                }
+              >
+                Columns
+              </button>
+              <button
+                onClick={() => setViewMode("tabbed")}
+                className={
+                  "px-2.5 py-1 rounded-md text-xs font-semibold transition " +
+                  (viewMode === "tabbed" ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+                }
+              >
+                By stage
+              </button>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={showClosed}
+                onChange={(e) => setShowClosed(e.target.checked)}
+                className="accent-brand-500 w-4 h-4"
+              />
+              Show closed
+            </label>
+          </div>
         }
       />
 
@@ -179,7 +206,79 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
 
       <PageBlocks pageKey="pipeline" region="top" navigate={onNavigate} />
 
+      {/* Tabbed-by-stage view */}
+      {viewMode === "tabbed" && (() => {
+        const activeKey =
+          tabStageKey && stages.rows.some((st) => st.key === tabStageKey)
+            ? tabStageKey
+            : stages.rows[0]?.key ?? null;
+        const activeStage = stages.rows.find((st) => st.key === activeKey) ?? null;
+        const items = activeKey ? studiesByStage[activeKey] ?? [] : [];
+        return (
+          <div className="mt-6">
+            <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+              {stages.rows.map((st) => {
+                const n = (studiesByStage[st.key] ?? []).length;
+                const active = st.key === activeKey;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => setTabStageKey(st.key)}
+                    className={
+                      "px-3 py-2 text-sm font-semibold transition border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 " +
+                      (active
+                        ? "border-brand-600 text-brand-700"
+                        : "border-transparent text-slate-500 hover:text-slate-900")
+                    }
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
+                    {st.label}
+                    <span className={"text-[10px] font-mono " + (active ? "text-brand-600" : "text-slate-400")}>
+                      {n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {items.length === 0 && (
+                <div className="col-span-full">
+                  <Card>
+                    <EmptyState
+                      iconName="layers"
+                      title={`Nothing in ${activeStage?.label ?? "this stage"}`}
+                      sub="Studies appear here as they enter the stage."
+                    />
+                  </Card>
+                </div>
+              )}
+              {activeStage &&
+                items.map(({ row: s, health }) => (
+                  <StudyCard
+                    key={s.id}
+                    study={s}
+                    health={health}
+                    starred={starred.isStarred(s.id)}
+                    stage={activeStage}
+                    draggable={false}
+                    isDragging={false}
+                    onDragStart={() => {}}
+                    onDragEnd={() => {}}
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  />
+                ))}
+            </div>
+            {isAdmin && (
+              <p className="mt-3 text-[11px] text-slate-400">
+                Tip: stage moves by drag live in the Columns view; here you advance from inside the study.
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Kanban */}
+      {viewMode === "scroll" && (
       <div
         className="mt-6 overflow-x-auto -mx-4 md:-mx-6 px-4 md:px-6"
         style={{ scrollSnapType: "x proximity" }}
@@ -297,6 +396,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
           })}
         </div>
       </div>
+      )}
 
       {studies.rows.length === 0 && !studies.loading && (
         <Card className="mt-6">
