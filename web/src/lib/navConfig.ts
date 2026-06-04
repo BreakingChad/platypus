@@ -182,6 +182,9 @@ export type PageOptionSchema = {
   kind: "boolean" | "select";
   choices?: PageOptionChoice[];
   description?: string;
+  /** What an UNSET boolean means in the app — keeps the designer checkbox
+   *  honest (e.g. column toggles default to shown). */
+  defaultValue?: boolean;
 };
 
 export type PageRegistryEntry = {
@@ -257,9 +260,9 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
         { value: "yellow", label: "At risk" },
         { value: "green", label: "Healthy" },
       ] },
-      { key: "showHealthColumn", label: "Show the Health column", kind: "boolean", description: "Unchecked hides it for this role; the dot on the code stays." },
-      { key: "showPiColumn", label: "Show the PI column", kind: "boolean" },
-      { key: "showCreatedColumn", label: "Show the Created column", kind: "boolean" },
+      { key: "showHealthColumn", label: "Show the Health column", kind: "boolean", defaultValue: true, description: "Unchecked hides it for this role; the dot on the code stays." },
+      { key: "showPiColumn", label: "Show the PI column", kind: "boolean", defaultValue: true },
+      { key: "showCreatedColumn", label: "Show the Created column", kind: "boolean", defaultValue: true },
     ],
   },
   {

@@ -498,7 +498,11 @@ export function PageLayoutDesigner() {
                               {opt.kind === "boolean" ? (
                                 <input
                                   type="checkbox"
-                                  checked={Boolean(workingOptions[opt.key])}
+                                  checked={
+                                    workingOptions[opt.key] === undefined
+                                      ? opt.defaultValue ?? false
+                                      : Boolean(workingOptions[opt.key])
+                                  }
                                   onChange={(e) =>
                                     setWorkingOptions((o) => ({ ...o, [opt.key]: e.target.checked }))
                                   }
