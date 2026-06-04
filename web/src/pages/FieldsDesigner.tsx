@@ -13,6 +13,9 @@ import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
+import { supabase } from "../lib/supabase";
+import { useCurrentOrg } from "../lib/OrgContext";
+import { diffCatalog, applyCatalog } from "../lib/fieldCatalog";
 
 /** FieldsDesigner — admin/developer-only.
  *
@@ -71,13 +74,15 @@ const FIELD_TYPES: FieldType[] = ["text", "date", "number", "dropdown", "multise
 export function FieldsDesigner() {
   const { isAdmin, isDeveloper, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
+  const { orgId } = useCurrentOrg();
+  const [catalogBusy, setCatalogBusy] = useState(false);
 
   // ENTITY TAB STATE
   const [entityType, setEntityType] = useState<EntityType>("study");
   const sections = entityType === "study" ? STUDY_SECTIONS : SITE_SECTIONS;
 
   // DATA
-  const { rows, loading, error, update, insert, remove } = useOrgTable<FieldDefinitionRow>(
+  const { rows, loading, error, update, insert, remove, refresh } = useOrgTable<FieldDefinitionRow>(
     "field_definitions",
     { orderBy: "position", realtime: true }
   );
@@ -160,6 +165,50 @@ export function FieldsDesigner() {
     }
   };
 
+  /** Load the standard five-group study-field catalog. Idempotent:
+   *  existing fields only gain choice lists / spec positions; everything
+   *  the admin renamed, disabled, or configured stays untouched. */
+  const loadCatalog = async () => {
+    if (!orgId) return;
+    const diff = diffCatalog(rows);
+    const { newFields, optionsFilled, typeUpgrades } = diff.counts;
+    if (diff.toInsert.length === 0 && diff.toUpdate.length === 0) {
+      toast.success("Standard catalog already in place — nothing to add.");
+      return;
+    }
+    const parts: string[] = [];
+    if (newFields > 0) parts.push(`add ${newFields} standard field${newFields === 1 ? "" : "s"}`);
+    if (optionsFilled > 0) parts.push(`fill in choice lists on ${optionsFilled} existing field${optionsFilled === 1 ? "" : "s"}`);
+    if (typeUpgrades > 0) parts.push(`upgrade ${typeUpgrades} free-text field${typeUpgrades === 1 ? "" : "s"} to dropdowns`);
+    parts.push("normalize field order to the spec");
+    if (
+      !(await confirmDialog({
+        title: "Load the standard catalog",
+        message: `This will ${parts.join(", ")} — the full five-group study record (Organizational, Per-Site, Regulatory, Financial, Operational). Fields you renamed, disabled, or configured are not touched. New fields start optional and admin-editable.`,
+        confirmLabel: "Load catalog",
+      }))
+    )
+      return;
+    setCatalogBusy(true);
+    try {
+      const res = await applyCatalog(supabase, orgId, diff);
+      await refresh();
+      if (res.failed.length > 0) {
+        const enumIssue = res.failed.some((f) => /enum/i.test(f.message));
+        toast.error(
+          enumIssue
+            ? `${res.failed.length} field${res.failed.length === 1 ? "" : "s"} (multiselect/list) need database migration 0019 applied first — everything else loaded.`
+            : friendlyError(new Error(res.failed[0].message), "Some catalog fields didn't load")
+        );
+      }
+      if (res.inserted + res.updated > 0) {
+        toast.success(`Standard catalog loaded — ${res.inserted} field${res.inserted === 1 ? "" : "s"} added, ${res.updated} updated.`);
+      }
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
+
   /* ---------- gating ---------- */
 
   if (memberLoading) {
@@ -197,7 +246,16 @@ export function FieldsDesigner() {
         kicker="Configure · Field definitions"
         title={ENTITY_META[entityType].label}
         subtitle={ENTITY_META[entityType].description}
-        actions={<Pill tone={ENTITY_META[entityType].pillTone}>live · admin-driven</Pill>}
+        actions={
+          <div className="flex items-center gap-2">
+            {entityType === "study" && (
+              <Button onClick={() => void loadCatalog()} disabled={catalogBusy || loading}>
+                {catalogBusy ? "Loading catalog…" : "Load standard catalog"}
+              </Button>
+            )}
+            <Pill tone={ENTITY_META[entityType].pillTone}>live · admin-driven</Pill>
+          </div>
+        }
       />
       <AutoSaveNote />
 
@@ -456,6 +514,9 @@ function FieldRow({
 }) {
   const isCustom = field.kind === "custom";
   const [editingLabel, setEditingLabel] = useState(false);
+  const supportsChoices = field.field_type === "dropdown" || field.field_type === "multiselect";
+  const choiceValues = ((field.options as { values?: string[] } | null)?.values ?? []).filter(Boolean);
+  const [choicesOpen, setChoicesOpen] = useState(false);
   const [labelDraft, setLabelDraft] = useState(field.label);
 
   const commitLabel = () => {
@@ -465,8 +526,9 @@ function FieldRow({
   };
 
   return (
+    <div className="border-b border-slate-100 last:border-b-0">
     <div
-      className={`px-4 py-2.5 border-b border-slate-100 last:border-b-0 flex items-center gap-2 ${
+      className={`px-4 py-2.5 flex items-center gap-2 ${
         field.enabled ? "" : "opacity-50"
       } ${isCustom ? "bg-brand-50/40" : ""}`}
     >
@@ -510,6 +572,23 @@ function FieldRow({
             {field.key}
           </span>
         )}
+        {supportsChoices && field.enabled && (
+          <button
+            onClick={() => setChoicesOpen((o) => !o)}
+            className={
+              "mt-0.5 text-[11px] font-semibold transition flex items-center gap-1 " +
+              (choiceValues.length === 0
+                ? "text-amber-600 hover:text-amber-700"
+                : "text-slate-500 hover:text-brand-700")
+            }
+            title="Edit the choices this field offers"
+          >
+            {choiceValues.length === 0
+              ? "No choices yet — add"
+              : `${choiceValues.length} choice${choiceValues.length === 1 ? "" : "s"}`}
+            <span aria-hidden="true">{choicesOpen ? "▴" : "▾"}</span>
+          </button>
+        )}
       </span>
 
       {/* SECTION dropdown */}
@@ -550,6 +629,7 @@ function FieldRow({
             )
               return;
             void onUpdate(field.id, { field_type: next });
+            if (next === "dropdown" || next === "multiselect") setChoicesOpen(true);
           }}
           className="w-full text-xs rounded border border-slate-200 px-2 py-1 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed focus:outline-none focus:border-brand-500"
         >
@@ -609,6 +689,77 @@ function FieldRow({
           </span>
         )}
       </span>
+    </div>
+    {supportsChoices && choicesOpen && (
+      <ChoicesEditor
+        values={choiceValues}
+        onSave={(next) => void onUpdate(field.id, { options: { values: next } })}
+      />
+    )}
+    </div>
+  );
+}
+
+/** ChoicesEditor — the per-field choice list for dropdown / multiselect
+ *  fields. Writes live (autosave model, same as the rest of the page). */
+function ChoicesEditor({
+  values,
+  onSave,
+}: {
+  values: string[];
+  onSave: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const v = draft.trim();
+    if (!v) return;
+    if (values.some((x) => x.toLowerCase() === v.toLowerCase())) {
+      setDraft("");
+      return;
+    }
+    onSave([...values, v]);
+    setDraft("");
+  };
+  return (
+    <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+      <div className="text-[11px] font-semibold text-slate-500 mb-2">
+        Choices — these appear everywhere this field renders: the study record, intake, and filters.
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {values.map((v) => (
+          <span
+            key={v}
+            className="inline-flex items-center gap-1.5 text-xs rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-700"
+          >
+            {v}
+            <button
+              onClick={() => onSave(values.filter((x) => x !== v))}
+              className="text-slate-300 hover:text-red-500 transition leading-none"
+              aria-label={`Remove choice ${v}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {values.length === 0 && (
+          <span className="text-xs text-slate-400 italic">
+            No choices yet — the field falls back to free text until you add some.
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 max-w-sm">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add a choice…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") add();
+          }}
+        />
+        <Button size="sm" onClick={add} disabled={!draft.trim()}>
+          Add
+        </Button>
+      </div>
     </div>
   );
 }
