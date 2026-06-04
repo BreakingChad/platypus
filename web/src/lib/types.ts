@@ -6,7 +6,7 @@
  *
  * Until then this hand-maintained skeleton is enough to make the client typed.
  */
-export type FieldType = "text" | "date" | "number" | "dropdown" | "boolean" | "person" | "lookup" | "json";
+export type FieldType = "text" | "date" | "number" | "dropdown" | "multiselect" | "list" | "boolean" | "person" | "lookup" | "json";
 export type FieldKind = "standard" | "custom";
 export type FieldEditTier = "admin" | "coordinator" | "any";
 export type HierarchyKey = "director" | "manager" | "coordinator" | "specialist" | "support";

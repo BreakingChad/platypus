@@ -66,7 +66,7 @@ const ENTITY_META: Record<EntityType, {
 const STUDY_SECTIONS = ["Organizational", "Per-Site", "Regulatory", "Financial", "Operational"];
 const SITE_SECTIONS = ["Identity", "Location", "Contacts", "Regulatory", "Operations"];
 
-const FIELD_TYPES: FieldType[] = ["text", "date", "number", "dropdown", "boolean", "person"];
+const FIELD_TYPES: FieldType[] = ["text", "date", "number", "dropdown", "multiselect", "list", "boolean", "person"];
 
 export function FieldsDesigner() {
   const { isAdmin, isDeveloper, loading: memberLoading } = useCurrentMember();

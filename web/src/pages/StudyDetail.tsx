@@ -821,6 +821,75 @@ function FieldInput({
           }}
         />
       );
+    case "multiselect": {
+      // Stored as string[]; choices come from the field's options.values.
+      const opts = (field.options as { values?: string[] } | null)?.values ?? [];
+      const selected: string[] = Array.isArray(value) ? (value as string[]) : [];
+      const toggle = (v: string) =>
+        onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+      return (
+        <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto py-1">
+          {opts.length === 0 && (
+            <span className="text-xs text-slate-400 italic">
+              No choices defined — add options to this field in the Field designer.
+            </span>
+          )}
+          {opts.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => toggle(v)}
+              className={
+                "text-xs rounded-full border px-2.5 py-1 transition " +
+                (selected.includes(v)
+                  ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+              }
+            >
+              {selected.includes(v) ? "✓ " : ""}
+              {v}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    case "list": {
+      // Stored as string[]; repeatable free-text rows (e.g. consent versions).
+      const items: string[] = Array.isArray(value) ? (value as string[]) : [];
+      const set = (i: number, v: string) => {
+        const next = [...items];
+        next[i] = v;
+        onChange(next.filter((x) => x !== undefined));
+      };
+      return (
+        <div className="space-y-1.5">
+          {items.map((it, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <Input
+                value={it}
+                onChange={(e) => set(i, e.target.value)}
+                autoFocus={autoFocus && i === items.length - 1}
+              />
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((_, j) => j !== i))}
+                className="text-slate-300 hover:text-red-500 transition px-1"
+                aria-label="Remove entry"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => onChange([...items, ""])}
+            className="text-xs font-semibold text-brand-700 hover:underline"
+          >
+            + Add entry
+          </button>
+        </div>
+      );
+    }
     case "dropdown": {
       const opts = (field.options as { values?: string[] } | null)?.values ?? [];
       if (opts.length === 0) {
@@ -877,6 +946,18 @@ function formatValue(v: unknown, type: FieldType): React.ReactNode {
     }
   }
   if (type === "number") return String(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return <span className="text-slate-400 italic">—</span>;
+    return (
+      <span className="flex flex-wrap gap-1">
+        {v.map((x, i) => (
+          <span key={i} className="text-xs rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
+            {String(x)}
+          </span>
+        ))}
+      </span>
+    );
+  }
   return String(v);
 }
 
