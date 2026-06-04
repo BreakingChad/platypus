@@ -43,6 +43,18 @@ describe("matchesAdvFilters", () => {
 });
 
 describe("advFilterCount / describeAdvFilters", () => {
+  it("filters by site id", () => {
+    const g = { ...EMPTY_ADV_FILTERS, sites: ["site1"] };
+    expect(matchesAdvFilters(study({ site_id: "site1" } as any), g)).toBe(true);
+    expect(matchesAdvFilters(study({ site_id: "site2" } as any), g)).toBe(false);
+    expect(matchesAdvFilters(study({}), g)).toBe(false);
+  });
+  it("site chips resolve names", () => {
+    const g = { ...EMPTY_ADV_FILTERS, sites: ["s1"] };
+    const chips = describeAdvFilters(g, { site: () => "Banner Tucson" });
+    expect(chips[0].label).toBe("Site: Banner Tucson");
+    expect(chips[0].without.sites).toEqual([]);
+  });
   it("counts active criteria, not values", () => {
     expect(advFilterCount(EMPTY_ADV_FILTERS)).toBe(0);
     expect(

@@ -9,6 +9,8 @@ import type { StudyRow } from "./types";
 
 export type AdvFilters = {
   sponsors: string[];
+  /** Site IDs (names resolve at render time). */
+  sites: string[];
   phases: string[];
   tas: string[];
   pis: string[];
@@ -22,6 +24,7 @@ export type AdvFilters = {
 
 export const EMPTY_ADV_FILTERS: AdvFilters = {
   sponsors: [],
+  sites: [],
   phases: [],
   tas: [],
   pis: [],
@@ -33,6 +36,7 @@ export const EMPTY_ADV_FILTERS: AdvFilters = {
 export function advFilterCount(f: AdvFilters): number {
   let n = 0;
   n += f.sponsors.length > 0 ? 1 : 0;
+  n += f.sites.length > 0 ? 1 : 0;
   n += f.phases.length > 0 ? 1 : 0;
   n += f.tas.length > 0 ? 1 : 0;
   n += f.pis.length > 0 ? 1 : 0;
@@ -48,6 +52,7 @@ export function matchesAdvFilters(row: StudyRow, f: AdvFilters): boolean {
   const has = (list: string[], v: string | null | undefined) =>
     list.length === 0 || (v != null && list.includes(v));
   if (!has(f.sponsors, row.sponsor)) return false;
+  if (!has(f.sites, row.site_id)) return false;
   if (!has(f.phases, row.phase)) return false;
   if (!has(f.tas, row.therapeutic_area)) return false;
   if (!has(f.pis, row.pi_name)) return false;
@@ -67,8 +72,12 @@ export type FilterChip = {
   without: AdvFilters;
 };
 
-/** Human chips for the active-filters bar, each individually removable. */
-export function describeAdvFilters(f: AdvFilters): FilterChip[] {
+/** Human chips for the active-filters bar, each individually removable.
+ *  `names` resolves IDs to labels (sites). */
+export function describeAdvFilters(
+  f: AdvFilters,
+  names: { site?: (id: string) => string } = {}
+): FilterChip[] {
   const chips: FilterChip[] = [];
   const multi = (
     key: keyof Pick<AdvFilters, "sponsors" | "phases" | "tas" | "pis" | "kinds" | "priorities">,
@@ -83,6 +92,13 @@ export function describeAdvFilters(f: AdvFilters): FilterChip[] {
     }
   };
   multi("sponsors", "Sponsor");
+  for (const v of f.sites) {
+    chips.push({
+      key: `sites:${v}`,
+      label: `Site: ${names.site ? names.site(v) : v}`,
+      without: { ...f, sites: f.sites.filter((x) => x !== v) },
+    });
+  }
   multi("phases", "Phase");
   multi("tas", "TA");
   multi("pis", "PI");

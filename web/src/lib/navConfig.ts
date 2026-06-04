@@ -131,7 +131,7 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
   {
     group: "Studies",
     items: [
-      { key: "studies", label: "Portfolio" },
+      { key: "studies", label: "All Studies" },
       { key: "my-studies" },
     ],
   },

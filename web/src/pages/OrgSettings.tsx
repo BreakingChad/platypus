@@ -305,7 +305,7 @@ function AiSettingsSection({
           side="bottom"
           label="Powers study summaries and (soon) protocol ingestion and document-congruency checks. Processing runs server-side; your API key is never exposed to the browser."
         >
-          <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-100 rounded px-1 py-0.5 cursor-help">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-100 rounded px-1 py-0.5 cursor-pointer">
             beta
           </span>
         </Tip>

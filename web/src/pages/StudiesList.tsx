@@ -6,7 +6,8 @@ import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
-import type { StudyRow, PipelineStageRow } from "../lib/types";
+import type {
+  SiteRow, StudyRow, PipelineStageRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import { Button } from "../components/ui/Button";
@@ -54,6 +55,12 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const [bulkBusy, setBulkBusy] = useState(false);
   const toast = useToast();
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
+  const sitesTbl = useOrgTable<SiteRow>("sites", { orderBy: "name" });
+  const siteNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of sitesTbl.rows) m[s.id] = s.name;
+    return m;
+  }, [sitesTbl.rows]);
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
 
   const { configFor } = useResolvedConfig();
@@ -480,7 +487,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               </button>
             </span>
           )}
-          {describeAdvFilters(advFilters).map((chip) => (
+          {describeAdvFilters(advFilters, { site: (id) => siteNameById[id] ?? "(removed site)" }).map((chip) => (
             <span
               key={chip.key}
               className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700"
@@ -805,6 +812,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         <FilterModal
           filters={advFilters}
           rows={studies.rows}
+          siteNameById={siteNameById}
           onChange={setAdvFilters}
           staleOnly={staleOnly}
           onStaleOnly={setStaleOnly}
@@ -830,6 +838,84 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 }
 
 /** Tiny star icon (inline so we don't bloat the shared Icon component). */
+/* ---------- scale-ready option picker (thousands of sites/PIs) ---------- */
+
+function OptionPicker({
+  label,
+  options,
+  selected,
+  onToggle,
+  labelFor,
+}: {
+  label: string;
+  options: { value: string; count: number }[];
+  selected: string[];
+  onToggle: (v: string) => void;
+  labelFor?: (v: string) => string;
+}) {
+  const [q, setQ] = useState("");
+  const name = (v: string) => (labelFor ? labelFor(v) : v);
+  const needle = q.trim().toLowerCase();
+  const selectedSet = new Set(selected);
+  const pinned = options.filter((o) => selectedSet.has(o.value));
+  const matches = (needle
+    ? options.filter((o) => name(o.value).toLowerCase().includes(needle))
+    : options
+  ).filter((o) => !selectedSet.has(o.value));
+  const LIMIT = 12;
+  const shown = matches.slice(0, LIMIT);
+  const hidden = matches.length - shown.length;
+
+  const chip = (value: string, count: number, isSel: boolean) => (
+    <button
+      key={value}
+      onClick={() => onToggle(value)}
+      className={
+        "text-xs rounded-full border px-2.5 py-1 transition flex items-center gap-1.5 " +
+        (isSel
+          ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+      }
+    >
+      {isSel ? "✓ " : ""}
+      <span className="truncate max-w-[220px]">{name(value)}</span>
+      <span className="text-[10px] font-mono text-slate-400">{count}</span>
+    </button>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="text-xs font-semibold text-slate-500">
+          {label}
+          {selected.length > 0 && <span className="ml-1.5 text-brand-700">· {selected.length} selected</span>}
+        </div>
+        {options.length > 10 && (
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={`Search ${options.length.toLocaleString()}…`}
+            className="text-xs border border-slate-200 rounded-md px-2.5 py-1.5 w-48 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition"
+            aria-label={`Search ${label}`}
+          />
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+        {pinned.map((o) => chip(o.value, o.count, true))}
+        {shown.map((o) => chip(o.value, o.count, false))}
+        {hidden > 0 && (
+          <span className="text-[11px] text-slate-400 self-center">
+            +{hidden.toLocaleString()} more — type to narrow
+          </span>
+        )}
+        {needle && shown.length === 0 && pinned.length === 0 && (
+          <span className="text-[11px] text-slate-400 italic self-center">No matches</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- stage dropdown (toolbar) ---------- */
 
 function StageDropdown({
@@ -1058,6 +1144,7 @@ function DenseTable({
 function FilterModal({
   filters,
   rows,
+  siteNameById,
   onChange,
   staleOnly,
   onStaleOnly,
@@ -1067,6 +1154,7 @@ function FilterModal({
 }: {
   filters: AdvFilters;
   rows: StudyRow[];
+  siteNameById: Record<string, string>;
   onChange: (f: AdvFilters) => void;
   staleOnly: boolean;
   onStaleOnly: (v: boolean) => void;
@@ -1079,8 +1167,9 @@ function FilterModal({
 
   const section = (
     label: string,
-    key: keyof Pick<AdvFilters, "sponsors" | "phases" | "tas" | "pis" | "kinds" | "priorities">,
-    get: (r: StudyRow) => string | null | undefined
+    key: keyof Pick<AdvFilters, "sponsors" | "sites" | "phases" | "tas" | "pis" | "kinds" | "priorities">,
+    get: (r: StudyRow) => string | null | undefined,
+    labelFor?: (v: string) => string
   ) => {
     const opts = optionCounts(open, get);
     if (opts.length === 0) return null;
@@ -1090,29 +1179,7 @@ function FilterModal({
         ...filters,
         [key]: active.includes(v) ? active.filter((x) => x !== v) : [...active, v],
       });
-    return (
-      <div key={key}>
-        <div className="text-xs font-semibold text-slate-500 mb-1.5">{label}</div>
-        <div className="flex flex-wrap gap-1.5">
-          {opts.map(({ value, count }) => (
-            <button
-              key={value}
-              onClick={() => toggle(value)}
-              className={
-                "text-xs rounded-full border px-2.5 py-1 transition flex items-center gap-1.5 " +
-                (active.includes(value)
-                  ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
-              }
-            >
-              {active.includes(value) ? "✓ " : ""}
-              {value}
-              <span className="text-[10px] font-mono text-slate-400">{count}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
+    return <OptionPicker key={key} label={label} options={opts} selected={active} onToggle={toggle} labelFor={labelFor} />;
   };
 
   return (
@@ -1148,15 +1215,16 @@ function FilterModal({
             Done
           </Button>
         </div>
-        <div className="p-5 overflow-y-auto space-y-5">
+        <div className="p-6 overflow-y-auto space-y-6">
           {section("Sponsor", "sponsors", (r) => r.sponsor)}
-          {section("Phase", "phases", (r) => r.phase)}
-          {section("Therapeutic area", "tas", (r) => r.therapeutic_area)}
+          {section("Site", "sites", (r) => r.site_id, (id) => siteNameById[id] ?? "(removed site)")}
           {section("Principal investigator", "pis", (r) => r.pi_name)}
+          {section("Therapeutic area", "tas", (r) => r.therapeutic_area)}
+          {section("Phase", "phases", (r) => r.phase)}
           {section("Study kind", "kinds", (r) => r.study_kind)}
           {section("Priority", "priorities", (r) => r.priority)}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2 border-t border-slate-100">
             <div>
               <div className="text-xs font-semibold text-slate-500 mb-1.5">Created between</div>
               <div className="flex items-center gap-2">

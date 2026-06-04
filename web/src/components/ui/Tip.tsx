@@ -48,7 +48,7 @@ export function InfoTip({ label, side }: { label: string; side?: "top" | "bottom
       <button
         type="button"
         aria-label={label}
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200/80 text-slate-500 hover:bg-slate-300 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 text-[9px] font-bold leading-none cursor-help align-middle"
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200/80 text-slate-500 hover:bg-slate-300 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 text-[9px] font-bold leading-none cursor-pointer align-middle"
       >
         i
       </button>
