@@ -19,6 +19,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Loader } from "../components/ui/Loader";
 
@@ -96,11 +97,13 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
         actions={
           isAdmin && (
             <Button variant="primary" onClick={() => setComposerOpen(true)}>
-              <Icon name="plus" size={14} /> New site
+              <Icon name="plus" size={14} />
+              New site
             </Button>
           )
         }
       />
+      <AutoSaveNote />
 
       <div className="mt-6">
         <Input

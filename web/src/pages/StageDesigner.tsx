@@ -13,6 +13,7 @@ import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Tip } from "../components/ui/Tip";
+import { MicroField } from "../components/ui/MicroField";
 
 /** Pipeline Stage Designer — admin-only.
  *  Studies move through stages. Stages are owned by exactly one team. The
@@ -144,54 +145,60 @@ export function StageDesigner() {
               Stages will be ordered at the end of the pipeline — reorder afterward.
             </div>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            writes live · Supabase
-          </span>
+          <span className="text-xs text-slate-400">Changes save automatically</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[2fr_140px_120px_auto_auto] gap-2 items-center">
-          <Input
-            value={composer.label}
-            onChange={(e) => setComposer({ ...composer, label: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && composer.label.trim()) void addStage();
-            }}
-            placeholder="Stage name (e.g. Feasibility)"
-          />
-          <Tip label="How many days a study should spend in this stage. Powers the Health signal everywhere — studies read amber as they approach this number and red past it." block>
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_150px_120px_auto_auto] gap-3 items-end">
+          <MicroField label="Stage name">
             <Input
-              type="number"
-              min={1}
-              value={composer.target_days}
-              onChange={(e) => setComposer({ ...composer, target_days: Number(e.target.value) || 1 })}
-              placeholder="Target days"
-              aria-label="Target days for a study to spend in this stage"
+              value={composer.label}
+              onChange={(e) => setComposer({ ...composer, label: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && composer.label.trim()) void addStage();
+              }}
+              placeholder="e.g. Feasibility"
             />
-          </Tip>
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={composer.terminal}
-              onChange={(e) => setComposer({ ...composer, terminal: e.target.checked })}
-              className="accent-brand-500 w-4 h-4"
-            />
-            Terminal
-          </label>
-          <div className="flex gap-1">
-            {SWATCHES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setComposer({ ...composer, color: c })}
-                className={
-                  "w-6 h-6 rounded-md border-2 transition " +
-                  (composer.color === c ? "border-slate-900 scale-110" : "border-white hover:border-slate-200")
-                }
-                style={{ backgroundColor: c }}
-                title={c}
+          </MicroField>
+          <MicroField label="Target days">
+            <Tip label="How many days a study should spend in this stage. Powers the Health signal everywhere — studies read amber as they approach this number and red past it." block>
+              <Input
+                type="number"
+                min={1}
+                value={composer.target_days}
+                onChange={(e) => setComposer({ ...composer, target_days: Number(e.target.value) || 1 })}
+                aria-label="Target days for a study to spend in this stage"
               />
-            ))}
-          </div>
+            </Tip>
+          </MicroField>
+          <MicroField label="Final stage?">
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap h-[38px]">
+              <input
+                type="checkbox"
+                checked={composer.terminal}
+                onChange={(e) => setComposer({ ...composer, terminal: e.target.checked })}
+                className="accent-brand-500 w-4 h-4"
+              />
+              Studies end here
+            </label>
+          </MicroField>
+          <MicroField label="Color">
+            <div className="flex gap-1 h-[38px] items-center">
+              {SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setComposer({ ...composer, color: c })}
+                  className={
+                    "w-6 h-6 rounded-md border-2 transition " +
+                    (composer.color === c ? "border-slate-900 scale-110" : "border-white hover:border-slate-200")
+                  }
+                  style={{ backgroundColor: c }}
+                  aria-label={"Use color " + c}
+                  title={c}
+                />
+              ))}
+            </div>
+          </MicroField>
           <Button onClick={addStage} disabled={!composer.label.trim()}>
-            + Add
+            + Add stage
           </Button>
         </div>
       </Card>

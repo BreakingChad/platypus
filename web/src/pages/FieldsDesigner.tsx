@@ -11,6 +11,7 @@ import { Input } from "../components/ui/Input";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
 
 /** FieldsDesigner — admin/developer-only.
@@ -198,6 +199,7 @@ export function FieldsDesigner() {
         subtitle={ENTITY_META[entityType].description}
         actions={<Pill tone={ENTITY_META[entityType].pillTone}>live · admin-driven</Pill>}
       />
+      <AutoSaveNote />
 
       {/* BIG SEGMENTED CONTROL — the page's defining choice */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">

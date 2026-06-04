@@ -13,6 +13,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
 
 /** AccessRoles — admin-only.
@@ -119,6 +120,7 @@ export function AccessRoles() {
         subtitle="Who can see what in Platypus. Module-level permissions + portfolio scope. Built-in roles (Director, Coordinator, …) are starting points — clone or rename to fit your org."
         actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
+      <AutoSaveNote />
 
       {/* COMPOSER */}
       <Card primary className="mt-6 mb-6">

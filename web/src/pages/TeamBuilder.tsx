@@ -18,6 +18,8 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Tip } from "../components/ui/Tip";
+import { MicroField } from "../components/ui/MicroField";
+import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -194,13 +196,15 @@ export function TeamBuilder() {
           <div className="flex items-center gap-2">
             {teams.rows.length === 0 && (
               <Button variant="primary" size="sm" onClick={() => void loadRecommended()} disabled={seeding}>
-                <Icon name="check" size={12} /> {seeding ? "Loading…" : "Load recommended teams"}
+                <Icon name="check" size={12} />
+                {seeding ? "Loading…" : "Load recommended teams"}
               </Button>
             )}
             <Pill tone="brand">live · admin-driven</Pill>
           </div>
         }
       />
+      <AutoSaveNote />
 
       {/* COMPOSER */}
       <Card primary className="mt-6 mb-6">
@@ -210,24 +214,28 @@ export function TeamBuilder() {
               Add a team
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              Teams own one or more process modules in the Work Stream Builder.
+              Teams own one or more process modules in Work streams.
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_auto_auto] gap-2 items-center">
-          <Input
-            value={composer.name}
-            onChange={(e) => setComposer({ ...composer, name: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && composer.name.trim()) void addTeam();
-            }}
-            placeholder="Team name (e.g. Startup, Regulatory)"
-          />
-          <Input
-            value={composer.charter}
-            onChange={(e) => setComposer({ ...composer, charter: e.target.value })}
-            placeholder="Charter (optional) — what does this team own?"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_auto_auto] gap-3 items-end">
+          <MicroField label="Team name">
+            <Input
+              value={composer.name}
+              onChange={(e) => setComposer({ ...composer, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && composer.name.trim()) void addTeam();
+              }}
+              placeholder="e.g. Startup, Regulatory"
+            />
+          </MicroField>
+          <MicroField label="Charter — what this team owns (optional)">
+            <Input
+              value={composer.charter}
+              onChange={(e) => setComposer({ ...composer, charter: e.target.value })}
+              placeholder="e.g. Owns intake through site qualification"
+            />
+          </MicroField>
           <div className="flex gap-1">
             {TEAM_COLORS.map((c) => (
               <button
