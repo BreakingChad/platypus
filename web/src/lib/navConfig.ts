@@ -139,8 +139,6 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     group: "Pipeline tools",
     items: [
       { key: "intake" },
-      { key: "amendments" },
-      { key: "pipeline", label: "By stage" },
       { key: "sites" },
     ],
   },

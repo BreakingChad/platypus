@@ -44,7 +44,14 @@ import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
  *  Live on the studies table. Admin can create; everyone can read. */
-export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void }) {
+export function StudiesList({
+  onNavigate,
+  initialViewMode,
+}: {
+  onNavigate: (h: string) => void;
+  /** Route-driven view (e.g. #/pipeline opens the board). Applied once. */
+  initialViewMode?: "list" | "table" | "board";
+}) {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const auth = useAuth();
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
@@ -99,7 +106,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   // Column sort: "smart" (pinned → health → newest) is the default; clicking
   // a header sorts by it, again flips direction, a third click restores smart.
   const [sortBy, setSortBy] = useStickyState<string>("studies/sortBy", "smart");
-  const [viewMode, setViewMode] = useStickyState<"list" | "table">("studies/viewMode", "list");
+  const [viewMode, setViewMode] = useStickyState<"list" | "table" | "board">("studies/viewMode", "list");
+  useEffect(() => {
+    if (initialViewMode) setViewMode(initialViewMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialViewMode]);
   const [advRaw, setAdvFilters] = useStickyState<AdvFilters>("studies/advFilters", EMPTY_ADV_FILTERS);
   // Merge over defaults so older stored shapes never break.
   const advFilters: AdvFilters = { ...EMPTY_ADV_FILTERS, ...advRaw };
@@ -127,6 +138,42 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   };
 
   const clearSel = () => setSelected(new Set());
+
+  /** Board drag-advance: one study, full ceremony (audit + engine). */
+  const moveToStage = async (id: string, nextStageKey: string) => {
+    if (!isAdmin || !orgId || !userId) return;
+    const study = studies.rows.find((s) => s.id === id);
+    if (!study || study.stage_key === nextStageKey) return;
+    try {
+      const patch: Partial<StudyRow> = { stage_key: nextStageKey };
+      if (study.stage_key === "intake" && nextStageKey !== "intake" && !study.committed_at) {
+        patch.committed_at = new Date().toISOString();
+      }
+      const { error } = await supabase.from("studies").update(patch as any).eq("id", id);
+      if (error) throw error;
+      void supabase.from("studies").update({ stage_entered_at: new Date().toISOString() } as any).eq("id", id);
+      void writeAuditEvent({
+        orgId, actorId: userId, actorEmail: userEmail,
+        entityType: "study", entityId: id,
+        action: "stage_changed",
+        payload: {
+          from: study.stage_key ?? null,
+          to: nextStageKey,
+          from_label: stages.rows.find((s) => s.key === study.stage_key)?.label ?? null,
+          to_label: stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey,
+          source: "board_dnd",
+        },
+      });
+      try {
+        await spawnTasksForStageEntry({ orgId, studyId: id, stageKey: nextStageKey, actorUserId: userId });
+      } catch {
+        /* stage moved + audited; spawn can be retried from the study */
+      }
+      toast.success(stamped(`${study.code} → ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`));
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't move the study"));
+    }
+  };
 
   const bulkAdvance = async (nextStageKey: string) => {
     if (!isAdmin || !orgId || !userId) return;
@@ -433,6 +480,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         {([
           ["list", "menu", "List view — rich rows"],
           ["table", "layout", "Table view — dense, every column"],
+          ["board", "layers", "Board view — by stage; drag a card to advance it"],
         ] as const).map(([mode, icon, tip]) => (
           <button
             key={mode}
@@ -768,6 +816,16 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           </div>
         )}
 
+        {viewMode === "board" && filtered.length > 0 && (
+          <BoardView
+            rows={filtered}
+            stages={stages.rows}
+            isAdmin={isAdmin}
+            onNavigate={onNavigate}
+            onMove={(id, key) => void moveToStage(id, key)}
+          />
+        )}
+
         {viewMode === "table" && filtered.length > 0 && (
           <DenseTable
             rows={filtered}
@@ -838,6 +896,101 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 }
 
 /** Tiny star icon (inline so we don't bloat the shared Icon component). */
+/* ---------- board view (Plan B — the old By-stage page, with filters) ---------- */
+
+function BoardView({
+  rows,
+  stages,
+  isAdmin,
+  onNavigate,
+  onMove,
+}: {
+  rows: { row: StudyRow; health: ReturnType<typeof computeHealth> }[];
+  stages: PipelineStageRow[];
+  isAdmin: boolean;
+  onNavigate: (h: string) => void;
+  onMove: (id: string, stageKey: string) => void;
+}) {
+  const [overCol, setOverCol] = useState<string | null>(null);
+  return (
+    <div className="overflow-x-auto p-3">
+      <div className="flex gap-3 items-start min-w-max">
+        {stages.map((st) => {
+          const cards = rows.filter(({ row }) => row.stage_key === st.key);
+          return (
+            <div
+              key={st.key}
+              className={
+                "w-72 flex-shrink-0 rounded-xl border bg-slate-50/60 transition " +
+                (overCol === st.key ? "border-brand-400 ring-2 ring-brand-500/20" : "border-slate-200")
+              }
+              onDragOver={(e) => {
+                if (!isAdmin) return;
+                e.preventDefault();
+                setOverCol(st.key);
+              }}
+              onDragLeave={() => setOverCol((c) => (c === st.key ? null : c))}
+              onDrop={(e) => {
+                setOverCol(null);
+                if (!isAdmin) return;
+                const id = e.dataTransfer.getData("text/study-id");
+                if (id) onMove(id, st.key);
+              }}
+            >
+              <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: st.color }} />
+                <span className="text-xs font-semibold text-slate-700 truncate">{st.label}</span>
+                <span className="ml-auto text-[10px] font-mono text-slate-400">{cards.length}</span>
+              </div>
+              <div className="p-2 space-y-2 min-h-[64px]">
+                {cards.map(({ row: s, health }) => (
+                  <div
+                    key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    draggable={isAdmin}
+                    onDragStart={(e) => e.dataTransfer.setData("text/study-id", s.id)}
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onNavigate(`#/studies/${s.id}`);
+                      }
+                    }}
+                    className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm hover:border-brand-300 hover:shadow transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                    style={{ borderTopWidth: 3, borderTopColor: st.color }}
+                    aria-label={`Open ${s.code}`}
+                    title={isAdmin ? "Click to open · drag to another column to advance" : "Click to open"}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <HealthDot health={health} variant="dot" />
+                      <span className="font-mono text-[11px] text-slate-600">{s.code}</span>
+                      <span className="ml-auto text-[10px] font-mono text-slate-400">
+                        {s.created_at ? fmtDate(s.created_at) : ""}
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-slate-900 mt-1 leading-snug line-clamp-2">
+                      {s.title}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1 truncate">
+                      {[s.pi_name, s.sponsor].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                ))}
+                {cards.length === 0 && (
+                  <div className="text-[11px] text-slate-400 italic px-1 py-3 text-center">
+                    {isAdmin ? "Drop a card here" : "Nothing in this stage"}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- scale-ready option picker (thousands of sites/PIs) ---------- */
 
 function OptionPicker({

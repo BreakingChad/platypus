@@ -39,7 +39,15 @@ import { SubmissionsQueue } from "../components/SubmissionsQueue";
  *  portfolio (with a preview of the work stream tasks that will fire), or
  *  DECLINE (audited, study closes).
  */
-export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }) {
+export function IntakeTriage({
+  onNavigate,
+  initialTab,
+}: {
+  onNavigate: (h: string) => void;
+  /** One intake door, two arrivals (Plan B). */
+  initialTab?: "new" | "amendments";
+}) {
+  const [intakeTab, setIntakeTab] = useState<"new" | "amendments">(initialTab ?? "new");
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
@@ -92,6 +100,37 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
       />
 
       <PageBlocks pageKey="intake" region="top" navigate={onNavigate} />
+
+      {/* One intake door, two kinds of arrivals */}
+      <div className="mt-5 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+        {([
+          ["new", "New studies"],
+          ["amendments", "Amendments"],
+        ] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setIntakeTab(k)}
+            className={
+              "px-3 py-2 rounded-md text-sm font-semibold transition " +
+              (intakeTab === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {intakeTab === "amendments" && (
+        <Card className="mt-4">
+          <EmptyState
+            iconName="file"
+            title="Amendment intake lands here"
+            sub="Intake for studies that already exist: truncated feasibility, full regulatory, budget, and CTMS pathway — run as a parallel study instance that replaces the original at activation, audit chain intact. In build now."
+          />
+        </Card>
+      )}
+
+      {intakeTab === "new" && (<>
 
       {/* External form submissions — triage them INTO intake (G3). */}
       <SubmissionsQueue
@@ -182,6 +221,7 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
       </Card>
 
       <PageBlocks pageKey="intake" region="bottom" navigate={onNavigate} />
+      </>)}
 
           </div>
   );

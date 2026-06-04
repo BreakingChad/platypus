@@ -9,7 +9,6 @@ import { ConfirmRoot } from "./lib/confirm";
 // Eager — surfaces every signed-in user hits on landing.
 import { Home } from "./pages/Home";
 import { StudiesList } from "./pages/StudiesList";
-import { PipelineView } from "./pages/PipelineView";
 import { Inbox } from "./pages/Inbox";
 import { Sites } from "./pages/Sites";
 import { IntakeTriage } from "./pages/IntakeTriage";
@@ -70,7 +69,7 @@ function renderRoute(
   if (hash === "#/calendar")
     return { node: <ComingSoon kicker="Workspace" title="Calendar" iconName="layers" description="Task due dates and study milestones on one calendar — month and week views." onBackToHome={() => navigate("#/")} /> };
   if (hash === "#/amendments")
-    return { node: <ComingSoon kicker="Pipeline tools" title="Amendments" iconName="file" description="Intake for studies that already exist: truncated feasibility, full regulatory, budget, and CTMS pathway — run as a parallel study instance." onBackToHome={() => navigate("#/")} /> };
+    return { node: <IntakeTriage onNavigate={navigate} initialTab="amendments" /> };
   if (hash === "#/analytics")
     return { node: <ComingSoon kicker="Insights" title="Analytics" iconName="workflow" description="Cycle time per stage, throughput per site, workload — with CSV export. Root-study rollups arrive with the multi-site model." onBackToHome={() => navigate("#/")} /> };
   if (hash === "#/binders")
@@ -104,7 +103,8 @@ function renderRoute(
     return { node: <StudiesList onNavigate={navigate} /> };
   }
   if (hash === "#/pipeline") {
-    return { node: <PipelineView onNavigate={navigate} /> };
+    // Folded into All Studies (Plan B): same page, board view active.
+    return { node: <StudiesList onNavigate={navigate} initialViewMode="board" /> };
   }
   if (hash === "#/sites") {
     return { node: <Sites onNavigate={navigate} /> };
