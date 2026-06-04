@@ -106,12 +106,12 @@ export function StageDesigner() {
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
     return (
-      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <PageHeader
           kicker="Configure"
           title="Pipeline stages"
@@ -129,7 +129,7 @@ export function StageDesigner() {
   }
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
         title="Pipeline stages"

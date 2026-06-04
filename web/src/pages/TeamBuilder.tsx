@@ -178,12 +178,12 @@ export function TeamBuilder() {
   };
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8 text-sm text-slate-500"><Loader label="Checking permissions…" /></div>;
   }
 
   if (!isAdmin) {
     return (
-      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <PageHeader
           kicker="Configure"
           title="Teams & roles"
@@ -207,7 +207,7 @@ export function TeamBuilder() {
     holders.rows.filter((h) => h.team_role_id === roleId);
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
         title="Teams & roles"

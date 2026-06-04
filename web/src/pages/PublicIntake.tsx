@@ -22,7 +22,7 @@ export function PublicIntake({ hash }: { hash: string }) {
   return (
     <div className="min-h-screen bg-[#faf8f4]">
       <header className="border-b border-slate-200 bg-white">
-        <div className="max-w-2xl mx-auto px-4 md:px-6 py-4 flex items-center gap-3">
+        <div className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 py-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-brand-gradient flex items-center justify-center text-white font-display font-extrabold">
             P
           </div>
@@ -32,10 +32,10 @@ export function PublicIntake({ hash }: { hash: string }) {
           </div>
         </div>
       </header>
-      <main className="max-w-2xl mx-auto px-4 md:px-6 py-8">
+      <main className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 py-8">
         {slug ? <PublicForm slug={slug} /> : <PublicLanding />}
       </main>
-      <footer className="max-w-2xl mx-auto px-4 md:px-6 pb-10">
+      <footer className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 pb-10">
         <p className="text-[11px] text-slate-400">
           Submissions go directly to the research site's startup team.
         </p>

@@ -305,11 +305,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   }, [studies.rows]);
 
   if (memberLoading) {
-    return <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8"><Loader label="Checking permissions…" /></div>;
   }
 
   return (
-    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Workspace"
         title="Studies"

@@ -101,12 +101,12 @@ export function OrgSettings() {
   };
 
   if (memberLoading || loading) {
-    return <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">Loading…</div>;
+    return <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8 text-sm text-slate-500">Loading…</div>;
   }
 
   if (!isAdmin) {
     return (
-      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <PageHeader kicker="Configure" title="Organization" />
         <Card className="mt-6">
           <EmptyState
@@ -121,7 +121,7 @@ export function OrgSettings() {
 
   if (!org) {
     return (
-      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <Card>
           <EmptyState
             iconName="alert"
@@ -134,7 +134,7 @@ export function OrgSettings() {
   }
 
   return (
-    <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
         title="Organization"

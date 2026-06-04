@@ -129,12 +129,12 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
   };
 
   if (!hasStages && stages.loading) {
-    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8"><Loader label="Loading pipeline…" /></div>;
+    return <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8"><Loader label="Loading pipeline…" /></div>;
   }
 
   if (!hasStages) {
     return (
-      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <PageHeader kicker="Workspace" title="Pipeline" />
         <Card className="mt-6">
           <EmptyState
@@ -152,7 +152,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
   }
 
   return (
-    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Workspace"
         title="Pipeline"

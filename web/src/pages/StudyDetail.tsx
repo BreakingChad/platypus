@@ -261,7 +261,7 @@ export function StudyDetail({
 
   if (loadError) {
     return (
-      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <Card>
           <EmptyState
             iconName="alert"
@@ -280,7 +280,7 @@ export function StudyDetail({
 
   if (!study) {
     return (
-      <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8"><Loader label="Loading study…" /></div>
+      <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8"><Loader label="Loading study…" /></div>
     );
   }
 
@@ -409,7 +409,7 @@ export function StudyDetail({
   };
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
       {/* Back button */}
       <button
         onClick={onBack}

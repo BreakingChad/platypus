@@ -66,7 +66,7 @@ export function SettingsHub({ onNavigate }: { onNavigate: (h: string) => void })
 
   if (!loading && !isAdmin) {
     return (
-      <div className="max-w-page-narrow mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
         <PageHeader kicker="Configure" title="Settings" />
         <Card className="mt-6">
           <div className="text-sm text-slate-600">
@@ -80,7 +80,7 @@ export function SettingsHub({ onNavigate }: { onNavigate: (h: string) => void })
   }
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
         title="Settings"

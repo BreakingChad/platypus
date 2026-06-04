@@ -177,15 +177,15 @@ export function Profile() {
   };
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">Loading…</div>;
+    return <div className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 py-8 text-sm text-slate-500">Loading…</div>;
   }
 
   if (!profile) {
-    return <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 text-sm text-slate-500">No profile.</div>;
+    return <div className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 py-8 text-sm text-slate-500">No profile.</div>;
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-2xl mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="You"
         title="Profile"

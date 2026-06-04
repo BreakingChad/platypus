@@ -201,7 +201,7 @@ export function App() {
 
 function LazyFallback() {
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-10 text-sm text-slate-500 flex items-center gap-2">
+    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-10 text-sm text-slate-500 flex items-center gap-2">
       <div className="w-3 h-3 rounded-full bg-brand-500 animate-pulse" />
       Loading…
     </div>

@@ -348,7 +348,7 @@ export function Inbox({
   };
 
   return (
-    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Workspace"
         title="Inbox"
