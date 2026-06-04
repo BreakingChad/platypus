@@ -9,7 +9,6 @@ import { ConfirmRoot } from "./lib/confirm";
 // Eager — surfaces every signed-in user hits on landing.
 import { Home } from "./pages/Home";
 import { StudiesList } from "./pages/StudiesList";
-import { StudyDetail } from "./pages/StudyDetail";
 import { PipelineView } from "./pages/PipelineView";
 import { Inbox } from "./pages/Inbox";
 import { Sites } from "./pages/Sites";
@@ -18,6 +17,7 @@ import { Profile } from "./pages/Profile";
 import { ComingSoon } from "./pages/ComingSoon";
 
 // Lazy — admin-only designers + management surfaces.
+const StudyDetail          = lazy(() => import("./pages/StudyDetail").then(m => ({ default: m.StudyDetail })));
 const FieldsDesigner       = lazy(() => import("./pages/FieldsDesigner").then(m => ({ default: m.FieldsDesigner })));
 const StageDesigner        = lazy(() => import("./pages/StageDesigner").then(m => ({ default: m.StageDesigner })));
 const TeamBuilder          = lazy(() => import("./pages/TeamBuilder").then(m => ({ default: m.TeamBuilder })));

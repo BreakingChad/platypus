@@ -7,7 +7,7 @@ import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 import { stamped } from "../lib/stamp";
-import { seedDemoStudies, seedDemoWorkStreams, seedDemoSites } from "../lib/demoSeed";
+import { seedDemoStudies, seedDemoWorkStreams, seedDemoSites, seedDemoStory } from "../lib/demoSeed";
 import type {
   FieldDefinitionRow,
   PipelineStageRow,
@@ -218,6 +218,11 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
         await seedDemoSites(orgId);
       } catch {
         /* pre-0012 */
+      }
+      try {
+        await seedDemoStory(orgId); // notes + escalation + handoffs + vacation coverage
+      } catch {
+        /* pre-0013 — story beats need notes/ooo tables */
       }
       const parts: string[] = [];
       if (res.inserted) parts.push(`${res.inserted} stud${res.inserted === 1 ? "y" : "ies"}`);

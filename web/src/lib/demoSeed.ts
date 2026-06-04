@@ -426,3 +426,137 @@ export async function seedDemoSites(orgId: string): Promise<SiteSeedResult> {
   }
   return { sites: created, linked };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Demo story beats — make the "system noticing things" moment real   */
+/* ------------------------------------------------------------------ */
+
+export type StorySeedResult = {
+  notes: number;
+  tasks: number;
+  oooSet: boolean;
+  heroCode: string | null;
+};
+
+/** Stages the demo narrative on the most mid-process seeded study:
+ *   - three believable study notes (intake context → handoff → risk)
+ *   - an OVERDUE escalation task (the red pill the demo points at)
+ *   - a completed handoff + an open handoff (the baton, mid-pass)
+ *   - vacation coverage: first non-you member goes OOO with you as
+ *     delegate — or you go OOO delegating to them ("Carol → Steve")
+ *  Idempotent: skips anything already present (matched by title/body).
+ */
+export async function seedDemoStory(orgId: string): Promise<StorySeedResult> {
+  const result: StorySeedResult = { notes: 0, tasks: 0, oooSet: false, heroCode: null };
+
+  // Hero = a non-closed seeded study, preferring one mid-pipeline.
+  const { data: studies } = await supabase
+    .from("studies")
+    .select("id, code, title, stage_key, closed")
+    .eq("org_id", orgId)
+    .eq("closed", false)
+    .order("created_at", { ascending: true });
+  const rows = (studies ?? []) as any[];
+  if (rows.length === 0) return result;
+  const hero =
+    rows.find((r) => r.stage_key && !["intake", "regulatory"].includes(r.stage_key)) ?? rows[0];
+  result.heroCode = hero.code;
+
+  const me = (await supabase.auth.getUser()).data.user;
+  const meId = me?.id ?? null;
+
+  // ---- Notes (append-only; dedupe on body prefix) ----
+  const { data: existingNotes } = await supabase
+    .from("study_notes")
+    .select("body")
+    .eq("study_id", hero.id);
+  const noteBodies = new Set(((existingNotes ?? []) as any[]).map((n) => String(n.body)));
+  const NOTES = [
+    "Sponsor confirmed enrollment target moved to 24 — CDA addendum filed. Budget assumptions need a second pass before the contracting call.",
+    "Handed feasibility packet to Budgets & Contracts. Open question for the site call: pharmacy hood certification expires next month — renewal already scheduled?",
+    "PI flagged a staffing concern for Q3 (research coordinator out on leave). Watch workload before committing to the sponsor's timeline.",
+  ];
+  for (const body of NOTES) {
+    if ([...noteBodies].some((b) => b.startsWith(body.slice(0, 40)))) continue;
+    const { error } = await supabase.from("study_notes").insert({
+      org_id: orgId,
+      study_id: hero.id,
+      body,
+      author_id: meId,
+      author_email: me?.email ?? null,
+    } as any);
+    if (!error) result.notes += 1;
+  }
+
+  // ---- Tasks: overdue escalation + handoff pair (dedupe on title) ----
+  const { data: existingTasks } = await supabase
+    .from("tasks")
+    .select("title")
+    .eq("study_id", hero.id);
+  const taskTitles = new Set(((existingTasks ?? []) as any[]).map((t) => String(t.title)));
+  const now = Date.now();
+  const iso = (offsetDays: number) => new Date(now + offsetDays * 86400000).toISOString();
+  const STORY_TASKS: any[] = [
+    {
+      title: "ESCALATION: Budget sign-off blocked — sponsor rate card mismatch",
+      description:
+        "Per-visit rates in the sponsor budget template don't match the CTA draft. Needs director decision before the contracting call.",
+      kind: "escalation",
+      status: "open",
+      due_at: iso(-2), // overdue — the red pill
+      position: 0,
+    },
+    {
+      title: "Handoff: feasibility packet → Budgets & Contracts",
+      description: "Acuity score + workforce snapshot attached. Over to contracting.",
+      kind: "handoff",
+      status: "done",
+      due_at: iso(-6),
+      completed_at: iso(-5),
+      position: 1,
+    },
+    {
+      title: "Handoff: draft CTA → Regulatory for IRB submission prep",
+      description: "Waiting on the budget escalation above before this baton passes.",
+      kind: "handoff",
+      status: "open",
+      due_at: iso(3),
+      position: 2,
+    },
+  ];
+  for (const t of STORY_TASKS) {
+    if (taskTitles.has(t.title)) continue;
+    const { error } = await supabase.from("tasks").insert({
+      org_id: orgId,
+      study_id: hero.id,
+      stage_key: hero.stage_key,
+      created_by: meId,
+      completed_by: t.status === "done" ? meId : null,
+      ...t,
+    } as any);
+    if (!error) result.tasks += 1;
+  }
+
+  // ---- Vacation coverage (Carol → Steve) ----
+  const { data: members } = await supabase
+    .from("org_members")
+    .select("user_id, ooo_until, ooo_delegate_user_id")
+    .eq("org_id", orgId);
+  const mrows = (members ?? []) as any[];
+  if (mrows.length >= 2 && meId) {
+    const other = mrows.find((m) => m.user_id !== meId);
+    const already = mrows.some((m) => m.ooo_until && new Date(m.ooo_until).getTime() > now);
+    if (other && !already) {
+      // The OTHER member is on vacation; work routes to YOU — so the demo
+      // driver sees the coverage banner + rerouted tasks first-hand.
+      const { error } = await supabase
+        .from("org_members")
+        .update({ ooo_until: iso(7), ooo_delegate_user_id: meId } as any)
+        .eq("org_id", orgId)
+        .eq("user_id", other.user_id);
+      if (!error) result.oooSet = true;
+    }
+  }
+
+  return result;
+}

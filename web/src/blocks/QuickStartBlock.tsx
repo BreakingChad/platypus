@@ -3,7 +3,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { PipelineStageRow, StudyRow } from "../lib/types";
-import { seedDemoStudies, seedDemoWorkStreams, seedDemoSites } from "../lib/demoSeed";
+import { seedDemoStudies, seedDemoWorkStreams, seedDemoSites, seedDemoStory } from "../lib/demoSeed";
 import { useToast } from "../lib/Toast";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
@@ -57,6 +57,11 @@ export function QuickStartBlock({ ctx: _ctx }: { ctx: BlockContext }) {
               siteRes = await seedDemoSites(orgId);
             } catch {
               /* pre-0012 — skip site seeding */
+            }
+            try {
+              await seedDemoStory(orgId); // story beats: notes, escalation, handoffs, coverage
+            } catch {
+              /* pre-0013 */
             }
             const parts: string[] = [];
             if (res.inserted > 0) parts.push(`${res.inserted} demo stud${res.inserted === 1 ? "y" : "ies"}`);
