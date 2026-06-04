@@ -162,7 +162,11 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     group: "Insights",
     items: [
       { key: "analytics" },
-      { key: "audit", label: "Audit Trail" },
+      // Hidden by default (Chad, 2026-06-03): the audit chain lives inside
+      // each study's Activity tab for daily work; the org-wide feed stays
+      // reachable via Settings → Governance and the nav designer can
+      // re-show it per role (inspections, QA).
+      { key: "audit", label: "Audit Trail", hidden: true },
     ],
   },
   {
