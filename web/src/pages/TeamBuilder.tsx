@@ -1,6 +1,6 @@
 import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -8,6 +8,7 @@ import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import type {
   AccessRoleRow,
+  SiteRow,
   TeamRow,
   TeamRoleRow,
   TeamRoleHolderRow,
@@ -17,7 +18,6 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { Tip } from "../components/ui/Tip";
 import { MicroField } from "../components/ui/MicroField";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { Pill } from "../components/ui/Pill";
@@ -29,17 +29,25 @@ import { EmptyState } from "../components/ui/EmptyState";
  *
  *  Teams own modules in the Work Stream Builder. Roles live inside teams; people
  *  fill roles. Studies inherit role-driven task assignment — that's why this
- *  page is foundational. The structure here is what "person fills role" hangs
- *  off of in every downstream surface.
+ *  page is foundational.
+ *
+ *  Wave F3: teams mirror the org chart. Numbered LEVEL BOXES contain roles
+ *  (Level 1 most senior); escalation is a consequence of structure — a task
+ *  escalates up the levels — not a setting. One level per team "manages
+ *  assignments" (it can assign tasks to itself and below). The team card
+ *  carries a group email and a site scope (empty = all sites).
  */
 
-const HIERARCHIES: { key: HierarchyKey; label: string; level: number }[] = [
-  { key: "director",    label: "Director",    level: 1 },
-  { key: "manager",     label: "Manager",     level: 2 },
-  { key: "coordinator", label: "Coordinator", level: 3 },
-  { key: "specialist",  label: "Specialist",  level: 4 },
-  { key: "support",     label: "Support",     level: 5 },
-];
+/** Kept in sync for backward compatibility — `hierarchy_key` is NOT NULL in
+ *  the schema and older surfaces may label by it. Levels are the real model. */
+const levelToHierarchy = (level: number): HierarchyKey =>
+  level <= 1 ? "director"
+  : level === 2 ? "manager"
+  : level === 3 ? "coordinator"
+  : level === 4 ? "specialist"
+  : "support";
+
+type LevelSettings = { max_level?: number; assign_level?: number };
 
 const TEAM_COLORS = [
   "#4F46E5", "#7C3AED", "#0EA5E9", "#10B981",
@@ -59,32 +67,39 @@ export function TeamBuilder() {
 
   const [seeding, setSeeding] = useState(false);
   /** Express seed: the standard site team structure, colors matched to the
-   *  pipeline stages each team owns. */
+   *  pipeline stages each team owns. Roles land on levels 1-3. */
   const loadRecommended = async () => {
     setSeeding(true);
     try {
-      const defs = [
-        { name: "Startup",    color: "#6366F1", charter: "Owns intake through site qualification.", roles: [["Startup Manager","manager",2],["Startup Coordinator","coordinator",3]] },
-        { name: "Budgets & Contracts", color: "#F59E0B", charter: "Owns budget & contract negotiation.", roles: [["Finance Manager","manager",2],["Budget Analyst","specialist",3]] },
-        { name: "Regulatory", color: "#10B981", charter: "Owns regulatory & IRB submissions.", roles: [["Regulatory Manager","manager",2],["Regulatory Coordinator","coordinator",3]] },
-        { name: "Clinical Ops", color: "#EC4899", charter: "Owns activation onward.", roles: [["Ops Director","director",1],["Clinical Research Coordinator","coordinator",3]] },
+      const defs: { name: string; color: string; charter: string; roles: [string, number][] }[] = [
+        { name: "Startup",    color: "#6366F1", charter: "Owns intake through site qualification.", roles: [["Startup Manager", 2], ["Startup Coordinator", 3]] },
+        { name: "Budgets & Contracts", color: "#F59E0B", charter: "Owns budget & contract negotiation.", roles: [["Finance Manager", 2], ["Budget Analyst", 3]] },
+        { name: "Regulatory", color: "#10B981", charter: "Owns regulatory & IRB submissions.", roles: [["Regulatory Manager", 2], ["Regulatory Coordinator", 3]] },
+        { name: "Clinical Ops", color: "#EC4899", charter: "Owns activation onward.", roles: [["Ops Director", 1], ["Clinical Research Coordinator", 3]] },
       ];
       let pos = teams.rows.reduce((m, t) => Math.max(m, t.position), 0);
       for (const d of defs) {
         if (teams.rows.some((t) => t.name === d.name)) continue;
         pos += 10;
-        const created = await teams.insert({ name: d.name, color: d.color, charter: d.charter, status: "active", position: pos } as any);
+        const maxLevel = d.roles.reduce((m, [, lv]) => Math.max(m, lv), 1);
+        const created = await teams.insert({
+          name: d.name, color: d.color, charter: d.charter, status: "active", position: pos,
+          level_settings: { max_level: maxLevel, assign_level: 1 },
+        } as any);
         if (created) {
           let rpos = 0;
-          for (const [title, hk, level] of d.roles) {
+          for (const [title, level] of d.roles) {
             rpos += 10;
-            await roles.insert({ team_id: (created as any).id, title, hierarchy_key: hk, level, position: rpos } as any);
+            await roles.insert({
+              team_id: (created as any).id, title,
+              hierarchy_key: levelToHierarchy(level), level, position: rpos,
+            } as any);
           }
         }
       }
       toast.success("Recommended teams loaded — rename or reshape them freely");
     } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn\u2019t load recommended teams"));
+      toast.error(friendlyError(e, "Couldn’t load recommended teams"));
     } finally {
       setSeeding(false);
     }
@@ -94,6 +109,7 @@ export function TeamBuilder() {
   const roles = useOrgTable<TeamRoleRow>("team_roles", { orderBy: "position", realtime: true });
   const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders", { realtime: true });
   const accessRolesTbl = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
+  const sitesTbl = useOrgTable<SiteRow>("sites", { orderBy: "name", realtime: true });
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
 
@@ -191,7 +207,7 @@ export function TeamBuilder() {
       <PageHeader
         kicker="Configure"
         title="Teams & roles"
-        subtitle="Build the teams that own work. Role slots survive turnover — when someone leaves, you swap holders, not workflows. Hierarchy lets the app know who escalates to whom."
+        subtitle="Build the teams that own work, shaped like your org chart. Levels set the structure — Level 1 is most senior, tasks escalate up the levels, and the level you mark below manages assignments. Role slots survive turnover: when someone leaves, you swap holders, not workflows."
         actions={
           <div className="flex items-center gap-2">
             {teams.rows.length === 0 && (
@@ -285,6 +301,7 @@ export function TeamBuilder() {
             team={team}
             roles={rolesFor(team.id)}
             accessRoles={accessRolesTbl.rows}
+            sites={sitesTbl.rows}
             onCreateAccessRole={async (name) => {
               try {
                 const created = await accessRolesTbl.insert({
@@ -331,11 +348,11 @@ export function TeamBuilder() {
                   team_id: team.id,
                   title: data.title,
                   access_role_id: data.access_role_id ?? null,
-                  hierarchy_key: data.hierarchy_key,
-                  level: HIERARCHIES.find((h) => h.key === data.hierarchy_key)?.level ?? 3,
+                  hierarchy_key: levelToHierarchy(data.level),
+                  level: data.level,
                   position: nextPos,
                 } as any);
-                toast.success(`Added role "${data.title}"`);
+                toast.success(`Added role "${data.title}" at Level ${data.level}`);
               } catch (e: any) {
                 toast.error(friendlyError(e, "Couldn't add role"));
               }
@@ -375,9 +392,11 @@ export function TeamBuilder() {
       </div>
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
-        <strong>Hierarchy</strong> sets the escalation chain — directors are at level 1, support at
-        level 5. Tasks routed to a role auto-assign when one person holds it; multi-holder roles
-        prompt for selection at the study level.
+        <strong>Levels</strong> mirror your org chart — Level 1 is most senior, and an escalated
+        task moves up the levels. <strong>Manages assignments</strong> marks the level that hands
+        out work: it can assign tasks to its own level and below. Tasks routed to a role
+        auto-assign when one person holds it; multi-holder roles prompt for selection at the
+        study level.
       </p>
     </div>
   );
@@ -389,6 +408,7 @@ function TeamCard({
   team,
   roles,
   accessRoles,
+  sites,
   onCreateAccessRole,
   holdersFor,
   members,
@@ -403,12 +423,13 @@ function TeamCard({
   team: TeamRow;
   roles: TeamRoleRow[];
   accessRoles: AccessRoleRow[];
+  sites: SiteRow[];
   onCreateAccessRole: (name: string) => Promise<AccessRoleRow | null>;
   holdersFor: (roleId: string) => TeamRoleHolderRow[];
   members: MemberSummary[];
   onUpdate: (patch: Partial<TeamRow>) => void;
   onRemove: () => void;
-  onAddRole: (data: { title: string; hierarchy_key: HierarchyKey; access_role_id?: string | null }) => void;
+  onAddRole: (data: { title: string; level: number; access_role_id?: string | null }) => void;
   onUpdateRole: (roleId: string, patch: Partial<TeamRoleRow>) => void;
   onRemoveRole: (roleId: string, title: string) => void;
   onAssignHolder: (roleId: string, userId: string) => void;
@@ -416,10 +437,47 @@ function TeamCard({
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(team.name);
+  const [expanded, setExpanded] = useState(true);
+
+  /* ---- levels model ---- */
+  const settings = (team.level_settings ?? {}) as LevelSettings;
+  const maxRoleLevel = roles.reduce((m, r) => Math.max(m, r.level), 1);
+  const maxLevel = Math.max(settings.max_level ?? 1, maxRoleLevel);
+  const levels = Array.from({ length: maxLevel }, (_, i) => i + 1);
+  const assignLevel = Math.min(settings.assign_level ?? 1, maxLevel);
+  const rolesAt = (lv: number) => roles.filter((r) => r.level === lv);
+
+  const saveSettings = (patch: Partial<LevelSettings>) =>
+    onUpdate({ level_settings: { max_level: maxLevel, assign_level: assignLevel, ...patch } } as Partial<TeamRow>);
+
+  const addLevel = () => saveSettings({ max_level: maxLevel + 1 });
+  const removeLevel = (lv: number) => {
+    // Only the bottom level, only when empty — keeps the range continuous.
+    if (lv !== maxLevel || maxLevel <= 1 || rolesAt(lv).length > 0) return;
+    saveSettings({
+      max_level: maxLevel - 1,
+      assign_level: Math.min(assignLevel, maxLevel - 1),
+    });
+  };
+  const moveRole = (role: TeamRoleRow, lv: number) =>
+    onUpdateRole(role.id, { level: lv, hierarchy_key: levelToHierarchy(lv) } as Partial<TeamRoleRow>);
+
+  /* ---- group email (draft → commit on blur/Enter) ---- */
+  const [emailDraft, setEmailDraft] = useState(team.group_email ?? "");
+  useEffect(() => setEmailDraft(team.group_email ?? ""), [team.group_email]);
+  const commitEmail = () => {
+    const v = emailDraft.trim();
+    if (v !== (team.group_email ?? "")) onUpdate({ group_email: v || null } as Partial<TeamRow>);
+  };
+
+  /* ---- site scope ---- */
+  const siteIds: string[] = Array.isArray(team.site_ids) ? (team.site_ids as string[]) : [];
+
+  /* ---- role composer ---- */
   const [roleComposer, setRoleComposer] = useState({
     accessRoleId: "",
     newName: "",
-    hierarchy_key: "coordinator" as HierarchyKey,
+    level: maxLevel,
   });
   const [creatingNew, setCreatingNew] = useState(false);
   const [busyAdd, setBusyAdd] = useState(false);
@@ -428,24 +486,24 @@ function TeamCard({
     if (busyAdd) return;
     setBusyAdd(true);
     try {
+      const level = Math.min(Math.max(roleComposer.level, 1), maxLevel);
       if (creatingNew) {
         const name = roleComposer.newName.trim();
         if (!name) return;
         const created = await onCreateAccessRole(name);
         if (!created) return;
-        onAddRole({ title: name, hierarchy_key: roleComposer.hierarchy_key, access_role_id: created.id });
+        onAddRole({ title: name, level, access_role_id: created.id });
       } else {
         const ar = accessRoles.find((r) => r.id === roleComposer.accessRoleId);
         if (!ar) return;
-        onAddRole({ title: ar.name, hierarchy_key: roleComposer.hierarchy_key, access_role_id: ar.id });
+        onAddRole({ title: ar.name, level, access_role_id: ar.id });
       }
-      setRoleComposer({ accessRoleId: "", newName: "", hierarchy_key: "coordinator" });
+      setRoleComposer({ accessRoleId: "", newName: "", level });
       setCreatingNew(false);
     } finally {
       setBusyAdd(false);
     }
   };
-  const [expanded, setExpanded] = useState(true);
 
   const commitName = () => {
     const next = nameDraft.trim();
@@ -492,7 +550,13 @@ function TeamCard({
           </button>
         )}
         <span className="text-[11px] font-mono text-slate-400">
-          {roles.length} role{roles.length === 1 ? "" : "s"}
+          {roles.length} role{roles.length === 1 ? "" : "s"} · {maxLevel} level{maxLevel === 1 ? "" : "s"}
+        </span>
+        <span
+          className="text-[10px] font-semibold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5"
+          title={siteIds.length === 0 ? "This team works across every site" : "This team is scoped to specific sites"}
+        >
+          {siteIds.length === 0 ? "All sites" : `${siteIds.length} site${siteIds.length === 1 ? "" : "s"}`}
         </span>
         <div className="flex-1" />
         <button
@@ -510,38 +574,119 @@ function TeamCard({
             <p className="text-xs text-slate-600 italic">"{team.charter}"</p>
           )}
 
-          {/* Roles */}
-          {roles.length === 0 ? (
-            <div className="text-xs text-slate-500 italic">
-              No roles yet — add one below.
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {roles.map((role) => {
-                const rh = holdersFor(role.id);
-                return (
-                  <div
-                    key={role.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-100 bg-slate-50/50"
-                  >
-                    <RoleRow
-                      role={role}
-                      accessRole={accessRoles.find((ar) => ar.id === role.access_role_id) ?? null}
-                      onUpdate={(patch) => onUpdateRole(role.id, patch)}
-                      onRemove={() => onRemoveRole(role.id, role.title)}
-                    />
+          {/* Team contacts & scope */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <MicroField label="Group email — where team notifications go (optional)">
+              <Input
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                onBlur={commitEmail}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEmail();
+                }}
+                placeholder="e.g. startup-team@yoursite.org"
+              />
+            </MicroField>
+            <MicroField label="Sites this team covers — none selected means all sites">
+              <SiteScopePicker
+                sites={sites}
+                selected={siteIds}
+                onChange={(next) => onUpdate({ site_ids: next } as Partial<TeamRow>)}
+              />
+            </MicroField>
+          </div>
+
+          {/* LEVEL BOXES */}
+          <div className="space-y-2">
+            {levels.map((lv) => {
+              const lvRoles = rolesAt(lv);
+              const isAssign = assignLevel === lv;
+              const removable = lv === maxLevel && maxLevel > 1 && lvRoles.length === 0;
+              return (
+                <div
+                  key={lv}
+                  className={
+                    "rounded-lg border " +
+                    (isAssign ? "border-brand-200 bg-brand-50/30" : "border-slate-200 bg-slate-50/40")
+                  }
+                >
+                  <div className="px-3 py-2 flex items-center gap-3 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-700">
+                      Level {lv}
+                      {lv === 1 && <span className="ml-1.5 text-[10px] font-semibold text-slate-400">most senior</span>}
+                    </span>
+                    <label
+                      className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none"
+                      title="The level that hands out work — it can assign tasks to its own level and below"
+                    >
+                      <input
+                        type="radio"
+                        name={`assign-${team.id}`}
+                        checked={isAssign}
+                        onChange={() => saveSettings({ assign_level: lv })}
+                        className="accent-brand-500 w-3.5 h-3.5"
+                      />
+                      Manages assignments
+                    </label>
+                    {isAssign && (
+                      <span className="text-[10px] text-brand-700">
+                        Roles at this level can assign tasks to this level and below.
+                      </span>
+                    )}
                     <div className="flex-1" />
-                    <HolderList
-                      holders={rh}
-                      members={members}
-                      onAssign={(userId) => onAssignHolder(role.id, userId)}
-                      onRemove={onRemoveHolder}
-                    />
+                    {removable && (
+                      <button
+                        onClick={() => removeLevel(lv)}
+                        className="text-slate-400 hover:text-red-600 transition text-base leading-none"
+                        title="Remove this empty level"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div className="px-3 py-2 space-y-1.5">
+                    {lvRoles.length === 0 ? (
+                      <div className="text-[11px] text-slate-400 italic py-0.5">
+                        No roles at this level — add one below, or move a role here.
+                      </div>
+                    ) : (
+                      lvRoles.map((role) => {
+                        const rh = holdersFor(role.id);
+                        return (
+                          <div
+                            key={role.id}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-100 bg-white"
+                          >
+                            <RoleRow
+                              role={role}
+                              levels={levels}
+                              accessRole={accessRoles.find((ar) => ar.id === role.access_role_id) ?? null}
+                              onMove={(toLv) => moveRole(role, toLv)}
+                              onUpdate={(patch) => onUpdateRole(role.id, patch)}
+                              onRemove={() => onRemoveRole(role.id, role.title)}
+                            />
+                            <div className="flex-1" />
+                            <HolderList
+                              holders={rh}
+                              members={members}
+                              onAssign={(userId) => onAssignHolder(role.id, userId)}
+                              onRemove={onRemoveHolder}
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              onClick={addLevel}
+              className="w-full rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-500 hover:border-brand-300 hover:text-brand-700 transition"
+            >
+              + Level
+            </button>
+          </div>
 
           {/* Role composer — roles come from Access Roles (one role concept).
               Quick-create makes the access role inline and returns here. */}
@@ -575,25 +720,18 @@ function TeamCard({
                     ))}
                 </Select>
               )}
-              <Tip label="Seniority for escalation routing: L1 most senior. When a task escalates, it goes to the team's lowest level — auto-assigned if exactly one person holds that role.">
-                <Select
-                  value={roleComposer.hierarchy_key}
-                  onChange={(e) =>
-                    setRoleComposer({
-                      ...roleComposer,
-                      hierarchy_key: e.target.value as HierarchyKey,
-                    })
-                  }
-                  className="w-36"
-                  aria-label="Escalation hierarchy"
-                >
-                  {HIERARCHIES.map((h) => (
-                    <option key={h.key} value={h.key}>
-                      L{h.level} {h.label}
-                    </option>
-                  ))}
-                </Select>
-              </Tip>
+              <Select
+                value={String(Math.min(roleComposer.level, maxLevel))}
+                onChange={(e) => setRoleComposer({ ...roleComposer, level: Number(e.target.value) })}
+                className="w-28"
+                aria-label="Level for the new role"
+              >
+                {levels.map((lv) => (
+                  <option key={lv} value={lv}>
+                    Level {lv}
+                  </option>
+                ))}
+              </Select>
               <Button
                 size="sm"
                 onClick={() => void submitRole()}
@@ -615,20 +753,98 @@ function TeamCard({
   );
 }
 
+/* ---------- Site scope picker ---------- */
+
+function SiteScopePicker({
+  sites,
+  selected,
+  onChange,
+}: {
+  sites: SiteRow[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const byId: Record<string, string> = {};
+  sites.forEach((s) => (byId[s.id] = s.name));
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-left text-slate-700 hover:border-slate-300 transition flex items-center justify-between gap-2"
+        aria-expanded={open}
+      >
+        <span className="truncate">
+          {selected.length === 0
+            ? "All sites"
+            : selected.map((id) => byId[id] ?? "(removed site)").join(", ")}
+        </span>
+        <Icon name={open ? "chevron-down" : "chevron-right"} size={12} className="text-slate-400 flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-slate-200 rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto">
+          {sites.length === 0 ? (
+            <div className="px-3 py-2 text-[11px] text-slate-500 italic">
+              No sites configured yet — add them under Configure → Sites.
+            </div>
+          ) : (
+            <>
+              {sites.map((s) => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(s.id)}
+                    onChange={() => toggle(s.id)}
+                    className="accent-brand-500 w-3.5 h-3.5"
+                  />
+                  <span className="truncate">{s.name}</span>
+                </label>
+              ))}
+              {selected.length > 0 && (
+                <button
+                  onClick={() => {
+                    onChange([]);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-slate-50 border-t border-slate-100"
+                >
+                  Clear — cover all sites
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Role row ---------- */
+
 function RoleRow({
   role,
+  levels,
   accessRole,
+  onMove,
   onUpdate,
   onRemove,
 }: {
   role: TeamRoleRow;
+  levels: number[];
   accessRole: AccessRoleRow | null;
+  onMove: (toLevel: number) => void;
   onUpdate: (patch: Partial<TeamRoleRow>) => void;
   onRemove: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(role.title);
-  const hier = HIERARCHIES.find((h) => h.key === role.hierarchy_key);
 
   const commit = () => {
     const next = draft.trim();
@@ -638,12 +854,6 @@ function RoleRow({
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span
-        className="text-[10px] font-bold text-slate-500 font-mono w-6 text-center"
-        title={hier?.label}
-      >
-        L{role.level}
-      </span>
       {editing ? (
         <input
           autoFocus
@@ -684,21 +894,24 @@ function RoleRow({
           unlinked
         </span>
       )}
-      <Select
-        value={role.hierarchy_key}
-        onChange={(e) => {
-          const key = e.target.value as HierarchyKey;
-          const level = HIERARCHIES.find((h) => h.key === key)?.level ?? 3;
-          onUpdate({ hierarchy_key: key, level });
-        }}
-        className="text-[10px] py-0.5 px-1 w-24"
-      >
-        {HIERARCHIES.map((h) => (
-          <option key={h.key} value={h.key}>
-            {h.label}
-          </option>
-        ))}
-      </Select>
+      {levels.length > 1 && (
+        <Select
+          value={String(role.level)}
+          onChange={(e) => {
+            const lv = Number(e.target.value);
+            if (lv !== role.level) onMove(lv);
+          }}
+          className="text-[10px] py-0.5 px-1 w-24"
+          aria-label={`Move ${role.title} to a level`}
+          title="Move this role to another level"
+        >
+          {levels.map((lv) => (
+            <option key={lv} value={lv}>
+              Level {lv}
+            </option>
+          ))}
+        </Select>
+      )}
       <button
         onClick={onRemove}
         className="text-slate-400 hover:text-red-600 transition text-base leading-none"
@@ -709,6 +922,8 @@ function RoleRow({
     </div>
   );
 }
+
+/* ---------- Holder list ---------- */
 
 function HolderList({
   holders,

@@ -55,6 +55,12 @@ export type TeamRow = {
   charter: string | null;
   status: string;
   position: number;
+  /** Team-wide contact address for notifications (0020). */
+  group_email: string | null;
+  /** Site ids this team covers; empty array = all sites (0020). */
+  site_ids: unknown;
+  /** { max_level, assign_level } — level boxes + who manages assignments (0020). */
+  level_settings: unknown;
   created_at: string;
 };
 
