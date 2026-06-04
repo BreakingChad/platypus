@@ -52,8 +52,16 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   const showHealthCol = pageOpts.showHealthColumn !== false;
   const showPiCol = pageOpts.showPiColumn !== false;
   const showCreatedCol = pageOpts.showCreatedColumn !== false;
+  // Two grid templates: base, and ≥xl where Sponsor + Phase become real
+  // columns (they live in the subtitle below xl). Wired via CSS vars so the
+  // role-driven column toggles keep working.
   const gridTemplate =
     "32px 120px 1fr 160px" +
+    (showHealthCol ? " 140px" : "") +
+    (showPiCol ? " 140px" : "") +
+    (showCreatedCol ? " 110px" : "");
+  const gridTemplateXl =
+    "32px 120px 1.6fr 150px 70px 160px" +
     (showHealthCol ? " 140px" : "") +
     (showPiCol ? " 140px" : "") +
     (showCreatedCol ? " 110px" : "");
@@ -71,6 +79,20 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   type LifeTab = "pipeline" | "active" | "closed";
   const [lifeTab, setLifeTab] = useStickyState<LifeTab>("studies/lifeTab", "pipeline");
   const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
+  // Column sort: "smart" (pinned → health → newest) is the default; clicking
+  // a header sorts by it, again flips direction, a third click restores smart.
+  const [sortBy, setSortBy] = useStickyState<string>("studies/sortBy", "smart");
+  const [sortDir, setSortDir] = useStickyState<"asc" | "desc">("studies/sortDir", "asc");
+  const onSort = (col: string) => {
+    if (sortBy !== col) {
+      setSortBy(col);
+      setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else {
+      setSortBy("smart");
+    }
+  };
   const [creating, setCreating] = useState(false);
 
   const toggleSel = (id: string) => {
@@ -224,14 +246,35 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         );
       })
       .sort((a, b) => {
-        const aStar = starred.isStarred(a.row.id);
-        const bStar = starred.isStarred(b.row.id);
-        if (aStar !== bStar) return aStar ? -1 : 1;
-        const hw = healthSortWeight(a.health) - healthSortWeight(b.health);
-        if (hw !== 0) return hw;
+        if (sortBy === "smart") {
+          const aStar = starred.isStarred(a.row.id);
+          const bStar = starred.isStarred(b.row.id);
+          if (aStar !== bStar) return aStar ? -1 : 1;
+          const hw = healthSortWeight(a.health) - healthSortWeight(b.health);
+          if (hw !== 0) return hw;
+          return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
+        }
+        const dir = sortDir === "asc" ? 1 : -1;
+        const val = (x: typeof a): string | number => {
+          switch (sortBy) {
+            case "code": return x.row.code ?? "";
+            case "title": return x.row.title.toLowerCase();
+            case "sponsor": return (x.row.sponsor ?? "").toLowerCase();
+            case "phase": return x.row.phase ?? "";
+            case "stage": return stageByKey[x.row.stage_key ?? ""]?.position ?? 999;
+            case "health": return healthSortWeight(x.health);
+            case "pi": return (x.row.pi_name ?? "").toLowerCase();
+            case "created": return x.row.created_at ?? "";
+            default: return 0;
+          }
+        };
+        const av = val(a);
+        const bv = val(b);
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
         return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
       });
-  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab]);
+  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab, staleOnly, sortBy, sortDir, stageByKey, starred]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -244,11 +287,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
   }, [studies.rows]);
 
   if (memberLoading) {
-    return <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8"><Loader label="Checking permissions…" /></div>;
+    return <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8"><Loader label="Checking permissions…" /></div>;
   }
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Workspace"
         title="Studies"
@@ -299,8 +342,9 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
       <PageBlocks pageKey="studies" region="top" navigate={onNavigate} />
 
-      {/* Lifecycle tabs — how orgs think about the portfolio (June notes) */}
-      <div className="mt-6 -mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+      {/* TOOLBAR row 1 — lifecycle tabs · search · view toggles (Wave L) */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
         {([
           ["pipeline", "Pipeline"],
           ["active", "Active"],
@@ -326,10 +370,36 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           );
         })}
       </div>
+      <div className="flex-1 min-w-[240px]">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by title, code, sponsor, PI, NCT…"
+        />
+      </div>
+      <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
+        <input
+          type="checkbox"
+          checked={staleOnly}
+          onChange={(e) => setStaleOnly(e.target.checked)}
+          className="accent-brand-500 w-4 h-4"
+        />
+        Stale only (&gt;14d)
+      </label>
+      <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
+        <input
+          type="checkbox"
+          checked={showClosed}
+          onChange={(e) => setShowClosed(e.target.checked)}
+          className="accent-brand-500 w-4 h-4"
+        />
+        Show closed
+      </label>
+      </div>
 
-      {/* Stage chips strip — shows the live count per stage */}
+      {/* TOOLBAR row 2 — stage chips · health chips, one wrapping row */}
       {stages.rows.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             onClick={() => setStageFilter("all")}
             className={
@@ -380,7 +450,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 
       {/* Health filter chips */}
       {studies.rows.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className="text-[11px] font-semibold text-slate-400 mr-1 cursor-help"
             title="Health = time in the current stage vs that stage's target days. Healthy: under 75% of target. At risk: approaching target. Overdue: past target."
@@ -415,37 +485,17 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               {label}
             </button>
           ))}
+          {sortBy !== "smart" && (
+            <button
+              onClick={() => setSortBy("smart")}
+              className="ml-1 text-[11px] font-semibold text-brand-700 hover:underline"
+              title="Back to smart order: pinned first, then health, then newest"
+            >
+              ↺ Smart order
+            </button>
+          )}
         </div>
       )}
-
-      {/* Search + closed toggle */}
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by title, code, sponsor, PI, NCT…"
-        />
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap px-2">
-            <input
-              type="checkbox"
-              checked={staleOnly}
-              onChange={(e) => setStaleOnly(e.target.checked)}
-              className="accent-brand-500 w-4 h-4"
-            />
-            Stale only (&gt;14d)
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer whitespace-nowrap px-2">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="accent-brand-500 w-4 h-4"
-            />
-            Show closed
-          </label>
-        </div>
-      </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
@@ -520,10 +570,11 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
         )}
 
         {filtered.length > 0 && (
-          <>
+          <div className="overflow-x-auto">
+          <div className="min-w-[820px]">
             <div
-              className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-3 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold"
-              style={{ gridTemplateColumns: gridTemplate }}
+              className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid gap-3 items-center text-[11px] uppercase tracking-wider text-slate-500 font-bold [grid-template-columns:var(--gt)] xl:[grid-template-columns:var(--gt-xl)]"
+              style={{ "--gt": gridTemplate, "--gt-xl": gridTemplateXl } as any}
             >
               <span className="flex items-center justify-center">
                 <input
@@ -547,17 +598,23 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                   className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
                 />
               </span>
-              <span>Code</span>
-              <span>Study</span>
-              <span>Stage</span>
+              <SortHeader label="Code" col="code" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+              <SortHeader label="Study" col="title" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+              <span className="hidden xl:block">
+                <SortHeader label="Sponsor" col="sponsor" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+              </span>
+              <span className="hidden xl:block">
+                <SortHeader label="Phase" col="phase" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+              </span>
+              <SortHeader label="Stage" col="stage" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
               {showHealthCol && (
                 <span className="flex items-center gap-1">
-                  Health
+                  <SortHeader label="Health" col="health" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   <InfoTip side="bottom" label="How long the study has been in its current stage vs that stage's target days. Green = on pace, amber = approaching target, red = past it." />
                 </span>
               )}
-              {showPiCol && <span>PI</span>}
-              {showCreatedCol && <span>Created</span>}
+              {showPiCol && <SortHeader label="PI" col="pi" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />}
+              {showCreatedCol && <SortHeader label="Created" col="created" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />}
             </div>
             {filtered.map(({ row: s, health }) => {
               const stage = s.stage_key ? stageByKey[s.stage_key] : null;
@@ -574,10 +631,10 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                     }
                   }}
                   className={
-                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid gap-3 items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:bg-brand-50/40 " +
+                    "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 transition grid gap-3 items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:bg-brand-50/40 [grid-template-columns:var(--gt)] xl:[grid-template-columns:var(--gt-xl)] " +
                     (selected.has(s.id) ? "bg-brand-50/60" : "hover:bg-brand-50/30")
                   }
-                  style={{ gridTemplateColumns: gridTemplate }}
+                  style={{ "--gt": gridTemplate, "--gt-xl": gridTemplateXl } as any}
                 >
                   <span className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -614,9 +671,12 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                   >
                     <div className="font-semibold text-slate-900 truncate">{s.title}</div>
                     <div className="text-[11px] text-slate-500 truncate">
-                      {[s.sponsor, s.nct, s.therapeutic_area, s.phase]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      <span className="xl:hidden">
+                        {[s.sponsor, s.nct, s.therapeutic_area, s.phase].filter(Boolean).join(" · ")}
+                      </span>
+                      <span className="hidden xl:inline">
+                        {[s.nct, s.therapeutic_area].filter(Boolean).join(" · ")}
+                      </span>
                       {s.closed && (
                         <span className="ml-2 inline-flex">
                           <Pill tone="neutral">closed</Pill>
@@ -632,6 +692,18 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                         );
                       })()}
                     </div>
+                  </span>
+                  <span
+                    className="hidden xl:block text-xs text-slate-700 truncate cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
+                    {s.sponsor || <span className="text-slate-400 italic">—</span>}
+                  </span>
+                  <span
+                    className="hidden xl:block text-xs font-mono text-slate-600 truncate cursor-pointer"
+                    onClick={() => onNavigate(`#/studies/${s.id}`)}
+                  >
+                    {s.phase || <span className="text-slate-400 italic">—</span>}
                   </span>
                   <span className="cursor-pointer" onClick={() => onNavigate(`#/studies/${s.id}`)}>
                     {stage ? (
@@ -674,7 +746,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
                 </div>
               );
             })}
-          </>
+          </div>
+          </div>
         )}
 
         {studies.rows.length > 0 && filtered.length === 0 && (
@@ -717,6 +790,37 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
 }
 
 /** Tiny star icon (inline so we don't bloat the shared Icon component). */
+/** Click-to-sort column header. Third click returns to smart order. */
+function SortHeader({
+  label,
+  col,
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  col: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  onSort: (col: string) => void;
+}) {
+  const active = sortBy === col;
+  return (
+    <button
+      onClick={() => onSort(col)}
+      className={
+        "flex items-center gap-1 uppercase tracking-wider font-bold text-[11px] text-left transition " +
+        (active ? "text-brand-700" : "text-slate-500 hover:text-slate-800")
+      }
+      title="Click to sort · click again to flip · third click restores smart order"
+      aria-label={`Sort by ${label}`}
+    >
+      {label}
+      {active && <span aria-hidden="true">{sortDir === "asc" ? "▲" : "▼"}</span>}
+    </button>
+  );
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg

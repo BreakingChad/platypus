@@ -33,7 +33,7 @@ export function MyStudies({ onNavigate }: { onNavigate: (h: string) => void }) {
   }, [studies.rows, tasks.rows, stages.rows, userId]);
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-page-wide mx-auto px-4 md:px-6 py-8">
       <PageHeader
         kicker="Studies"
         title="My studies"
