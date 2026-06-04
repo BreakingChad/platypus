@@ -379,7 +379,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
               key={k}
               onClick={() => setLifeTab(k)}
               className={
-                "px-3 py-1.5 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
+                "px-3 py-2 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
                 (lifeTab === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
               }
             >
@@ -406,19 +406,19 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       <button
         onClick={() => setFiltersOpen(true)}
         className={
-          "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition " +
-          (advFilterCount(advFilters) > 0 || staleOnly
+          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-semibold transition " +
+          (advFilterCount(advFilters) > 0 || staleOnly || healthFilter !== "all"
             ? "border-brand-300 bg-brand-50 text-brand-700"
             : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
         }
         title="Every filter — sponsor, phase, therapeutic area, PI, kind, priority, dates, NCT"
         aria-label="Open filters"
       >
-        <Icon name="filter" size={12} />
+        <Icon name="filter" size={13} />
         Filters
-        {advFilterCount(advFilters) + (staleOnly ? 1 : 0) > 0 && (
+        {advFilterCount(advFilters) + (staleOnly ? 1 : 0) + (healthFilter !== "all" ? 1 : 0) > 0 && (
           <span className="rounded-full bg-brand-600 text-white text-[10px] font-bold px-1.5">
-            {advFilterCount(advFilters) + (staleOnly ? 1 : 0)}
+            {advFilterCount(advFilters) + (staleOnly ? 1 : 0) + (healthFilter !== "all" ? 1 : 0)}
           </span>
         )}
       </button>
@@ -431,71 +431,43 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             key={mode}
             onClick={() => setViewMode(mode)}
             className={
-              "px-2 py-1 rounded-md transition " +
+              "px-2.5 py-2 rounded-md transition " +
               (viewMode === mode ? "bg-brand-gradient text-white shadow" : "text-slate-500 hover:text-slate-800")
             }
             title={tip}
             aria-label={tip}
             aria-pressed={viewMode === mode}
           >
-            <Icon name={icon} size={13} />
+            <Icon name={icon} size={15} />
           </button>
         ))}
       </div>
       </div>
 
-      {/* Health filter chips */}
-      {studies.rows.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span
-            className="text-[11px] font-semibold text-slate-400 mr-1 cursor-help"
-            title="Health = time in the current stage vs that stage's target days. Healthy: under 75% of target. At risk: approaching target. Overdue: past target."
-          >
-            Health
-          </span>
-          {([
-            ["all",    "All",       "bg-white border-slate-200 text-slate-700"],
-            ["red",    "Overdue",   "bg-red-50 border-red-200 text-red-700"],
-            ["yellow", "At risk",   "bg-amber-50 border-amber-200 text-amber-800"],
-            ["green",  "Healthy",   "bg-emerald-50 border-emerald-200 text-emerald-700"],
-            ["unknown", "Unknown",  "bg-slate-100 border-slate-200 text-slate-600"],
-          ] as const).map(([key, label, cls]) => (
-            <button
-              key={key}
-              onClick={() => setHealthFilter(key as any)}
-              className={
-                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
-                (healthFilter === key
-                  ? "border-slate-900 shadow-sm scale-[1.02] " + cls
-                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300")
-              }
-            >
-              {key !== "all" && (
-                <span className={
-                  "w-1.5 h-1.5 rounded-full " +
-                  (key === "red" ? "bg-red-500" :
-                   key === "yellow" ? "bg-amber-500" :
-                   key === "green" ? "bg-emerald-500" : "bg-slate-400")
-                } />
-              )}
-              {label}
-            </button>
-          ))}
+      {/* Active advanced-filter chips — each removable on its own */}
+      {(advFilterCount(advFilters) > 0 || staleOnly || healthFilter !== "all" || sortBy !== "smart") && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {healthFilter !== "all" && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+              Health: {healthFilter === "red" ? "Overdue" : healthFilter === "yellow" ? "At risk" : healthFilter === "green" ? "Healthy" : "Unknown"}
+              <button
+                onClick={() => setHealthFilter("all")}
+                className="text-brand-400 hover:text-red-600 leading-none"
+                aria-label="Remove health filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {sortBy !== "smart" && (
             <button
               onClick={() => setSortBy("smart")}
-              className="ml-1 text-[11px] font-semibold text-brand-700 hover:underline"
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-brand-300 hover:text-brand-700 transition"
               title="Back to smart order: pinned first, then health, then newest"
             >
               ↺ Smart order
             </button>
           )}
-        </div>
-      )}
-
-      {/* Active advanced-filter chips — each removable on its own */}
-      {(advFilterCount(advFilters) > 0 || staleOnly) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {staleOnly && (
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
               Stale only (&gt;14d)
@@ -527,6 +499,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
             onClick={() => {
               setAdvFilters(EMPTY_ADV_FILTERS);
               setStaleOnly(false);
+              setHealthFilter("all");
             }}
             className="text-[11px] font-semibold text-slate-500 hover:text-brand-700 transition"
           >
@@ -835,6 +808,8 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
           onChange={setAdvFilters}
           staleOnly={staleOnly}
           onStaleOnly={setStaleOnly}
+          health={healthFilter}
+          onHealth={setHealthFilter}
           onClose={() => setFiltersOpen(false)}
         />
       )}
@@ -878,7 +853,7 @@ function StageDropdown({
       <button
         onClick={() => setOpen((o) => !o)}
         className={
-          "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition " +
+          "inline-flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition " +
           (current
             ? "border-brand-300 bg-brand-50 text-brand-700"
             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300")
@@ -1086,6 +1061,8 @@ function FilterModal({
   onChange,
   staleOnly,
   onStaleOnly,
+  health,
+  onHealth,
   onClose,
 }: {
   filters: AdvFilters;
@@ -1093,6 +1070,8 @@ function FilterModal({
   onChange: (f: AdvFilters) => void;
   staleOnly: boolean;
   onStaleOnly: (v: boolean) => void;
+  health: string;
+  onHealth: (v: any) => void;
   onClose: () => void;
 }) {
   const dlgRef = useModalA11y<HTMLDivElement>(onClose);
@@ -1159,8 +1138,9 @@ function FilterModal({
             onClick={() => {
               onChange(EMPTY_ADV_FILTERS);
               onStaleOnly(false);
+              onHealth("all");
             }}
-            disabled={advFilterCount(filters) === 0 && !staleOnly}
+            disabled={advFilterCount(filters) === 0 && !staleOnly && health === "all"}
           >
             Clear all
           </Button>
@@ -1193,6 +1173,33 @@ function FilterModal({
                   onChange={(e) => onChange({ ...filters, createdTo: e.target.value || undefined })}
                   aria-label="Created to"
                 />
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500 mb-1.5">Health</div>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  ["all", "All", "bg-slate-300"],
+                  ["red", "Overdue", "bg-red-500"],
+                  ["yellow", "At risk", "bg-amber-500"],
+                  ["green", "Healthy", "bg-emerald-500"],
+                  ["unknown", "Unknown", "bg-slate-400"],
+                ] as const).map(([v, label, dot]) => (
+                  <button
+                    key={v}
+                    onClick={() => onHealth(v)}
+                    className={
+                      "text-xs rounded-full border px-2.5 py-1 transition flex items-center gap-1.5 " +
+                      (health === v
+                        ? "border-brand-300 bg-brand-50 text-brand-800 font-semibold"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                    }
+                    aria-pressed={health === v}
+                  >
+                    {v !== "all" && <span className={"w-1.5 h-1.5 rounded-full " + dot} />}
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
             <div>
