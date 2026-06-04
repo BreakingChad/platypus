@@ -174,6 +174,38 @@ export type WorkflowTaskTemplateRow = {
   created_at: string;
 };
 
+export type IntakeFormRow = {
+  id: string;
+  org_id: string;
+  title: string;
+  description: string | null;
+  /** draft | active | inactive | archived */
+  status: string;
+  slug: string;
+  version: number;
+  copied_from: string | null;
+  /** FormFieldSnapshot[] — frozen at activation (lib/forms.ts). */
+  fields: unknown;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FormSubmissionRow = {
+  id: string;
+  org_id: string;
+  form_id: string;
+  form_title: string;
+  /** new | committed | declined */
+  status: string;
+  values: Record<string, unknown>;
+  submitter_name: string | null;
+  submitter_email: string | null;
+  study_id: string | null;
+  declined_at: string | null;
+  created_at: string;
+};
+
 export type DocumentStatus = "draft" | "active" | "superseded" | "archived";
 
 export type DocumentRow = {
@@ -307,6 +339,8 @@ export type Database = {
       sites:                   { Row: SiteRow;                 Insert: Partial<SiteRow>;                 Update: Partial<SiteRow>;                 Relationships: [] };
       study_notes:             { Row: StudyNoteRow;            Insert: Partial<StudyNoteRow>;            Update: Partial<StudyNoteRow>;            Relationships: [] };
       document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
+      intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
+      form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };
     };
     Views: {};
     Functions: {};

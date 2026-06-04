@@ -33,6 +33,8 @@ const SettingsHub          = lazy(() => import("./pages/SettingsHub").then(m => 
 const MyStudies            = lazy(() => import("./pages/MyStudies").then(m => ({ default: m.MyStudies })));
 const TeamTasks            = lazy(() => import("./pages/TeamTasks").then(m => ({ default: m.TeamTasks })));
 const Approvals            = lazy(() => import("./pages/Approvals").then(m => ({ default: m.Approvals })));
+const FormsAdmin           = lazy(() => import("./pages/FormsAdmin").then(m => ({ default: m.FormsAdmin })));
+const PublicIntake         = lazy(() => import("./pages/PublicIntake").then(m => ({ default: m.PublicIntake })));
 
 /** Simple hash-based router. We'll graduate to react-router when route count
  *  and nesting demand it; for now this keeps the bundle small and the model
@@ -130,6 +132,9 @@ function renderRoute(
   }
 
   // Work Stream Builder (Pattern Builder rebrand)
+  if (hash === "#/settings/forms") {
+    return { node: <FormsAdmin /> };
+  }
   if (hash === "#/settings/work-streams") {
     return { node: <WorkStreamBuilder /> };
   }
@@ -160,6 +165,20 @@ function renderRoute(
 
 export function App() {
   const { hash, navigate } = useHashRoute();
+
+  // PUBLIC surfaces — external intake forms render outside auth entirely.
+  // Anon-key RLS (active forms readable, submissions insertable) is the
+  // security model; there is no session and no org context here.
+  if (hash === "#/f" || hash.startsWith("#/f/")) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<LazyFallback />}>
+          <PublicIntake hash={hash} />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   const route = renderRoute(hash, navigate);
 
   return (

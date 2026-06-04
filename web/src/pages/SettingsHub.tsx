@@ -41,6 +41,7 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     sub: "What the system does on its own.",
     tools: [
       { href: "#/settings/work-streams", icon: "workflow", name: "Work streams", what: "Pattern Builder — the tasks that auto-spawn when a study enters each stage, wired to roles.", touch: "Per study type" },
+      { href: "#/settings/forms", icon: "mail", name: "Intake forms", what: "External study-intake forms — build from your field schema, activate, share one link. Versions freeze at activation.", touch: "Per intake channel" },
     ],
   },
   {
