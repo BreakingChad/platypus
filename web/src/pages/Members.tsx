@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -136,7 +137,7 @@ export function Members() {
       toast.success(`${m.email}: access role → ${roleName}`);
       load();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't change access role");
+      toast.error(friendlyError(e, "Couldn't change access role"));
     }
   };
 
@@ -165,7 +166,7 @@ export function Members() {
       );
       return true;
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't send magic link");
+      toast.error(friendlyError(e, "Couldn't send magic link"));
       return false;
     }
   };
@@ -211,7 +212,7 @@ export function Members() {
       toast.success(`${m.email} is now ${next}`);
       load();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update tier");
+      toast.error(friendlyError(e, "Couldn't update tier"));
     }
   };
 
@@ -239,7 +240,7 @@ export function Members() {
       toast.success(`Removed ${m.email}`);
       load();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't remove");
+      toast.error(friendlyError(e, "Couldn't remove"));
     }
   };
 

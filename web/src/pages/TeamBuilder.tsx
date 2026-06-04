@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -81,7 +82,7 @@ export function TeamBuilder() {
       }
       toast.success("Recommended teams loaded — rename or reshape them freely");
     } catch (e: any) {
-      toast.error(e?.message || "Couldn\u2019t load recommended teams");
+      toast.error(friendlyError(e, "Couldn\u2019t load recommended teams"));
     } finally {
       setSeeding(false);
     }
@@ -150,7 +151,7 @@ export function TeamBuilder() {
       toast.success(`Added team "${composer.name.trim()}"`);
       setComposer({ name: "", color: TEAM_COLORS[0], charter: "" });
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add team");
+      toast.error(friendlyError(e, "Couldn't add team"));
     }
   };
 
@@ -294,7 +295,7 @@ export function TeamBuilder() {
                 if (created) toast.success(`Created access role "${name}"`);
                 return (created as AccessRoleRow) ?? null;
               } catch (e: any) {
-                toast.error(e?.message || "Couldn't create access role");
+                toast.error(friendlyError(e, "Couldn't create access role"));
                 return null;
               }
             }}
@@ -303,7 +304,7 @@ export function TeamBuilder() {
             onUpdate={(patch) =>
               teams
                 .update(team.id, patch)
-                .catch((e: any) => toast.error(e?.message || "Update failed"))
+                .catch((e: any) => toast.error(friendlyError(e, "Update failed")))
             }
             onRemove={async () => {
               if (!(await confirmDialog({ title: "Remove team", message: `Remove "${team.name}"? Its roles and assignments go with it.`, confirmLabel: "Remove", danger: true })))
@@ -312,7 +313,7 @@ export function TeamBuilder() {
                 await teams.remove(team.id);
                 toast.success(`Removed "${team.name}"`);
               } catch (e: any) {
-                toast.error(e?.message || "Remove failed");
+                toast.error(friendlyError(e, "Remove failed"));
               }
             }}
             onAddRole={async (data) => {
@@ -328,13 +329,13 @@ export function TeamBuilder() {
                 } as any);
                 toast.success(`Added role "${data.title}"`);
               } catch (e: any) {
-                toast.error(e?.message || "Couldn't add role");
+                toast.error(friendlyError(e, "Couldn't add role"));
               }
             }}
             onUpdateRole={(roleId, patch) =>
               roles
                 .update(roleId, patch)
-                .catch((e: any) => toast.error(e?.message || "Update failed"))
+                .catch((e: any) => toast.error(friendlyError(e, "Update failed")))
             }
             onRemoveRole={async (roleId, title) => {
               if (!(await confirmDialog({ title: "Remove role", message: `Remove role "${title}"?`, confirmLabel: "Remove", danger: true }))) return;
@@ -342,7 +343,7 @@ export function TeamBuilder() {
                 await roles.remove(roleId);
                 toast.success(`Removed role "${title}"`);
               } catch (e: any) {
-                toast.error(e?.message || "Remove failed");
+                toast.error(friendlyError(e, "Remove failed"));
               }
             }}
             onAssignHolder={async (roleId, userId) => {
@@ -350,7 +351,7 @@ export function TeamBuilder() {
                 await holders.insert({ team_role_id: roleId, user_id: userId });
                 toast.success("Assigned");
               } catch (e: any) {
-                toast.error(e?.message || "Couldn't assign");
+                toast.error(friendlyError(e, "Couldn't assign"));
               }
             }}
             onRemoveHolder={async (holderId) => {
@@ -358,7 +359,7 @@ export function TeamBuilder() {
                 await holders.remove(holderId);
                 toast.success("Removed");
               } catch (e: any) {
-                toast.error(e?.message || "Couldn't remove");
+                toast.error(friendlyError(e, "Couldn't remove"));
               }
             }}
           />

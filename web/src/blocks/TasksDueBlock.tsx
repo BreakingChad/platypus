@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -92,7 +93,7 @@ export function TasksDueBlock({ ctx }: { ctx: BlockContext }) {
       }
       toast.success(`Completed: ${t.title}`);
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't complete task");
+      toast.error(friendlyError(e, "Couldn't complete task"));
     }
   };
 

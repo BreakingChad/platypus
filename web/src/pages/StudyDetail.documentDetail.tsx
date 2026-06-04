@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useModalA11y } from "../lib/useModalA11y";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -174,7 +175,7 @@ export function DocumentDetailPanel({
         v.archived ? `Restored ${v.version_label}` : `Archived ${v.version_label}`
       );
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update version");
+      toast.error(friendlyError(e, "Couldn't update version"));
     } finally {
       setBusyVersionId(null);
     }

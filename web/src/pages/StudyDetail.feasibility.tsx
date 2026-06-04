@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -72,7 +73,7 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
       setM11(data);
       toast.success(stamped("Protocol ingested — 11 M11 sections structured"));
     } catch (e: any) {
-      toast.error(e?.message || "Ingestion failed. Has migration 0015 been applied?");
+      toast.error(friendlyError(e, "Ingestion failed. Has migration 0015 been applied?"));
     } finally {
       setIngesting(false);
     }
@@ -93,7 +94,7 @@ export function FeasibilityTab({ study }: { study: StudyRow }) {
       setSavedAcuity(saved);
       toast.success(stamped(`Acuity saved — ${saved.total}/30 (${saved.category})`));
     } catch (e: any) {
-      toast.error(e?.message || "Save failed. Has migration 0015 been applied?");
+      toast.error(friendlyError(e, "Save failed. Has migration 0015 been applied?"));
     } finally {
       setSavingAcuity(false);
     }

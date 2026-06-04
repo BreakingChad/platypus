@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -235,7 +236,7 @@ export function NavDesigner() {
       setOriginalSerialized(JSON.stringify(working));
       toast.success(`Saved nav for ${selectedRole?.name ?? "role"}`);
     } catch (e: any) {
-      toast.error(e?.message || "Save failed");
+      toast.error(friendlyError(e, "Save failed"));
     } finally {
       setSaving(false);
     }

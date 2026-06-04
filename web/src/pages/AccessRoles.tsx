@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -76,7 +77,7 @@ export function AccessRoles() {
       toast.success(`Added access role "${composer.name.trim()}"`);
       setComposer({ name: "", description: "" });
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add role");
+      toast.error(friendlyError(e, "Couldn't add role"));
     }
   };
 
@@ -173,7 +174,7 @@ export function AccessRoles() {
             onUpdate={(patch) =>
               roles
                 .update(role.id, patch)
-                .catch((e: any) => toast.error(e?.message || "Update failed"))
+                .catch((e: any) => toast.error(friendlyError(e, "Update failed")))
             }
             onRemove={async () => {
               if (role.builtin) {
@@ -185,7 +186,7 @@ export function AccessRoles() {
                 await roles.remove(role.id);
                 toast.success(`Removed "${role.name}"`);
               } catch (e: any) {
-                toast.error(e?.message || "Remove failed");
+                toast.error(friendlyError(e, "Remove failed"));
               }
             }}
           />

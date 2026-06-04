@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { InfoTip } from "../components/ui/Tip";
 import { useMemo, useState } from "react";
@@ -210,7 +211,7 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
                               });
                               toast.success(stamped(`Declined ${s.code}`));
                             } catch (e: any) {
-                              toast.error(e?.message || "Couldn't decline");
+                              toast.error(friendlyError(e, "Couldn't decline"));
                             }
                           }}
                         >
@@ -289,7 +290,7 @@ export function IntakeTriage({ onNavigate }: { onNavigate: (h: string) => void }
               setCommitting(null);
               onNavigate(`#/studies/${committing.id}`);
             } catch (e: any) {
-              toast.error(e?.message || "Commit failed");
+              toast.error(friendlyError(e, "Commit failed"));
             }
           }}
         />

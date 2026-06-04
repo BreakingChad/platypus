@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { uniqueChannelName } from "../lib/uniqueChannel";
@@ -91,7 +92,7 @@ export function NotesCard({ studyId }: { studyId: string }) {
       setDraft("");
       toast.success(stamped("Note added"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add note. Has migration 0013 been applied?");
+      toast.error(friendlyError(e, "Couldn't add note. Has migration 0013 been applied?"));
     } finally {
       setBusy(false);
     }

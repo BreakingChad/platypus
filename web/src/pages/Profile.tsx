@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -105,7 +106,7 @@ export function Profile() {
       }
       toast.success(stamped(clear ? "Out-of-office cleared" : "Out-of-office set"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update. Has migration 0013 been applied?");
+      toast.error(friendlyError(e, "Couldn't update. Has migration 0013 been applied?"));
     } finally {
       setOooSaving(false);
     }
@@ -169,7 +170,7 @@ export function Profile() {
       setDraft(data as Partial<ProfileRow>);
       toast.success("Profile saved");
     } catch (e: any) {
-      toast.error(e?.message || "Save failed");
+      toast.error(friendlyError(e, "Save failed"));
     } finally {
       setSaving(false);
     }

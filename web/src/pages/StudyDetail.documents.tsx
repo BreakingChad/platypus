@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useModalA11y } from "../lib/useModalA11y";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
@@ -320,7 +321,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
                         });
                         toast.success(stamped(`Uploaded ${versionLabel} of ${d.title}`));
                       } catch (e: any) {
-                        toast.error(e?.message || "Upload failed");
+                        toast.error(friendlyError(e, "Upload failed"));
                       } finally {
                         setUploading(false);
                       }
@@ -337,7 +338,7 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
                         });
                         toast.success(stamped(d.archived ? "Restored" : "Archived"));
                       } catch (e: any) {
-                        toast.error(e?.message || "Archive failed");
+                        toast.error(friendlyError(e, "Archive failed"));
                       }
                     }}
                   />

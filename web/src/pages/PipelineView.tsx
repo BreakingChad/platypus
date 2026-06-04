@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { Tip } from "../components/ui/Tip";
 import { Loader } from "../components/ui/Loader";
@@ -123,7 +124,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
       }
       toast.success(stamped(`Moved ${study.code} to ${stageLabel}`));
     } catch (e: any) {
-      toast.error(e?.message || "Move failed");
+      toast.error(friendlyError(e, "Move failed"));
     }
   };
 

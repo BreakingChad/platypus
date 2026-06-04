@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { KindPill } from "./Inbox";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -55,7 +56,7 @@ export function TasksTab({
       });
       toast.success(stamped(res.targetRole ? `Escalated to ${res.targetRole.title}` : "Escalated to admin queue"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn\u2019t escalate");
+      toast.error(friendlyError(e, "Couldn\u2019t escalate"));
     }
   };
 
@@ -157,7 +158,7 @@ export function TasksTab({
       setNewDue("");
       setAdding(false);
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add task");
+      toast.error(friendlyError(e, "Couldn't add task"));
     } finally {
       setSaving(false);
     }
@@ -185,7 +186,7 @@ export function TasksTab({
         });
       }
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 

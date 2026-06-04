@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -182,7 +183,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
         });
       toast.success(stamped("Saved organization"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't save organization");
+      toast.error(friendlyError(e, "Couldn't save organization"));
     } finally {
       setBusy(null);
     }
@@ -197,7 +198,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
       if (error) throw error;
       toast.success(stamped(`Added ${rows.length} recommended stages`));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add stages");
+      toast.error(friendlyError(e, "Couldn't add stages"));
     } finally {
       setBusy(null);
     }
@@ -229,7 +230,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
       if (ws.modules) parts.push(`${ws.modules} work-stream module${ws.modules === 1 ? "" : "s"}`);
       toast.success(stamped(parts.length ? `Loaded ${parts.join(" + ")}` : "Demo content already loaded"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't load demo content");
+      toast.error(friendlyError(e, "Couldn't load demo content"));
     } finally {
       setBusy(null);
     }

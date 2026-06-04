@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { stamped } from "../lib/stamp";
 import { setPreviewRole } from "../lib/previewRole";
@@ -232,7 +233,7 @@ export function PageLayoutDesigner() {
       );
       toast.success(stamped(`Saved ${pageMeta?.label} layout for ${selectedRole?.name}`));
     } catch (e: any) {
-      toast.error(e?.message || "Save failed");
+      toast.error(friendlyError(e, "Save failed"));
     } finally {
       setSaving(false);
     }

@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -449,7 +450,7 @@ function SiteProfilePanel({
       });
       toast.success(stamped(`Updated ${f.label}`));
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 
@@ -480,7 +481,7 @@ function SiteProfilePanel({
       });
       toast.success(stamped(next === "inactive" ? "Site deactivated" : "Site reactivated"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update site");
+      toast.error(friendlyError(e, "Couldn't update site"));
     }
   };
 

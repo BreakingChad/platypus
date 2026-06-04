@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -69,7 +70,7 @@ export function StageDesigner() {
       toast.success(`Added "${composer.label.trim()}" stage`);
       setComposer({ ...composer, label: "" });
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add stage");
+      toast.error(friendlyError(e, "Couldn't add stage"));
     }
   };
 
@@ -82,7 +83,7 @@ export function StageDesigner() {
       await update(stage.id, { position: other.position });
       await update(other.id, { position: stage.position });
     } catch (e: any) {
-      toast.error(e?.message || "Reorder failed");
+      toast.error(friendlyError(e, "Reorder failed"));
     }
   };
 
@@ -96,7 +97,7 @@ export function StageDesigner() {
       await remove(stage.id);
       toast.success(`Removed "${stage.label}"`);
     } catch (e: any) {
-      toast.error(e?.message || "Remove failed");
+      toast.error(friendlyError(e, "Remove failed"));
     }
   };
 
@@ -224,7 +225,7 @@ export function StageDesigner() {
               isFirst={idx === 0}
               isLast={idx === sorted.length - 1}
               onUpdate={(patch) =>
-                update(s.id, patch).catch((e: any) => toast.error(e?.message || "Update failed"))
+                update(s.id, patch).catch((e: any) => toast.error(friendlyError(e, "Update failed")))
               }
               onMoveUp={() => move(s, "up")}
               onMoveDown={() => move(s, "down")}

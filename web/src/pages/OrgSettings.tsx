@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -86,7 +87,7 @@ export function OrgSettings() {
       setDraft(data as Partial<OrgRow>);
       toast.success("Saved org settings");
     } catch (e: any) {
-      toast.error(e?.message || "Save failed");
+      toast.error(friendlyError(e, "Save failed"));
     } finally {
       setSaving(false);
     }

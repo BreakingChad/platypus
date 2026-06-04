@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -150,7 +151,7 @@ export function WorkStreamPanel({
         );
       }
     } catch (e: any) {
-      toast.error(e?.message || "Run failed");
+      toast.error(friendlyError(e, "Run failed"));
     } finally {
       setRunning(false);
     }

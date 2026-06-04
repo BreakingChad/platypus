@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
 import { Loader } from "../components/ui/Loader";
@@ -121,7 +122,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       });
       toast.success(stamped(res.targetRole ? `Escalated to ${res.targetRole.title}` : "Escalated to admin queue"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn\u2019t escalate");
+      toast.error(friendlyError(e, "Couldn\u2019t escalate"));
     }
   };
 
@@ -226,7 +227,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       }
       toast.success(stamped(`Completed: ${t.title}`));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't complete task");
+      toast.error(friendlyError(e, "Couldn't complete task"));
     }
   };
 
@@ -248,7 +249,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       }
       toast.success(stamped(`Skipped: ${t.title}`));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't skip task");
+      toast.error(friendlyError(e, "Couldn't skip task"));
     }
   };
 
@@ -269,7 +270,7 @@ export function Inbox({ onNavigate }: { onNavigate: (h: string) => void }) {
       }
       toast.success(stamped(`Reopened: ${t.title}`));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't reopen");
+      toast.error(friendlyError(e, "Couldn't reopen"));
     }
   };
 
@@ -588,7 +589,7 @@ function NewTaskModal({
       if (error) throw error;
       onCreated();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't create task");
+      toast.error(friendlyError(e, "Couldn't create task"));
     } finally {
       setSaving(false);
     }

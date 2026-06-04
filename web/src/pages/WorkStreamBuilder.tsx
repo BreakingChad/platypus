@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -114,7 +115,7 @@ export function WorkStreamBuilder() {
       if (error) throw error;
       toast.success("Module added");
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add module");
+      toast.error(friendlyError(e, "Couldn't add module"));
     }
   };
 
@@ -126,7 +127,7 @@ export function WorkStreamBuilder() {
         .eq("id", id);
       if (error) throw error;
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 
@@ -137,7 +138,7 @@ export function WorkStreamBuilder() {
       if (error) throw error;
       toast.success("Module removed");
     } catch (e: any) {
-      toast.error(e?.message || "Remove failed");
+      toast.error(friendlyError(e, "Remove failed"));
     }
   };
 
@@ -153,7 +154,7 @@ export function WorkStreamBuilder() {
         )
       );
     } catch (e: any) {
-      toast.error(e?.message || "Reorder failed");
+      toast.error(friendlyError(e, "Reorder failed"));
     }
   };
 
@@ -568,7 +569,7 @@ function TemplatesList({
       if (error) throw error;
       setTemplates([...(templates ?? []), data as unknown as WorkflowTaskTemplateRow]);
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add task");
+      toast.error(friendlyError(e, "Couldn't add task"));
     }
   };
 
@@ -583,7 +584,7 @@ function TemplatesList({
         .eq("id", id);
       if (error) throw error;
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 
@@ -593,7 +594,7 @@ function TemplatesList({
       const { error } = await supabase.from("workflow_task_templates").delete().eq("id", id);
       if (error) throw error;
     } catch (e: any) {
-      toast.error(e?.message || "Remove failed");
+      toast.error(friendlyError(e, "Remove failed"));
     }
   };
 

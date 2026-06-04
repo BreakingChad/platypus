@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { useState } from "react";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
@@ -74,7 +75,7 @@ export function QuickStartBlock({ ctx: _ctx }: { ctx: BlockContext }) {
               toast.success(`Added ${parts.join(" + ")}`);
             }
           } catch (e: any) {
-            toast.error(e?.message || "Couldn't load demo content");
+            toast.error(friendlyError(e, "Couldn't load demo content"));
           } finally {
             setSeeding(false);
           }

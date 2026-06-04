@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { confirmDialog } from "../lib/confirm";
 import { Loader } from "../components/ui/Loader";
@@ -134,7 +135,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       toast.success(stamped(`Moved ${ids.length} stud${ids.length === 1 ? "y" : "ies"} to ${stages.rows.find((s) => s.key === nextStageKey)?.label ?? nextStageKey}`));
       clearSel();
     } catch (e: any) {
-      toast.error(e?.message || "Bulk advance failed");
+      toast.error(friendlyError(e, "Bulk advance failed"));
     } finally {
       setBulkBusy(false);
     }
@@ -172,7 +173,7 @@ export function StudiesList({ onNavigate }: { onNavigate: (h: string) => void })
       toast.success(stamped(`${closed ? "Closed" : "Reopened"} ${ids.length} stud${ids.length === 1 ? "y" : "ies"}`));
       clearSel();
     } catch (e: any) {
-      toast.error(e?.message || "Bulk update failed");
+      toast.error(friendlyError(e, "Bulk update failed"));
     } finally {
       setBulkBusy(false);
     }

@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
@@ -310,7 +311,7 @@ export function StudyDetail({
       }
       toast.success(stamped(`Updated ${f.label}`));
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 
@@ -359,7 +360,7 @@ export function StudyDetail({
       }
       toast.success(stamped(`Moved to ${stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey}`));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't advance stage");
+      toast.error(friendlyError(e, "Couldn't advance stage"));
     } finally {
       setAdvancing(false);
     }
@@ -388,7 +389,7 @@ export function StudyDetail({
       }
       toast.success(stamped(study.closed ? "Reopened study" : "Closed study"));
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update");
+      toast.error(friendlyError(e, "Couldn't update"));
     } finally {
       setSavingClose(false);
     }
@@ -441,7 +442,7 @@ export function StudyDetail({
                   }
                   toast.success(stamped("Site assigned"));
                 } catch (e: any) {
-                  toast.error(e?.message || "Couldn't assign site");
+                  toast.error(friendlyError(e, "Couldn't assign site"));
                 }
               }}
             />

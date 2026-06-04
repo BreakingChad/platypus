@@ -1,3 +1,4 @@
+import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useMemo, useRef, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -136,7 +137,7 @@ export function FieldsDesigner() {
       setComposer({ label: "", section: composer.section, field_type: "text", required: false });
       labelInputRef.current?.focus();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add the field");
+      toast.error(friendlyError(e, "Couldn't add the field"));
     }
   };
 
@@ -144,7 +145,7 @@ export function FieldsDesigner() {
     try {
       await update(id, patch);
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      toast.error(friendlyError(e, "Update failed"));
     }
   };
 
@@ -154,7 +155,7 @@ export function FieldsDesigner() {
       await remove(id);
       toast.success(`Removed "${label}"`);
     } catch (e: any) {
-      toast.error(e?.message || "Remove failed");
+      toast.error(friendlyError(e, "Remove failed"));
     }
   };
 
