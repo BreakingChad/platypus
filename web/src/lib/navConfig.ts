@@ -120,12 +120,26 @@ export function navEntry(key: string): NavRegistryEntry | undefined {
  * ========================================================================== */
 
 export const DEFAULT_NAV: NavGroupConfig[] = [
+  /* Plan A (Chad, 2026-06-03): the nav reads like a workday — what needs
+     me (Work queues), what I'm looking at (Studies), what I look up
+     (Directory). "Pipeline tools" dissolved: Intake is a work queue, By
+     stage is a view of All Studies, Amendments is a tab on Intake, Sites
+     is reference data. */
   {
     group: "Workspace",
     items: [
       { key: "home", label: "Today" },
       { key: "calendar" },
+    ],
+  },
+  {
+    group: "Work queues",
+    items: [
       { key: "inbox" },
+      { key: "intake" },
+      { key: "team-tasks" },
+      { key: "approvals" },
+      { key: "expirations" },
     ],
   },
   {
@@ -136,18 +150,9 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     ],
   },
   {
-    group: "Pipeline tools",
+    group: "Directory",
     items: [
-      { key: "intake" },
       { key: "sites" },
-    ],
-  },
-  {
-    group: "Team work",
-    items: [
-      { key: "team-tasks" },
-      { key: "approvals" },
-      { key: "expirations" },
     ],
   },
   {
