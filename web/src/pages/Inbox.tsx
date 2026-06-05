@@ -374,41 +374,47 @@ export function Inbox({
         </div>
       )}
 
-      {/* TOOLBAR row 1 — tabs · search · status · sort (Wave L3) */}
+      {/* TOOLBAR — one line: scope · search · type · status · sort · overdue */}
       <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-      <div className={(fixedTab ? "hidden " : "") + "inline-flex rounded-lg border border-slate-200 bg-white p-0.5"}>
-        {([
-          ["mine", "Mine", counts.mine],
-          ["team", "My team", counts.team],
-          ...(isAdmin ? [["all", "All open", counts.all] as const] : []),
-        ] as [Tab, string, number][]).map(([k, label, n]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={
-              "px-3 py-1.5 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
-              (tab === k
-                ? "bg-brand-gradient text-white shadow"
-                : "text-slate-600 hover:text-slate-900")
-            }
-          >
-            {label}
-            <span
+        <div className={(fixedTab ? "hidden " : "") + "inline-flex rounded-lg border border-slate-200 bg-white p-0.5"}>
+          {([
+            ["mine", "Mine", counts.mine],
+            ["team", "My team", counts.team],
+            ...(isAdmin ? [["all", "All open", counts.all] as const] : []),
+          ] as [Tab, string, number][]).map(([k, label, n]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
               className={
-                "text-[10px] font-mono " + (tab === k ? "text-white/80" : "text-slate-400")
+                "px-3 py-2 rounded-md text-sm font-semibold transition flex items-center gap-1.5 " +
+                (tab === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
               }
             >
-              {n}
-            </span>
-          </button>
-        ))}
-
-        <div className="ml-3 pl-3 border-l border-slate-200 flex items-center gap-2">
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="text-xs py-1 px-2"
-          >
+              {label}
+              <span className={"text-[10px] font-mono " + (tab === k ? "text-white/80" : "text-slate-400")}>{n}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search tasks, studies…"
+            aria-label="Search tasks"
+          />
+        </div>
+        <div className="w-48">
+          <Select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} aria-label="Task type">
+            <option value="all">All types ({tasks.rows.length})</option>
+            <option value="action">Sign-offs & reviews ({tasks.rows.filter((t) => t.action_type != null).length})</option>
+            <option value="handoff">Handoffs ({tasks.rows.filter((t) => t.kind === "handoff" && t.action_type == null).length})</option>
+            <option value="escalation">Escalations ({tasks.rows.filter((t) => t.kind === "escalation" && t.action_type == null).length})</option>
+            <option value="date">Date milestones ({tasks.rows.filter((t) => t.kind === "date" && t.action_type == null).length})</option>
+            <option value="manual">Manual ({tasks.rows.filter((t) => t.kind === "manual" && t.action_type == null).length})</option>
+          </Select>
+        </div>
+        <div className="w-44">
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} aria-label="Status filter">
             <option value="open_only">Open + in progress</option>
             <option value="open">Open</option>
             <option value="in_progress">In progress</option>
@@ -417,74 +423,32 @@ export function Inbox({
             <option value="cancelled">Cancelled</option>
           </Select>
         </div>
-      </div>
-      <div className="flex-1 min-w-[220px]">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search tasks, studies…"
-          aria-label="Search tasks"
-        />
-      </div>
-      <Select
-        value={sortMode}
-        onChange={(e) => setSortMode(e.target.value as any)}
-        className="text-xs py-1.5 px-2 w-40"
-        aria-label="Sort tasks"
-        title="Smart groups by due date; the others are flat sorts"
-      >
-        <option value="due">Sort: Due (smart)</option>
-        <option value="created">Sort: Newest</option>
-        <option value="title">Sort: Title A–Z</option>
-        <option value="study">Sort: Study</option>
-      </Select>
-      </div>
-
-      {/* TOOLBAR row 2 — task-type chips + overdue toggle */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {([
-          ["all", "All types"],
-          ["action", "Sign-offs & reviews"],
-          ["handoff", "Handoffs"],
-          ["escalation", "Escalations"],
-          ["date", "Date milestones"],
-          ["manual", "Manual"],
-        ] as const).map(([k, label]) => {
-          const n =
-            k === "all"
-              ? tasks.rows.length
-              : k === "action"
-                ? tasks.rows.filter((t) => t.action_type != null).length
-                : tasks.rows.filter((t) => t.kind === k && t.action_type == null).length;
-          if (k !== "all" && n === 0) return null;
-          return (
-            <button
-              key={k}
-              onClick={() => setKindFilter(k)}
-              className={
-                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
-                (kindFilter === k
-                  ? "border-brand-300 bg-brand-50 text-brand-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
-              }
-            >
-              {label}
-              <span className="text-[10px] font-mono text-slate-400">{n}</span>
-            </button>
-          );
-        })}
+        <div className="w-44">
+          <Select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as any)}
+            aria-label="Sort tasks"
+            title="Due (smart) groups by due date; the others are flat sorts"
+          >
+            <option value="due">Sort: Due (smart)</option>
+            <option value="created">Sort: Newest</option>
+            <option value="title">Sort: Title A–Z</option>
+            <option value="study">Sort: Study</option>
+          </Select>
+        </div>
         <button
           onClick={() => setOverdueOnly(!overdueOnly)}
           className={
-            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition flex items-center gap-1.5 " +
+            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-semibold transition " +
             (overdueOnly
               ? "border-red-300 bg-red-50 text-red-700"
               : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
           }
           aria-pressed={overdueOnly}
+          title="Only overdue open work"
         >
           <span className={"w-1.5 h-1.5 rounded-full " + (overdueOnly ? "bg-red-500" : "bg-slate-300")} />
-          Overdue only
+          Overdue
         </button>
       </div>
 
