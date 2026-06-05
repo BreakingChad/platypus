@@ -356,7 +356,7 @@ export function Inbox({
         actions={
           isAdmin && (
             <Button variant="primary" size="sm" onClick={() => setAddingTask(true)}>
-              <Icon name="plus" size={12} /> New task
+              <Icon name="plus" size={12} /> Send task
             </Button>
           )
         }
@@ -686,9 +686,12 @@ export function Inbox({
           userId={userId}
           studies={studies.rows}
           stages={stages.rows}
+          roles={roles.rows}
+          holders={holders.rows}
+          userEmail={userEmail}
           onClose={() => setAddingTask(false)}
           onCreated={() => {
-            toast.success(stamped("Task added"));
+            toast.success(stamped("Task sent"));
             setAddingTask(false);
           }}
         />
@@ -718,6 +721,9 @@ function NewTaskModal({
   userId,
   studies,
   stages,
+  roles,
+  holders,
+  userEmail,
   onClose,
   onCreated,
 }: {
@@ -725,46 +731,131 @@ function NewTaskModal({
   userId: string;
   studies: StudyRow[];
   stages: PipelineStageRow[];
+  roles: TeamRoleRow[];
+  holders: TeamRoleHolderRow[];
+  userEmail: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const toast = useToast();
   const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [recipient, setRecipient] = useState<"me" | "person" | "role">("me");
+  const [personId, setPersonId] = useState<string>("");
+  const [personQ, setPersonQ] = useState("");
+  const [roleId, setRoleId] = useState<string>("");
   const [studyId, setStudyId] = useState<string>("");
+  const [studyQ, setStudyQ] = useState("");
   const [stageKey, setStageKey] = useState<string>("");
   const [dueAt, setDueAt] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // People — loaded once, searched client-side (built for big orgs).
+  const [people, setPeople] = useState<{ id: string; email: string; name: string | null }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: mems } = await supabase.from("org_members").select("user_id").eq("org_id", orgId);
+      const ids = (mems ?? []).map((m: any) => m.user_id);
+      if (ids.length === 0 || cancelled) return;
+      const { data: profs } = await supabase.from("profiles").select("id, email, full_name").in("id", ids);
+      if (cancelled) return;
+      setPeople(
+        ((profs ?? []) as any[]).map((p) => ({ id: p.id, email: p.email, name: p.full_name ?? null }))
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
 
   // When a study is picked, default the stage to that study's current stage.
   useEffect(() => {
     if (!studyId) return;
     const s = studies.find((x) => x.id === studyId);
-    if (s && s.stage_key && !stageKey) setStageKey(s.stage_key);
-  }, [studyId, studies, stageKey]);
+    if (s && s.stage_key) setStageKey(s.stage_key);
+  }, [studyId, studies]);
+
+  const selectedStudy = studies.find((s) => s.id === studyId) ?? null;
+  const studyMatches = useMemo(() => {
+    const q = studyQ.trim().toLowerCase();
+    const open = studies.filter((s) => !s.closed);
+    if (!q) return open.slice(0, 8);
+    return open
+      .filter((s) => s.title.toLowerCase().includes(q) || (s.code ?? "").toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [studies, studyQ]);
+
+  const personMatches = useMemo(() => {
+    const q = personQ.trim().toLowerCase();
+    const others = people.filter((p) => p.id !== userId);
+    if (!q) return others.slice(0, 6);
+    return others
+      .filter((p) => p.email.toLowerCase().includes(q) || (p.name ?? "").toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [people, personQ, userId]);
+
+  const selectedPerson = people.find((p) => p.id === personId) ?? null;
+
+  const recipientValid =
+    recipient === "me" || (recipient === "person" && !!personId) || (recipient === "role" && !!roleId);
 
   const submit = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !recipientValid || saving) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("tasks").insert({
-        org_id: orgId,
-        study_id: studyId || null,
-        stage_key: stageKey || null,
-        kind: "manual",
-        title: title.trim(),
-        status: "open",
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
-        assigned_to_user_id: userId,
-        created_by: userId,
-      } as any);
+      let assignedUser: string | null = null;
+      let assignedRole: string | null = null;
+      if (recipient === "me") assignedUser = userId;
+      if (recipient === "person") assignedUser = personId;
+      if (recipient === "role") {
+        assignedRole = roleId;
+        // Product rule: exactly one holder -> auto-assign; otherwise role queue.
+        const hs = holders.filter((h) => h.team_role_id === roleId);
+        if (hs.length === 1) assignedUser = hs[0].user_id;
+      }
+      const { data: created, error } = await supabase
+        .from("tasks")
+        .insert({
+          org_id: orgId,
+          study_id: studyId || null,
+          stage_key: stageKey || null,
+          kind: "manual",
+          title: title.trim(),
+          description: description.trim() || null,
+          status: "open",
+          due_at: dueAt ? new Date(dueAt).toISOString() : null,
+          assigned_to_user_id: assignedUser,
+          assigned_to_role_id: assignedRole,
+          created_by: userId,
+        } as any)
+        .select("id")
+        .single();
       if (error) throw error;
+      void writeAuditEvent({
+        orgId, actorId: userId, actorEmail: userEmail,
+        entityType: "task", entityId: (created as any)?.id ?? "",
+        action: "task_created",
+        payload: {
+          title: title.trim(),
+          study_id: studyId || null,
+          to_user: recipient !== "role" ? (selectedPerson?.email ?? (recipient === "me" ? "self" : null)) : null,
+          to_role: recipient === "role" ? roles.find((r) => r.id === roleId)?.title ?? null : null,
+        },
+      });
       onCreated();
     } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't create task"));
+      toast.error(friendlyError(e, "Couldn't send the task"));
     } finally {
       setSaving(false);
     }
+  };
+
+  const initials = (p: { email: string; name: string | null }) => {
+    const base = p.name || p.email;
+    const parts = base.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
   };
 
   return (
@@ -777,85 +868,213 @@ function NewTaskModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="New task"
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        aria-label="Send a task"
+        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col"
       >
         <div className="px-5 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-display font-bold text-slate-900">New task</h2>
+          <h2 className="text-lg font-display font-bold text-slate-900">Send a task</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Assigned to you. Wire to a study + stage to surface it in context.
+            To yourself, a teammate, or a role's queue — link a study so it lives on the record.
           </p>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-4 overflow-y-auto">
           <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Title
-            </span>
+            <span className="block text-xs font-semibold text-slate-700 mb-1">Title</span>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Follow up with sponsor on budget"
+              placeholder="e.g. Confirm pharmacy delegation log"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter" && title.trim()) void submit();
+                if (e.key === "Enter" && title.trim() && recipientValid) void submit();
               }}
             />
           </label>
+
           <label className="block">
             <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Study (optional)
+              Details <span className="font-normal text-slate-400">— optional</span>
             </span>
-            <Select value={studyId} onChange={(e) => setStudyId(e.target.value)}>
-              <option value="">— None —</option>
-              {studies
-                .filter((s) => !s.closed)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} · {s.title}
-                  </option>
-                ))}
-            </Select>
-          </label>
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Stage (optional)
-            </span>
-            <Select value={stageKey} onChange={(e) => setStageKey(e.target.value)}>
-              <option value="">— None —</option>
-              {stages.map((s) => (
-                <option key={s.id} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Due date (optional)
-            </span>
-            <Input
-              type="date"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="Context the recipient needs — it travels with the task."
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition resize-none"
             />
           </label>
+
+          {/* TO — me / teammate / role queue */}
+          <div>
+            <span className="block text-xs font-semibold text-slate-700 mb-1.5">To</span>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 mb-2" role="group" aria-label="Recipient kind">
+              {([
+                ["me", "Me"],
+                ["person", "Teammate"],
+                ["role", "Role queue"],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setRecipient(k)}
+                  className={
+                    "px-3 py-1.5 rounded-md text-xs font-semibold transition " +
+                    (recipient === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+                  }
+                  aria-pressed={recipient === k}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {recipient === "person" && (
+              <div>
+                {selectedPerson ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                    <span className="w-6 h-6 rounded-full bg-brand-50 text-brand-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                      {initials(selectedPerson)}
+                    </span>
+                    <span className="text-sm text-slate-900 truncate">{selectedPerson.name || selectedPerson.email}</span>
+                    {selectedPerson.name && <span className="text-[11px] text-slate-400 truncate">{selectedPerson.email}</span>}
+                    <button
+                      onClick={() => setPersonId("")}
+                      className="ml-auto text-slate-300 hover:text-red-500 leading-none"
+                      aria-label="Clear recipient"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      value={personQ}
+                      onChange={(e) => setPersonQ(e.target.value)}
+                      placeholder={`Search ${people.length > 1 ? people.length - 1 : ""} teammates…`}
+                      aria-label="Search teammates"
+                    />
+                    <div className="mt-1 rounded-lg border border-slate-200 overflow-hidden">
+                      {personMatches.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-slate-400 italic">No matches.</div>
+                      )}
+                      {personMatches.map((pp) => (
+                        <button
+                          key={pp.id}
+                          onClick={() => setPersonId(pp.id)}
+                          className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-brand-50/40 transition border-b border-slate-100 last:border-b-0"
+                        >
+                          <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                            {initials(pp)}
+                          </span>
+                          <span className="text-sm text-slate-900 truncate">{pp.name || pp.email}</span>
+                          <span className="ml-auto text-[11px] text-slate-400 truncate">{pp.name ? pp.email : ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {recipient === "role" && (
+              <div>
+                <Select value={roleId} onChange={(e) => setRoleId(e.target.value)} aria-label="Role queue">
+                  <option value="">— Pick a role —</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.title}</option>
+                  ))}
+                </Select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  One person holds the role → it assigns to them. Several → it lands in the role's queue.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* STUDY — searchable, collapses to a chip */}
+          <div>
+            <span className="block text-xs font-semibold text-slate-700 mb-1">
+              Study <span className="font-normal text-slate-400">— optional</span>
+            </span>
+            {selectedStudy ? (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                <span className="font-mono text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-full px-2 py-0.5 flex-shrink-0">
+                  {selectedStudy.code}
+                </span>
+                <span className="text-sm text-slate-900 truncate">{selectedStudy.title}</span>
+                <button
+                  onClick={() => {
+                    setStudyId("");
+                    setStageKey("");
+                  }}
+                  className="ml-auto text-slate-300 hover:text-red-500 leading-none"
+                  aria-label="Unlink study"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  value={studyQ}
+                  onChange={(e) => setStudyQ(e.target.value)}
+                  placeholder="Search by code or title…"
+                  aria-label="Search studies"
+                />
+                {(studyQ.trim() !== "" || studyMatches.length > 0) && (
+                  <div className="mt-1 rounded-lg border border-slate-200 overflow-hidden max-h-44 overflow-y-auto">
+                    {studyMatches.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setStudyId(s.id)}
+                        className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-brand-50/40 transition border-b border-slate-100 last:border-b-0"
+                      >
+                        <span className="font-mono text-[11px] text-slate-500 flex-shrink-0">{s.code}</span>
+                        <span className="text-sm text-slate-900 truncate">{s.title}</span>
+                      </button>
+                    ))}
+                    {studyMatches.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400 italic">No open studies match.</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">
+                Stage <span className="font-normal text-slate-400">{selectedStudy ? "— from study" : "— optional"}</span>
+              </span>
+              <Select value={stageKey} onChange={(e) => setStageKey(e.target.value)}>
+                <option value="">— None —</option>
+                {stages.map((s) => (
+                  <option key={s.id} value={s.key}>{s.label}</option>
+                ))}
+              </Select>
+            </label>
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">
+                Due <span className="font-normal text-slate-400">— optional</span>
+              </span>
+              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+            </label>
+          </div>
         </div>
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center gap-2">
+          <span className="text-[11px] font-mono text-slate-400">records {fmtDate(new Date())}</span>
+          <span className="flex-1" />
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submit} disabled={!title.trim() || saving}>
-            {saving ? "Adding…" : "Add task"}
+          <Button variant="primary" onClick={submit} disabled={!title.trim() || !recipientValid || saving}>
+            {saving ? "Sending…" : recipient === "me" ? "Add task" : "Send task"}
           </Button>
         </div>
       </div>
     </div>
   );
 }
-
-
-/* ---------- Part 11 e-signature / attestation modal ---------- */
-
 function AttestationModal({
   signing,
   orgId,
