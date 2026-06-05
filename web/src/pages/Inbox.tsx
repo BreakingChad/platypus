@@ -753,7 +753,7 @@ export function Inbox({
 /** TaskDrawer — the Inbox reading pane. Click a row, read the message,
  *  act from the top, see the task's own audit history. Study-down link in
  *  the footer per principle #1. */
-function TaskDetail({
+export function TaskDetail({
   task: t,
   study,
   stage,
@@ -776,8 +776,9 @@ function TaskDetail({
   onNavigate: (h: string) => void;
   onClose?: () => void;
   onComplete: () => void;
-  onSkip: () => void;
-  onEscalate: () => void;
+  /** Omit to hide — read-focused surfaces (Approvals) act inside the study. */
+  onSkip?: () => void;
+  onEscalate?: () => void;
   onReopen: () => void;
 }) {
   const at = actionTypeByKey(t.action_type);
@@ -825,10 +826,12 @@ function TaskDetail({
               <Button size="sm" variant="primary" onClick={onComplete}>
                 {doc && at ? at.verb : "Complete"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={onSkip}>
-                Skip
-              </Button>
-              {t.kind !== "escalation" && (
+              {onSkip && (
+                <Button size="sm" variant="ghost" onClick={onSkip}>
+                  Skip
+                </Button>
+              )}
+              {onEscalate && t.kind !== "escalation" && (
                 <Button size="sm" variant="ghost" onClick={onEscalate} title="Escalate up the role hierarchy">
                   <Icon name="alert" size={11} /> Escalate
                 </Button>
