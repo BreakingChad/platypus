@@ -77,6 +77,7 @@ export function Inbox({
   const [overdueOnly, setOverdueOnly] = useStickyState<boolean>("inbox/overdueOnly", false);
   const [sortMode, setSortMode] = useStickyState<"due" | "created" | "title" | "study">("inbox/sortMode", "due");
   const [addingTask, setAddingTask] = useState(false);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
   const [coveringFor, setCoveringFor] = useState<string[]>([]);
 
@@ -510,15 +511,25 @@ export function Inbox({
               return (
                 <li
                   key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open task ${t.title}`}
+                  onClick={() => setOpenTaskId(t.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenTaskId(t.id);
+                    }
+                  }}
                   className={
-                    "px-4 py-3 grid grid-cols-[24px_1fr_140px_140px_180px] xl:grid-cols-[24px_1.3fr_220px_140px_140px_180px] gap-3 items-center group " +
+                    "px-4 py-3 grid grid-cols-[24px_1fr_110px_105px_90px] xl:grid-cols-[24px_1.3fr_220px_110px_105px_90px] gap-3 items-center group cursor-pointer transition hover:bg-brand-50/30 focus:outline-none focus:ring-2 focus:ring-brand-500/30 " +
                     (t.status === "done" || t.status === "skipped"
                       ? "opacity-60"
                       : "")
                   }
                 >
                   {/* Checkbox / status */}
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                     {t.status === "open" || t.status === "in_progress" ? (
                       <input
                         type="checkbox"
@@ -546,7 +557,10 @@ export function Inbox({
                       <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
                         {study && (
                           <button
-                            onClick={() => onNavigate(`#/studies/${study.id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate(`#/studies/${study.id}`);
+                            }}
                             className="hover:text-brand-700 transition font-mono xl:hidden"
                             title={study.title}
                           >
@@ -592,7 +606,9 @@ export function Inbox({
                   </div>
                   {/* Due */}
                   <div className="text-xs">
-                    {due ? (
+                    {t.status === "done" && t.completed_at ? (
+                      <span className="font-mono text-emerald-700">Done {fmtDate(t.completed_at)}</span>
+                    ) : due ? (
                       <span
                         className={
                           "font-mono " +
@@ -606,29 +622,21 @@ export function Inbox({
                       <span className="text-slate-400 italic">No due date</span>
                     )}
                   </div>
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 justify-end opacity-50 group-hover:opacity-100 transition">
-                    {(t.status === "open" || t.status === "in_progress") && (
-                      <>
-                        {doc && at ? (
-                          <Button size="sm" variant="primary" onClick={() => setSigning({ task: t, doc })}>
-                            {at.verb}
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="primary" onClick={() => completeTask(t)}>
-                            Complete
-                          </Button>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => skipTask(t)}>
-                          Skip
+                  {/* Actions — primary verb only; the rest lives in the drawer */}
+                  <div
+                    className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {(t.status === "open" || t.status === "in_progress") &&
+                      (doc && at ? (
+                        <Button size="sm" variant="primary" onClick={() => setSigning({ task: t, doc })}>
+                          {at.verb}
                         </Button>
-                        {t.kind !== "escalation" && (
-                          <Button size="sm" variant="ghost" onClick={() => escalate(t)} title="Escalate up the role hierarchy">
-                            <Icon name="alert" size={11} />
-                          </Button>
-                        )}
-                      </>
-                    )}
+                      ) : (
+                        <Button size="sm" variant="primary" onClick={() => completeTask(t)}>
+                          Complete
+                        </Button>
+                      ))}
                     {(t.status === "done" || t.status === "skipped") && isAdmin && (
                       <Button size="sm" variant="ghost" onClick={() => reopenTask(t)}>
                         Reopen
@@ -643,6 +651,39 @@ export function Inbox({
       </Card>
 
       <PageBlocks pageKey="inbox" region="bottom" navigate={onNavigate} />
+
+      {openTaskId && (() => {
+        const t = tasks.rows.find((x) => x.id === openTaskId);
+        if (!t) return null;
+        return (
+          <TaskDrawer
+            task={t}
+            study={t.study_id ? studyById[t.study_id] ?? null : null}
+            stage={t.stage_key ? stageByKey[t.stage_key] ?? null : null}
+            role={t.assigned_to_role_id ? roleById[t.assigned_to_role_id] ?? null : null}
+            doc={t.document_id ? docById[t.document_id] ?? null : null}
+            isAdmin={isAdmin}
+            onNavigate={onNavigate}
+            onClose={() => setOpenTaskId(null)}
+            onComplete={() => {
+              const d = t.document_id ? docById[t.document_id] : null;
+              const a = actionTypeByKey(t.action_type);
+              setOpenTaskId(null);
+              if (d && a) setSigning({ task: t, doc: d });
+              else void completeTask(t);
+            }}
+            onSkip={() => {
+              setOpenTaskId(null);
+              void skipTask(t);
+            }}
+            onEscalate={() => {
+              setOpenTaskId(null);
+              void escalate(t);
+            }}
+            onReopen={() => void reopenTask(t)}
+          />
+        );
+      })()}
 
       {addingTask && orgId && userId && (
         <NewTaskModal
@@ -679,6 +720,232 @@ export function Inbox({
 }
 
 /* ---------- New Task modal (admin) ---------- */
+
+/** TaskDrawer — the Inbox reading pane. Click a row, read the message,
+ *  act from the top, see the task's own audit history. Study-down link in
+ *  the footer per principle #1. */
+function TaskDrawer({
+  task: t,
+  study,
+  stage,
+  role,
+  doc,
+  isAdmin,
+  onNavigate,
+  onClose,
+  onComplete,
+  onSkip,
+  onEscalate,
+  onReopen,
+}: {
+  task: TaskRow;
+  study: StudyRow | null;
+  stage: PipelineStageRow | null;
+  role: TeamRoleRow | null;
+  doc: DocumentRow | null;
+  isAdmin: boolean;
+  onNavigate: (h: string) => void;
+  onClose: () => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  onEscalate: () => void;
+  onReopen: () => void;
+}) {
+  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
+  const at = actionTypeByKey(t.action_type);
+  const due = t.due_at ? new Date(t.due_at) : null;
+  const overdue = due ? due.getTime() < Date.now() && t.status !== "done" : false;
+  const open = t.status === "open" || t.status === "in_progress";
+
+  const [people, setPeople] = useState<Record<string, string>>({});
+  const [history, setHistory] = useState<{ id: string; action: string; actor_email: string | null; created_at: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const ids = [t.created_by, t.assigned_to_user_id, t.completed_by].filter(Boolean) as string[];
+      if (ids.length > 0) {
+        const { data } = await supabase.from("profiles").select("id, email, full_name").in("id", ids);
+        if (!cancelled && data) {
+          const m: Record<string, string> = {};
+          (data as any[]).forEach((p) => (m[p.id] = p.full_name || p.email));
+          setPeople(m);
+        }
+      }
+      const { data: ev } = await supabase
+        .from("audit_events")
+        .select("id, action, actor_email, created_at")
+        .eq("entity_type", "task")
+        .eq("entity_id", t.id)
+        .order("created_at", { ascending: true })
+        .limit(20);
+      if (!cancelled) setHistory((ev ?? []) as any[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [t.id, t.status]);
+
+  const who = (id: string | null) => (id ? people[id] ?? "…" : null);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        ref={dlgRef}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Task — ${t.title}`}
+        className="h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col"
+      >
+        {/* Actions live at the TOP. */}
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
+          {open ? (
+            <>
+              <Button size="sm" variant="primary" onClick={onComplete}>
+                {doc && at ? at.verb : "Complete"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onSkip}>
+                Skip
+              </Button>
+              {t.kind !== "escalation" && (
+                <Button size="sm" variant="ghost" onClick={onEscalate} title="Escalate up the role hierarchy">
+                  <Icon name="alert" size={11} /> Escalate
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              {t.status === "done" ? <Pill tone="success">done</Pill> : <Pill tone="neutral">{t.status}</Pill>}
+              {isAdmin && (
+                <Button size="sm" variant="ghost" onClick={onReopen}>
+                  Reopen
+                </Button>
+              )}
+            </>
+          )}
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-900 transition text-lg leading-none px-1"
+            aria-label="Close task"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <h2 className={"text-base font-display font-bold text-slate-900 " + (t.status === "done" || t.status === "skipped" ? "line-through" : "")}>
+            {t.title}
+          </h2>
+
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {study && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onNavigate(`#/studies/${study.id}`);
+                }}
+                className="font-mono text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-full px-2 py-0.5 hover:border-emerald-300 transition"
+                title={study.title}
+              >
+                {study.code}
+              </button>
+            )}
+            {stage && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+                style={{ backgroundColor: stage.color }}
+              >
+                {stage.label}
+              </span>
+            )}
+            {at ? <Pill tone="info">{at.label}</Pill> : <KindPill kind={t.kind} />}
+            {t.status === "done" && t.completed_at ? (
+              <span className="text-[11px] font-mono text-emerald-700">Done {fmtDate(t.completed_at)}</span>
+            ) : due ? (
+              <span className={"text-[11px] font-mono " + (overdue ? "text-red-700 font-bold" : "text-slate-500")}>
+                {overdue ? "Overdue " : "Due "}
+                {fmtDate(due)}
+              </span>
+            ) : null}
+          </div>
+
+          {/* The message */}
+          <div className="mt-3 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5">
+            {t.description ? (
+              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">{t.description}</p>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No details on this task.</p>
+            )}
+          </div>
+
+          {/* From / To */}
+          <dl className="mt-4 space-y-1.5">
+            <div className="grid grid-cols-[72px_1fr] gap-2 text-xs">
+              <dt className="text-slate-500 font-semibold">From</dt>
+              <dd className="text-slate-900">{who(t.created_by) ?? <span className="text-slate-400 italic">workflow</span>}</dd>
+            </div>
+            <div className="grid grid-cols-[72px_1fr] gap-2 text-xs">
+              <dt className="text-slate-500 font-semibold">To</dt>
+              <dd className="text-slate-900">
+                {who(t.assigned_to_user_id) ?? (role ? `${role.title} (role queue)` : <span className="text-slate-400 italic">unassigned</span>)}
+                {t.assigned_to_user_id && role ? <span className="text-slate-400"> · via {role.title}</span> : null}
+              </dd>
+            </div>
+            {doc && (
+              <div className="grid grid-cols-[72px_1fr] gap-2 text-xs">
+                <dt className="text-slate-500 font-semibold">Document</dt>
+                <dd className="text-slate-900 truncate">{doc.title}</dd>
+              </div>
+            )}
+            <div className="grid grid-cols-[72px_1fr] gap-2 text-xs">
+              <dt className="text-slate-500 font-semibold">Created</dt>
+              <dd className="font-mono text-slate-600">{fmtDate(t.created_at)}</dd>
+            </div>
+          </dl>
+
+          {/* History — the task's own audit slice */}
+          <div className="mt-5">
+            <div className="text-[11px] font-semibold text-slate-500 mb-1.5">History</div>
+            {history.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No recorded events yet.</p>
+            ) : (
+              <div className="border-l-2 border-slate-100 pl-3 space-y-1.5">
+                {history.map((ev) => (
+                  <p key={ev.id} className="text-[11px] text-slate-600">
+                    <span className="font-mono text-slate-400">{fmtDate(ev.created_at)}</span>
+                    {" · "}
+                    {ev.action.replace(/_/g, " ")}
+                    {ev.actor_email ? <span className="text-slate-400"> — {ev.actor_email}</span> : null}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {study && (
+          <div className="px-4 py-3 border-t border-slate-200">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                onClose();
+                onNavigate(`#/studies/${study.id}`);
+              }}
+            >
+              Open {study.code} — work in the study →
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function NewTaskModal({
   orgId,
