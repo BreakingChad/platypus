@@ -33,3 +33,15 @@ export function fmtDateTime(d: DateInput): string {
     minute: "2-digit",
   });
 }
+
+/** Compact day for tight columns: "Jun 10", with the year only when it
+ *  isn't the current one ("Jun 10, 2027"). Never wraps. */
+export function fmtDay(d: DateInput): string {
+  const dt = toDate(d);
+  if (!dt) return "—";
+  const opts: Intl.DateTimeFormatOptions =
+    dt.getFullYear() === new Date().getFullYear()
+      ? { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", year: "numeric" };
+  return dt.toLocaleDateString("en-US", opts);
+}

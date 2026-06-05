@@ -1,8 +1,9 @@
 import { friendlyError } from "../lib/errors";
-import { fmtDate } from "../lib/dates";
+import { fmtDate, fmtDay } from "../lib/dates";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
 import { dueBucket, BUCKET_LABELS, type DueBucket } from "../lib/inboxBuckets";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
@@ -78,6 +79,8 @@ export function Inbox({
   const [sortMode, setSortMode] = useStickyState<"due" | "created" | "title" | "study">("inbox/sortMode", "due");
   const [addingTask, setAddingTask] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  // ≥xl the reading pane is DOCKED (Outlook model); below xl it's an overlay.
+  const isXl = useMediaQuery("(min-width: 1280px)");
   const [signing, setSigning] = useState<{ task: TaskRow; doc: DocumentRow } | null>(null);
   const [coveringFor, setCoveringFor] = useState<string[]>([]);
 
@@ -454,7 +457,9 @@ export function Inbox({
       </div>
 
       {/* List */}
-      <Card flush className="mt-4 overflow-hidden">
+      {/* SPLIT VIEW (≥ xl): comfort-width list + docked reading pane */}
+      <div className="mt-4 xl:grid xl:grid-cols-[minmax(420px,640px)_minmax(0,1fr)] xl:gap-4 xl:items-start">
+      <Card flush className="overflow-hidden">
         {tasks.error && (
           <div className="m-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             <strong>Error:</strong> {tasks.error}
@@ -522,7 +527,10 @@ export function Inbox({
                     }
                   }}
                   className={
-                    "px-4 py-3 grid grid-cols-[24px_1fr_110px_105px_90px] xl:grid-cols-[24px_1.3fr_220px_110px_105px_90px] gap-3 items-center group cursor-pointer transition hover:bg-brand-50/30 focus:outline-none focus:ring-2 focus:ring-brand-500/30 " +
+                    "px-4 py-3 grid grid-cols-[24px_1fr_110px_105px_90px] xl:grid-cols-[24px_1fr_72px] gap-3 items-center group cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-brand-500/30 " +
+                    (t.id === openTaskId
+                      ? "bg-brand-50/70 border-l-2 border-l-brand-500 "
+                      : "hover:bg-brand-50/30 border-l-2 border-l-transparent ") +
                     (t.status === "done" || t.status === "skipped"
                       ? "opacity-60"
                       : "")
@@ -561,19 +569,11 @@ export function Inbox({
                               e.stopPropagation();
                               onNavigate(`#/studies/${study.id}`);
                             }}
-                            className="hover:text-brand-700 transition font-mono xl:hidden"
+                            className="hover:text-brand-700 transition font-mono"
                             title={study.title}
                           >
                             {study.code}
                           </button>
-                        )}
-                        {stage && (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                            style={{ backgroundColor: stage.color }}
-                          >
-                            {stage.label}
-                          </span>
                         )}
                         {role && (
                           <span className="text-slate-400">· role: {role.title}</span>
@@ -581,33 +581,20 @@ export function Inbox({
                       </div>
                     )}
                   </div>
-                  {/* Study (xl) */}
-                  <div className="hidden xl:block min-w-0">
-                    {study ? (
-                      <button
-                        onClick={() => onNavigate(`#/studies/${study.id}`)}
-                        className="text-left min-w-0 w-full hover:text-brand-700 transition"
-                        title={study.title}
-                      >
-                        <span className="block font-mono text-xs text-slate-600">{study.code}</span>
-                        <span className="block text-[11px] text-slate-500 truncate">{study.title}</span>
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic">org-level</span>
-                    )}
-                  </div>
-                  {/* Kind */}
-                  <div>
+                  {/* Kind — pane carries it at xl */}
+                  <div className="xl:hidden">
                     {at ? (
                       <Pill tone="info">{at.label}</Pill>
                     ) : (
                       <KindPill kind={t.kind} />
                     )}
                   </div>
-                  {/* Due */}
-                  <div className="text-xs">
+                  {/* Due — never wraps; compact day at xl */}
+                  <div className="text-xs whitespace-nowrap text-right xl:text-right">
                     {t.status === "done" && t.completed_at ? (
-                      <span className="font-mono text-emerald-700">Done {fmtDate(t.completed_at)}</span>
+                      <span className="font-mono text-emerald-700">
+                        <span className="xl:hidden">Done </span>{fmtDay(t.completed_at)}
+                      </span>
                     ) : due ? (
                       <span
                         className={
@@ -615,16 +602,16 @@ export function Inbox({
                           (overdue ? "text-red-700 font-bold" : "text-slate-600")
                         }
                       >
-                        {overdue ? "Overdue " : "Due "}
-                        {fmtDate(due)}
+                        <span className="xl:hidden">{overdue ? "Overdue " : "Due "}</span>
+                        {fmtDay(due)}
                       </span>
                     ) : (
-                      <span className="text-slate-400 italic">No due date</span>
+                      <span className="text-slate-400 italic">—</span>
                     )}
                   </div>
-                  {/* Actions — primary verb only; the rest lives in the drawer */}
+                  {/* Actions — primary verb on hover; hidden at xl (pane owns them) */}
                   <div
-                    className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition"
+                    className="xl:hidden flex items-center justify-end opacity-0 group-hover:opacity-100 transition"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {(t.status === "open" || t.status === "in_progress") &&
@@ -650,9 +637,51 @@ export function Inbox({
         )}
       </Card>
 
+      {/* Docked reading pane — Outlook model; overlay drawer below xl */}
+      <div className="hidden xl:flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-20 max-h-[calc(100vh-110px)] min-h-[340px]">
+        {(() => {
+          const sel = filtered.find((x) => x.id === openTaskId) ?? filtered[0] ?? null;
+          if (!sel) {
+            return (
+              <div className="flex-1 flex items-center justify-center p-10 text-center">
+                <div>
+                  <Icon name="inbox" size={24} className="mx-auto text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-600 mt-3">Nothing to read</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-[220px]">
+                    Your queue is clear — or the filters above are hiding it.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          const d = sel.document_id ? docById[sel.document_id] ?? null : null;
+          const a = actionTypeByKey(sel.action_type);
+          return (
+            <TaskDetail
+              key={sel.id}
+              task={sel}
+              study={sel.study_id ? studyById[sel.study_id] ?? null : null}
+              stage={sel.stage_key ? stageByKey[sel.stage_key] ?? null : null}
+              role={sel.assigned_to_role_id ? roleById[sel.assigned_to_role_id] ?? null : null}
+              doc={d}
+              isAdmin={isAdmin}
+              onNavigate={onNavigate}
+              onComplete={() => {
+                if (d && a) setSigning({ task: sel, doc: d });
+                else void completeTask(sel);
+              }}
+              onSkip={() => void skipTask(sel)}
+              onEscalate={() => void escalate(sel)}
+              onReopen={() => void reopenTask(sel)}
+            />
+          );
+        })()}
+      </div>
+      </div>
+
       <PageBlocks pageKey="inbox" region="bottom" navigate={onNavigate} />
 
-      {openTaskId && (() => {
+      {openTaskId && !isXl && (() => {
         const t = tasks.rows.find((x) => x.id === openTaskId);
         if (!t) return null;
         return (
@@ -724,7 +753,7 @@ export function Inbox({
 /** TaskDrawer — the Inbox reading pane. Click a row, read the message,
  *  act from the top, see the task's own audit history. Study-down link in
  *  the footer per principle #1. */
-function TaskDrawer({
+function TaskDetail({
   task: t,
   study,
   stage,
@@ -745,13 +774,12 @@ function TaskDrawer({
   doc: DocumentRow | null;
   isAdmin: boolean;
   onNavigate: (h: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
   onComplete: () => void;
   onSkip: () => void;
   onEscalate: () => void;
   onReopen: () => void;
 }) {
-  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const at = actionTypeByKey(t.action_type);
   const due = t.due_at ? new Date(t.due_at) : null;
   const overdue = due ? due.getTime() < Date.now() && t.status !== "done" : false;
@@ -789,18 +817,7 @@ function TaskDrawer({
   const who = (id: string | null) => (id ? people[id] ?? "…" : null);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        ref={dlgRef}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Task — ${t.title}`}
-        className="h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col"
-      >
+    <>
         {/* Actions live at the TOP. */}
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
           {open ? (
@@ -828,13 +845,15 @@ function TaskDrawer({
             </>
           )}
           <div className="flex-1" />
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-900 transition text-lg leading-none px-1"
-            aria-label="Close task"
-          >
-            ×
-          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-900 transition text-lg leading-none px-1"
+              aria-label="Close task"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -846,7 +865,7 @@ function TaskDrawer({
             {study && (
               <button
                 onClick={() => {
-                  onClose();
+                  onClose?.();
                   onNavigate(`#/studies/${study.id}`);
                 }}
                 className="font-mono text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-full px-2 py-0.5 hover:border-emerald-300 transition"
@@ -934,7 +953,7 @@ function TaskDrawer({
               variant="secondary"
               className="w-full"
               onClick={() => {
-                onClose();
+                onClose?.();
                 onNavigate(`#/studies/${study.id}`);
               }}
             >
@@ -942,6 +961,27 @@ function TaskDrawer({
             </Button>
           </div>
         )}
+    </>
+  );
+}
+
+/** Overlay shell for narrow widths — same TaskDetail, focus-trapped. */
+function TaskDrawer(props: Parameters<typeof TaskDetail>[0] & { onClose: () => void }) {
+  const dlgRef = useModalA11y<HTMLDivElement>(props.onClose);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm"
+      onClick={props.onClose}
+    >
+      <div
+        ref={dlgRef}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Task — ${props.task.title}`}
+        className="h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col"
+      >
+        <TaskDetail {...props} />
       </div>
     </div>
   );
