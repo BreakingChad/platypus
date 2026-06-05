@@ -25,6 +25,7 @@ export function AiSummaryCard({ study, aiEnabled }: { study: StudyRow; aiEnabled
 
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [summary, setSummary] = useState<string | null>(study.ai_summary ?? null);
+  const [expanded, setExpanded] = useState(false);
   const [at, setAt] = useState<string | null>(study.ai_summary_at ?? null);
   const [busy, setBusy] = useState(false);
 
@@ -111,7 +112,24 @@ export function AiSummaryCard({ study, aiEnabled }: { study: StudyRow; aiEnabled
           under Settings → Organization → AI.
         </p>
       ) : summary ? (
-        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{summary}</p>
+        <>
+          <p
+            className={
+              "text-sm text-slate-700 leading-relaxed whitespace-pre-line " +
+              (expanded ? "" : "line-clamp-2")
+            }
+          >
+            {summary}
+          </p>
+          {summary.length > 180 && (
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              className="mt-1 text-[11px] font-semibold text-brand-700 hover:underline"
+            >
+              {expanded ? "Show less ▴" : "Show more ▾"}
+            </button>
+          )}
+        </>
       ) : (
         <p className="text-xs text-slate-500 leading-relaxed">
           Generate a quick, plain-English overview of this study from its fields.

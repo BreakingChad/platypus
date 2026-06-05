@@ -30,6 +30,8 @@ import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
 import { DocumentsTab } from "./StudyDetail.documents";
 import { NotesCard } from "./StudyDetail.notes";
@@ -127,7 +129,12 @@ export function StudyDetail({
     return safeTabs.some((t) => t.key === want) ? want : safeTabs[0].key;
   })();
   const setTab = (t: Tab) => setTabRaw(t);
+  // ≥xl: Tasks/Notes/Activity live in the docked work pane; the top tabs slim
+  // down and the record gets the main column (Option B, Chad 2026-06-03).
+  const isXl = useMediaQuery("(min-width: 1280px)");
+  const shownTab: Tab = isXl && (effectiveTab === "tasks" || effectiveTab === "activity") ? "overview" : effectiveTab;
   const [advancing, setAdvancing] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [activityCount, setActivityCount] = useState<number | null>(null);
   const [openTaskCount, setOpenTaskCount] = useState<number | null>(null);
   const [documentCount, setDocumentCount] = useState<number | null>(null);
@@ -469,13 +476,19 @@ export function StudyDetail({
         }
         actions={
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {stage && (
+            <StageMenu
+              stage={stage ?? null}
+              stages={stages.rows}
+              isAdmin={isAdmin && !study.closed}
+              advancing={advancing}
+              onAdvance={(k) => void advanceStage(k)}
+            />
+            {health && !study.closed && health.targetDays > 0 && health.level !== "unknown" && (
               <span
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white"
-                style={{ backgroundColor: stage.color }}
+                className="text-[11px] font-mono text-slate-500"
+                title={health.summary}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
-                {stage.label}
+                {health.daysInStage}d / {health.targetDays}d
               </span>
             )}
             {health && !study.closed && <HealthDot health={health} variant="pill" />}
@@ -494,84 +507,14 @@ export function StudyDetail({
         }
       />
 
-      {/* Health bar — full-width context strip with elapsed / target / projection */}
-      {health && stage && !study.closed && health.level !== "unknown" && (
-        <div
-          className={
-            "mt-6 rounded-xl border px-4 py-3 flex items-center gap-3 flex-wrap " +
-            HEALTH_TONE[health.level].bg + " " + HEALTH_TONE[health.level].border
-          }
-        >
-          <div className={"w-2 h-8 rounded-full " + HEALTH_TONE[health.level].dot} />
-          <div className="flex-1 min-w-0">
-            <div className={"text-xs font-semibold " + HEALTH_TONE[health.level].text}>
-              {HEALTH_TONE[health.level].label} in {stage.label}
-            </div>
-            <div className="text-xs text-slate-600 mt-0.5">
-              {health.summary}
-            </div>
-          </div>
-          {/* Stage progress bar */}
-          {health.targetDays > 0 && (
-            <div className="w-48 hidden md:block">
-              <div className="h-2 rounded-full bg-white/60 border border-slate-200 overflow-hidden">
-                <div
-                  className={"h-full rounded-full " + HEALTH_TONE[health.level].dot}
-                  style={{
-                    width:
-                      Math.min(100, Math.round((health.daysInStage / health.targetDays) * 100)) +
-                      "%",
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
-                <span>0</span>
-                <span>target {health.targetDays}d</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Stage advance bar — admins only */}
-      {isAdmin && stages.rows.length > 0 && (
-        <Card className="mt-6">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-xs font-semibold text-slate-500">
-              Move to stage
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {stages.rows.map((s) => {
-                const active = s.key === study.stage_key;
-                return (
-                  <button
-                    key={s.id}
-                    disabled={advancing || active}
-                    onClick={() => advanceStage(s.key)}
-                    className={
-                      "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition flex items-center gap-1.5 " +
-                      (active
-                        ? "border-transparent text-white cursor-default"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:-translate-y-[1px]")
-                    }
-                    style={active ? { backgroundColor: s.color } : undefined}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    {s.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Tabs */}
-      <div className="mt-6 border-b border-slate-200 flex items-center gap-1">
-        {safeTabs.map(({ key, label }) => {
+      {/* SPLIT (≥ xl): record column + docked work pane */}
+      <div className="mt-2 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5 xl:items-start">
+      <div className="min-w-0">
+      {/* Tabs — Tasks/Activity fold into the work pane at xl */}
+      <div className="mt-4 border-b border-slate-200 flex items-center gap-1">
+        {safeTabs
+          .filter(({ key }) => !isXl || (key !== "tasks" && key !== "activity"))
+          .map(({ key, label }) => {
           const count: number | null =
             key === "activity" ? activityCount :
             key === "tasks" ? openTaskCount :
@@ -582,7 +525,7 @@ export function StudyDetail({
             onClick={() => setTab(key)}
             className={
               "px-3 py-2 text-sm font-semibold transition border-b-2 -mb-px flex items-center gap-1.5 " +
-              (effectiveTab === key
+              (shownTab === key
                 ? "border-brand-600 text-brand-700"
                 : "border-transparent text-slate-500 hover:text-slate-900")
             }
@@ -592,7 +535,7 @@ export function StudyDetail({
               <span
                 className={
                   "text-[10px] font-mono px-1.5 py-0.5 rounded-full " +
-                  (effectiveTab === key
+                  (shownTab === key
                     ? "bg-brand-100 text-brand-700"
                     : "bg-slate-100 text-slate-500")
                 }
@@ -607,10 +550,12 @@ export function StudyDetail({
 
       {/* Tab body */}
       <div className="mt-5">
-        {effectiveTab === "overview" && (
+        {shownTab === "overview" && (
           <div className="space-y-5">
             <AiSummaryCard study={study} aiEnabled={aiEnabled} />
-            <NotesCard studyId={study.id} />
+            <div className="xl:hidden">
+              <NotesCard studyId={study.id} />
+            </div>
             {studyFields.length === 0 && (
               <Card>
                 <EmptyState
@@ -623,12 +568,40 @@ export function StudyDetail({
             {sections.map((section) => {
               const sectionFields = studyFields.filter((f) => f.section === section);
               if (sectionFields.length === 0) return null;
+              const filled = sectionFields.filter((f) => {
+                const v = fieldValue(f);
+                return !(
+                  v === null ||
+                  v === undefined ||
+                  v === "" ||
+                  (Array.isArray(v) && v.length === 0)
+                );
+              }).length;
+              // Empty sections start collapsed — the record leads with what's known.
+              const collapsed = collapsedSections[section] ?? filled === 0;
               return (
                 <Card key={section}>
-                  <div className="text-xs font-semibold text-slate-500 mb-3">
-                    {section}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() =>
+                      setCollapsedSections((c) => ({ ...c, [section]: !collapsed }))
+                    }
+                    className="w-full flex items-center gap-2 text-left"
+                    aria-expanded={!collapsed}
+                  >
+                    <span className="text-xs font-semibold text-slate-500">{section}</span>
+                    <span
+                      className={
+                        "text-[11px] font-mono " +
+                        (filled === 0 ? "text-slate-300" : filled === sectionFields.length ? "text-emerald-600" : "text-slate-400")
+                      }
+                    >
+                      {filled} of {sectionFields.length}
+                    </span>
+                    <span className="flex-1" />
+                    <Icon name={collapsed ? "chevron-right" : "chevron-down"} size={13} className="text-slate-400" />
+                  </button>
+                  {!collapsed && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                     {sectionFields.map((f) => (
                       <FieldEditor
                         key={f.id}
@@ -646,28 +619,175 @@ export function StudyDetail({
                       />
                     ))}
                   </div>
+                  )}
                 </Card>
               );
             })}
           </div>
         )}
 
-        {effectiveTab === "feasibility" && <FeasibilityTab study={study} />}
+        {shownTab === "feasibility" && <FeasibilityTab study={study} />}
 
-        {effectiveTab === "activity" && (
+        {shownTab === "activity" && !isXl && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />
         )}
 
-        {effectiveTab === "tasks" && (
+        {shownTab === "tasks" && !isXl && (
           <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} onNavigate={(h) => { window.location.hash = h; }} />
         )}
 
-        {effectiveTab === "documents" && (
+        {shownTab === "documents" && (
           <DocumentsTab study={study} />
         )}
       </div>
 
+      </div>
+
+      {/* Docked work pane (≥ xl): the day-to-day lives beside the record */}
+      <StudyWorkPane
+        studyId={study.id}
+        study={study}
+        stages={stages.rows}
+        stageKey={study.stage_key}
+        openTaskCount={openTaskCount}
+        activityCount={activityCount}
+      />
+      </div>
+
       <PageBlocks pageKey="study-detail" region="bottom" navigate={(h) => { window.location.hash = h; }} />
+    </div>
+  );
+}
+
+/* ---------- Option B pieces ---------- */
+
+/** Stage as a CONTROL, not furniture: the pill shows where the study is;
+ *  admins click it to move — the full pathway appears on demand. */
+function StageMenu({
+  stage,
+  stages,
+  isAdmin,
+  advancing,
+  onAdvance,
+}: {
+  stage: PipelineStageRow | null;
+  stages: PipelineStageRow[];
+  isAdmin: boolean;
+  advancing: boolean;
+  onAdvance: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  useDismissable("[data-stage-menu]", () => setOpen(false), open);
+  if (!stage) return null;
+  return (
+    <div className="relative" data-stage-menu>
+      <button
+        onClick={() => isAdmin && setOpen((o) => !o)}
+        disabled={advancing}
+        className={
+          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white transition " +
+          (isAdmin ? "hover:opacity-90 cursor-pointer" : "cursor-default")
+        }
+        style={{ backgroundColor: stage.color }}
+        title={isAdmin ? "Move this study to another stage" : stage.label}
+        aria-haspopup={isAdmin ? "menu" : undefined}
+        aria-expanded={open}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+        {stage.label}
+        {isAdmin && <Icon name="chevron-down" size={10} aria-hidden="true" />}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1.5 z-50 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-80 overflow-y-auto"
+        >
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b border-slate-100">
+            Move to stage
+          </div>
+          {stages.map((s) => {
+            const active = s.key === stage.key;
+            return (
+              <button
+                key={s.id}
+                role="menuitem"
+                disabled={active || advancing}
+                onClick={() => {
+                  setOpen(false);
+                  onAdvance(s.key);
+                }}
+                className={
+                  "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition " +
+                  (active ? "text-slate-400 cursor-default" : "text-slate-700 hover:bg-slate-50")
+                }
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                {s.label}
+                {active && <span className="ml-auto text-[10px] font-mono text-slate-400">current</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The study's work pane — Tasks, Notes, Activity always beside the record. */
+function StudyWorkPane({
+  studyId,
+  study,
+  stages,
+  stageKey,
+  openTaskCount,
+  activityCount,
+}: {
+  studyId: string;
+  study: StudyRow;
+  stages: PipelineStageRow[];
+  stageKey: string | null;
+  openTaskCount: number | null;
+  activityCount: number | null;
+}) {
+  const [paneTab, setPaneTab] = useState<"tasks" | "notes" | "activity">("tasks");
+  return (
+    <div className="hidden xl:flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-20 max-h-[calc(100vh-110px)] min-h-[360px]">
+      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 flex items-center gap-1.5">
+        {([
+          ["tasks", "Tasks", openTaskCount],
+          ["notes", "Notes", null],
+          ["activity", "Activity", activityCount],
+        ] as const).map(([k, label, count]) => (
+          <button
+            key={k}
+            onClick={() => setPaneTab(k)}
+            className={
+              "px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1 " +
+              (paneTab === k ? "bg-white border border-slate-200 text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-900")
+            }
+            aria-pressed={paneTab === k}
+          >
+            {label}
+            {count !== null && count !== undefined && count > 0 && (
+              <span className="text-[10px] font-mono text-slate-400">{count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto p-3">
+        {paneTab === "tasks" && (
+          <TasksTab
+            studyId={studyId}
+            stages={stages}
+            stageKey={stageKey}
+            onNavigate={(h) => {
+              window.location.hash = h;
+            }}
+          />
+        )}
+        {paneTab === "notes" && <NotesCard studyId={studyId} />}
+        {paneTab === "activity" && <ActivityTab studyId={studyId} study={study} stages={stages} />}
+      </div>
     </div>
   );
 }
