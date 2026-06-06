@@ -33,7 +33,7 @@ import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
-import { HighlightsStrip, PathBar, StudySitesCard } from "./StudyDetail.crm";
+import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
 import type { StudySiteRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -455,14 +455,14 @@ export function StudyDetail({
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {study.closed && <Pill tone="neutral">closed</Pill>}
             {isAdmin && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={toggleClosed}
-                disabled={savingClose}
-              >
-                {study.closed ? "Reopen" : "Close study"}
-              </Button>
+              <SmartActionButton
+                study={study}
+                stages={stages.rows}
+                advancing={advancing}
+                savingClose={savingClose}
+                onAdvance={(k) => void advanceStage(k)}
+                onToggleClosed={() => void toggleClosed()}
+              />
             )}
           </div>
         }

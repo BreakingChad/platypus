@@ -127,14 +127,74 @@ export function PathBar({
           </div>
         )}
       </div>
-      {isAdmin && next && (
-        <button
-          onClick={() => onAdvance(next.key)}
-          disabled={advancing}
-          className="rounded-lg bg-brand-gradient text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap shadow-sm hover:opacity-95 transition disabled:opacity-60"
-        >
-          Mark complete → {next.label}
-        </button>
+
+    </div>
+  );
+}
+
+/* ---------- smart action button (split: next step + alternatives) ---------- */
+export function SmartActionButton({
+  study, stages, advancing, savingClose, onAdvance, onToggleClosed,
+}: {
+  study: StudyRow;
+  stages: PipelineStageRow[];
+  advancing: boolean;
+  savingClose: boolean;
+  onAdvance: (key: string) => void;
+  onToggleClosed: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  useDismissable("[data-smart-action]", () => setOpen(false), open);
+
+  if (study.closed) {
+    return (
+      <button onClick={onToggleClosed} disabled={savingClose}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60">
+        Reopen study
+      </button>
+    );
+  }
+
+  const curIdx = stages.findIndex((s) => s.key === study.stage_key);
+  const current = curIdx >= 0 ? stages[curIdx] : null;
+  const next = curIdx >= 0 && curIdx < stages.length - 1 ? stages[curIdx + 1] : null;
+  // Terminal stage (or no next) → the forward step is to close out, not advance.
+  const atEnd = !next || (current?.terminal ?? false);
+  const primaryLabel = atEnd ? "Close study" : `Advance → ${next!.label}`;
+  const onPrimary = atEnd ? onToggleClosed : () => onAdvance(next!.key);
+
+  return (
+    <div className="relative inline-flex" data-smart-action>
+      <button onClick={onPrimary} disabled={advancing || savingClose}
+        className="rounded-l-lg bg-brand-gradient text-white px-3.5 py-1.5 text-sm font-semibold shadow-sm hover:opacity-95 transition disabled:opacity-60">
+        {primaryLabel}
+      </button>
+      <button onClick={() => setOpen((o) => !o)} disabled={advancing || savingClose}
+        className="rounded-r-lg bg-brand-gradient text-white px-2 py-1.5 border-l border-white/30 hover:opacity-95 transition disabled:opacity-60"
+        aria-haspopup="menu" aria-expanded={open} aria-label="Other actions">
+        <Icon name="chevron-down" size={13} aria-hidden="true" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full mt-1 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-80 overflow-y-auto">
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b border-slate-100">Move to stage</div>
+          {stages.map((s, i) => {
+            const active = i === curIdx;
+            return (
+              <button key={s.id} role="menuitem" disabled={active}
+                onClick={() => { setOpen(false); onAdvance(s.key); }}
+                className={"w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition " + (active ? "text-slate-400 cursor-default" : "text-slate-700 hover:bg-slate-50")}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                {s.label}
+                {active && <span className="ml-auto text-[10px] font-mono text-slate-400">current</span>}
+                {s.terminal && !active && <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-300">terminal</span>}
+              </button>
+            );
+          })}
+          <button role="menuitem" onClick={() => { setOpen(false); onToggleClosed(); }}
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition border-t border-slate-100">
+            Close study
+          </button>
+        </div>
       )}
     </div>
   );
