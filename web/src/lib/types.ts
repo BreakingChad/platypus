@@ -153,6 +153,7 @@ export type WorkflowModuleRow = {
   id: string;
   org_id: string;
   stage_key: string;
+  workstream_id: string | null;
   owner_team_id: string | null;
   name: string;
   description: string | null;

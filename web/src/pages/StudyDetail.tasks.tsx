@@ -31,11 +31,13 @@ export function TasksTab({
   studyId,
   stages,
   stageKey,
+  workstreamId,
   onNavigate,
 }: {
   studyId: string;
   stages: PipelineStageRow[];
   stageKey: string | null;
+  workstreamId?: string | null;
   onNavigate?: (h: string) => void;
 }) {
   const auth = useAuth();
@@ -215,6 +217,7 @@ export function TasksTab({
         studyId={studyId}
         stageKey={stageKey}
         stage={stages.find((s) => s.key === stageKey) ?? null}
+        workstreamId={workstreamId}
         onNavigate={onNavigate}
       />
 

@@ -32,12 +32,15 @@ export function WorkStreamPanel({
   studyId,
   stageKey,
   stage,
+  workstreamId,
   onNavigate,
 }: {
   /** Optional — when provided + admin, enables the 'Run work stream' button
    *  that fires spawnTasksForStageEntry for THIS study at the current stage. */
   studyId?: string;
   stageKey: string | null;
+  /** The study's work stream — modules are scoped to it. */
+  workstreamId?: string | null;
   stage: PipelineStageRow | null;
   onNavigate?: (h: string) => void;
 }) {
@@ -63,12 +66,13 @@ export function WorkStreamPanel({
     }
     let cancelled = false;
     (async () => {
-      const { data: mods } = await supabase
+      let modQuery = supabase
         .from("workflow_modules")
         .select("*")
         .eq("org_id", orgId)
-        .eq("stage_key", stageKey)
-        .order("position", { ascending: true });
+        .eq("stage_key", stageKey);
+      if (workstreamId) modQuery = modQuery.eq("workstream_id", workstreamId);
+      const { data: mods } = await modQuery.order("position", { ascending: true });
       if (cancelled) return;
       const allMods = (mods ?? []) as WorkflowModuleRow[];
       setModules(allMods);
@@ -114,7 +118,7 @@ export function WorkStreamPanel({
     return () => {
       cancelled = true;
     };
-  }, [orgId, stageKey]);
+  }, [orgId, stageKey, workstreamId]);
 
   const runWorkStream = async () => {
     if (!orgId || !studyId || !stageKey || !userId) return;
@@ -124,6 +128,7 @@ export function WorkStreamPanel({
         orgId,
         studyId,
         stageKey,
+        workstreamId,
         actorUserId: userId,
       });
       if (res.spawned > 0) {

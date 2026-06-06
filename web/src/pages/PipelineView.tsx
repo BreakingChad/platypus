@@ -113,6 +113,7 @@ export function PipelineView({ onNavigate }: { onNavigate: (h: string) => void }
             orgId,
             studyId,
             stageKey,
+            workstreamId: study.workstream_id,
             actorUserId: userId,
           });
           if (res.spawned > 0) {

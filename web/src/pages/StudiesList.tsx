@@ -165,7 +165,7 @@ export function StudiesList({
         },
       });
       try {
-        await spawnTasksForStageEntry({ orgId, studyId: id, stageKey: nextStageKey, actorUserId: userId });
+        await spawnTasksForStageEntry({ orgId, studyId: id, stageKey: nextStageKey, workstreamId: study.workstream_id, actorUserId: userId });
       } catch {
         /* stage moved + audited; spawn can be retried from the study */
       }
@@ -221,6 +221,7 @@ export function StudiesList({
               orgId,
               studyId: id,
               stageKey: nextStageKey,
+              workstreamId: study.workstream_id,
               actorUserId: userId,
             });
           } catch {

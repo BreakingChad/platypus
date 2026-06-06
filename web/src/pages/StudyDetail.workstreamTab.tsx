@@ -91,7 +91,7 @@ export function StudyWorkstreamTab({
       {/* the tasks this work stream creates, grouped by stage */}
       <div className="space-y-3">
         {stages.map((s, i) => {
-          const mods = modules.rows.filter((m) => m.stage_key === s.key);
+          const mods = modules.rows.filter((m) => m.stage_key === s.key && m.workstream_id === study.workstream_id);
           const stageTasks = myTasks
             .filter((t) => t.stage_key === s.key)
             .sort((a, b) => (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999"));

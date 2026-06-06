@@ -90,7 +90,7 @@ export function IntakeDecisionBar({
       void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "stage_changed", payload: { from: study.stage_key ?? null, to: commitStage.key, from_label: "Intake", to_label: commitStage.label, source: "intake_commit" } });
       let spawned = 0;
       try {
-        const res = await spawnTasksForStageEntry({ orgId, studyId: study.id, stageKey: commitStage.key, actorUserId: userId });
+        const res = await spawnTasksForStageEntry({ orgId, studyId: study.id, stageKey: commitStage.key, workstreamId: study.workstream_id, actorUserId: userId });
         spawned = res.spawned;
       } catch { /* engine failure shouldn't block commit */ }
       toast.success(stamped(`Committed ${study.code} to ${commitStage.label}` + (spawned > 0 ? ` — ${spawned} task${spawned === 1 ? "" : "s"} spawned` : "")));
@@ -127,7 +127,7 @@ export function IntakeDecisionBar({
         <CommitModal
           study={study}
           commitStage={commitStage}
-          modules={modules.rows.filter((m) => m.stage_key === commitStage.key && m.enabled)}
+          modules={modules.rows.filter((m) => m.stage_key === commitStage.key && m.enabled && m.workstream_id === study.workstream_id)}
           completenessInfo={comp}
           onClose={() => setOpen(false)}
           onCommit={commit}

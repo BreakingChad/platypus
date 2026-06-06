@@ -378,6 +378,7 @@ export function StudyDetail({
             orgId,
             studyId: study.id,
             stageKey: nextKey,
+            workstreamId: study.workstream_id,
             actorUserId: userId,
           });
           if (res.spawned > 0) {
@@ -662,7 +663,7 @@ export function StudyDetail({
         )}
 
         {shownTab === "tasks" && !isXl && (
-          <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} onNavigate={(h) => { window.location.hash = h; }} />
+          <TasksTab studyId={study.id} stages={stages.rows} stageKey={study.stage_key} workstreamId={study.workstream_id} onNavigate={(h) => { window.location.hash = h; }} />
         )}
 
         {shownTab === "documents" && (
@@ -809,6 +810,7 @@ function StudyWorkPane({
             studyId={studyId}
             stages={stages}
             stageKey={stageKey}
+            workstreamId={study.workstream_id}
             onNavigate={(h) => {
               window.location.hash = h;
             }}

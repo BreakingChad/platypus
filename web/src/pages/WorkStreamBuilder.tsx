@@ -163,11 +163,12 @@ export function WorkStreamBuilder() {
 
   const addModuleTo = async (stageKey: string, name: string) => {
     if (!orgId || !name.trim()) return;
-    const pos = modules.rows.filter((m) => m.stage_key === stageKey).reduce((m, x) => Math.max(m, x.position), 0) + 10;
+    if (!selectedWsId) { toast.error("Pick or create a work stream first"); return; }
+    const pos = modules.rows.filter((m) => m.stage_key === stageKey && m.workstream_id === selectedWsId).reduce((m, x) => Math.max(m, x.position), 0) + 10;
     try {
       const { data, error } = await supabase
         .from("workflow_modules")
-        .insert({ org_id: orgId, stage_key: stageKey, name: name.trim(), enabled: true, position: pos } as any)
+        .insert({ org_id: orgId, stage_key: stageKey, workstream_id: selectedWsId, name: name.trim(), enabled: true, position: pos } as any)
         .select("id")
         .single();
       if (error) throw error;
@@ -216,7 +217,7 @@ export function WorkStreamBuilder() {
     const { data: created, error } = await supabase
       .from("workflow_modules")
       .insert({
-        org_id: src.org_id, stage_key: toStageKey, owner_team_id: src.owner_team_id,
+        org_id: src.org_id, stage_key: toStageKey, workstream_id: src.workstream_id, owner_team_id: src.owner_team_id,
         name: name ?? src.name, description: src.description, enabled: src.enabled, position,
       } as any)
       .select("id")
@@ -407,7 +408,7 @@ export function WorkStreamBuilder() {
           <SortableContext items={flatStageIds} strategy={rectSortingStrategy}>
             <FlowCanvas
               stages={stages.rows}
-              modules={modules.rows}
+              modules={modules.rows.filter((m) => m.workstream_id === selectedWsId)}
               teams={teams.rows}
               taskCounts={taskCounts}
               onAddStage={() => void addStage()}

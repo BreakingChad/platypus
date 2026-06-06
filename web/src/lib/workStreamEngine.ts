@@ -27,17 +27,21 @@ export async function spawnTasksForStageEntry(opts: {
   studyId: string;
   stageKey: string;
   actorUserId: string;
+  /** The study's work stream — only its modules spawn tasks. */
+  workstreamId?: string | null;
   enteredAt?: Date;
 }): Promise<SpawnResult> {
   const enteredAt = opts.enteredAt ?? new Date();
 
-  // 1. Look up enabled modules for this stage_key in this org.
-  const { data: mods, error: modsErr } = await supabase
+  // 1. Look up enabled modules for this stage_key, scoped to the study's work stream.
+  let modQuery = supabase
     .from("workflow_modules")
     .select("*")
     .eq("org_id", opts.orgId)
     .eq("stage_key", opts.stageKey)
-    .eq("enabled", true)
+    .eq("enabled", true);
+  if (opts.workstreamId) modQuery = modQuery.eq("workstream_id", opts.workstreamId);
+  const { data: mods, error: modsErr } = await modQuery
     .order("position", { ascending: true });
   if (modsErr) throw modsErr;
   if (!mods || mods.length === 0) {
