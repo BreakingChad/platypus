@@ -294,10 +294,52 @@ export function TasksTab({
         </Card>
       )}
 
-      {visibleTasks && visibleTasks.length > 0 && (
-        <Card flush>
-          <ul className="divide-y divide-slate-100">
-            {visibleTasks.map((t) => {
+      {tasks && tasks.length > 0 && (() => {
+        const total = tasks.length;
+        const done = tasks.filter((t) => t.status === "done").length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        return (
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-full bg-brand-gradient rounded-full transition-all" style={{ width: pct + "%" }} />
+            </div>
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">{done} of {total} done</span>
+          </div>
+        );
+      })()}
+
+      {visibleTasks && visibleTasks.length > 0 && (() => {
+        // Group into a checklist by stage, in pipeline order; no-stage last.
+        const order = new Map(stages.map((s, i) => [s.key, i]));
+        const groups: { key: string | null; label: string; color: string | null; items: typeof visibleTasks }[] = [];
+        const byKey = new Map<string, typeof visibleTasks>();
+        for (const t of visibleTasks) {
+          const k = t.stage_key ?? "__none__";
+          if (!byKey.has(k)) byKey.set(k, [] as any);
+          byKey.get(k)!.push(t);
+        }
+        const keys = [...byKey.keys()].sort((a, b) => {
+          if (a === "__none__") return 1;
+          if (b === "__none__") return -1;
+          return (order.get(a) ?? 999) - (order.get(b) ?? 999);
+        });
+        for (const k of keys) {
+          const st = k === "__none__" ? null : stages.find((s) => s.key === k) ?? null;
+          groups.push({ key: k === "__none__" ? null : k, label: st?.label ?? "No stage", color: st?.color ?? null, items: byKey.get(k)! });
+        }
+        return (
+          <div className="space-y-3">
+            {groups.map((g) => {
+              const gDone = g.items.filter((t) => t.status === "done" || t.status === "skipped").length;
+              return (
+                <Card key={g.key ?? "none"} flush>
+                  <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                    {g.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color }} />}
+                    <span className="text-xs font-semibold text-slate-700">{g.label}</span>
+                    <span className="ml-auto text-[11px] font-mono text-slate-400">{gDone}/{g.items.length}</span>
+                  </div>
+                  <ul className="divide-y divide-slate-100">
+            {g.items.map((t) => {
               const stage = t.stage_key ? stages.find((s) => s.key === t.stage_key) : null;
               const due = t.due_at ? new Date(t.due_at) : null;
               const overdue =
@@ -333,15 +375,7 @@ export function TasksTab({
                       {t.title}
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                      {stage && (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                          style={{ backgroundColor: stage.color }}
-                        >
-                          {stage.label}
-                        </span>
-                      )}
-                      <KindPill kind={t.kind} />
+                      {t.kind !== "manual" && <KindPill kind={t.kind} />}
                       {due && (
                         <span
                           className={
@@ -376,9 +410,13 @@ export function TasksTab({
                 </li>
               );
             })}
-          </ul>
-        </Card>
-      )}
+                  </ul>
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
