@@ -24,8 +24,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               Something broke.
             </h1>
             <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-              The app hit an unexpected error. Your data is safe in Supabase — this is a UI
-              crash. Reload to recover.
+              The app hit an unexpected display error — your data is safe. Reload to recover.
             </p>
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-left mb-6">
               <div className="text-[11px] font-semibold text-slate-500 mb-1">

@@ -17,9 +17,6 @@ export function SetupHubBlock({ ctx }: { ctx: BlockContext }) {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-display font-bold text-slate-900">Setup hub</h2>
-        <span className="text-[11px] font-semibold text-slate-400">
-          live · admin-driven
-        </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <HubCard
