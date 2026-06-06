@@ -207,11 +207,15 @@ function AmendmentModal({
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
   const toast = useToast();
 
+  const [versionChanged, setVersionChanged] = useState<null | boolean>(null);
   const [versionLabel, setVersionLabel] = useState("");
   const [purpose, setPurpose] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const valid = versionLabel.trim() !== "" || purpose.trim() !== "";
+  const valid =
+    versionChanged === true ? versionLabel.trim() !== "" :
+    versionChanged === false ? purpose.trim() !== "" :
+    false;
 
   const submit = async () => {
     if (!orgId || busy || !valid) return;
@@ -258,24 +262,49 @@ function AmendmentModal({
             pipeline from intake. The original stays active until you make this one current.
           </p>
         </div>
-        <div className="p-5 space-y-3">
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">Version label <span className="font-normal text-slate-400">— if the protocol version changed</span></span>
-            <Input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} placeholder="e.g. v2.0 / Amendment 3" autoFocus />
-          </label>
-          <div className="text-center text-[11px] text-slate-400">— or, if the version number didn't change —</div>
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">Amendment purpose</span>
-            <select
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
-            >
-              <option value="">— Select —</option>
-              {AMENDMENT_PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </label>
-          {!valid && <p className="text-[11px] text-amber-600">Set a version label or a purpose — amendments must explain themselves.</p>}
+        <div className="p-5 space-y-4">
+          <div>
+            <span className="block text-sm font-semibold text-slate-800 mb-2">Did the protocol version change?</span>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+              {([[true, "Yes"], [false, "No"]] as const).map(([v, label]) => (
+                <button
+                  key={label}
+                  onClick={() => { setVersionChanged(v); setVersionLabel(""); setPurpose(""); }}
+                  className={
+                    "px-4 py-1.5 rounded-md text-sm font-semibold transition " +
+                    (versionChanged === v ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+                  }
+                  aria-pressed={versionChanged === v}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {versionChanged === true && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">New version label</span>
+              <Input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} placeholder="e.g. v2.0 / Amendment 3" autoFocus />
+              <p className="text-[11px] text-slate-500 mt-1">The protocol's new version or amendment number.</p>
+            </label>
+          )}
+
+          {versionChanged === false && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">What kind of amendment is this?</span>
+              <select
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                autoFocus
+              >
+                <option value="">— Select —</option>
+                {AMENDMENT_PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">Budget, contract, PI change… — so the record explains itself.</p>
+            </label>
+          )}
         </div>
         <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
