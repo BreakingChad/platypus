@@ -24,6 +24,7 @@ import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
+import { NewStudyModal } from "../components/NewStudyModal";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Loader } from "../components/ui/Loader";
 import { SubmissionsQueue } from "../components/SubmissionsQueue";
@@ -48,6 +49,7 @@ export function IntakeTriage({
   initialTab?: "new" | "amendments";
 }) {
   const [intakeTab, setIntakeTab] = useState<"new" | "amendments">(initialTab ?? "new");
+  const [creating, setCreating] = useState(false);
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
@@ -95,6 +97,11 @@ export function IntakeTriage({
             <Pill tone={intakeStudies.length > 0 ? "brand" : "neutral"}>
               {intakeStudies.length} awaiting triage
             </Pill>
+            {isAdmin && (
+              <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+                <Icon name="plus" size={12} /> New intake
+              </Button>
+            )}
           </div>
         }
       />
@@ -222,6 +229,18 @@ export function IntakeTriage({
 
       <PageBlocks pageKey="intake" region="bottom" navigate={onNavigate} />
       </>)}
+
+      {creating && (
+        <NewStudyModal
+          stages={stages.rows}
+          existingCodes={studies.rows.map((s) => s.code)}
+          onClose={() => setCreating(false)}
+          onCreated={(st) => {
+            setCreating(false);
+            onNavigate(`#/studies/${st.id}`);
+          }}
+        />
+      )}
 
           </div>
   );

@@ -40,7 +40,6 @@ import { writeAuditEvent } from "../lib/auditLog";
 import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { supabase } from "../lib/supabase";
 import { useCurrentOrg } from "../lib/OrgContext";
-import { NewStudyModal } from "../components/NewStudyModal";
 
 /** Studies List — the full portfolio. Click into a study (coming next phase).
  *  Live on the studies table. Admin can create; everyone can read. */
@@ -126,7 +125,6 @@ export function StudiesList({
       setSortBy("smart");
     }
   };
-  const [creating, setCreating] = useState(false);
 
   const toggleSel = (id: string) => {
     setSelected((s) => {
@@ -403,7 +401,7 @@ export function StudiesList({
               <Icon name="external" size={12} /> Export CSV
             </Button>
             {isAdmin ? (
-              <Button variant="primary" onClick={() => setCreating(true)}>
+              <Button variant="primary" onClick={() => onNavigate("#/intake")}>
                 <Icon name="plus" size={14} /> New study
               </Button>
             ) : (
@@ -627,7 +625,7 @@ export function StudiesList({
             }
             action={
               isAdmin && (
-                <Button variant="primary" onClick={() => setCreating(true)}>
+                <Button variant="primary" onClick={() => onNavigate("#/intake")}>
                   <Icon name="plus" size={14} /> New study
                 </Button>
               )
@@ -877,18 +875,6 @@ export function StudiesList({
           health={healthFilter}
           onHealth={setHealthFilter}
           onClose={() => setFiltersOpen(false)}
-        />
-      )}
-      {creating && (
-        <NewStudyModal
-          stages={stages.rows}
-          existingCodes={studies.rows.map((s) => s.code)}
-          onClose={() => setCreating(false)}
-          onCreated={(s) => {
-            toast.success(stamped(`Created ${s.code}`));
-            setCreating(false);
-            onNavigate(`#/studies/${s.id}`);
-          }}
         />
       )}
     </div>
