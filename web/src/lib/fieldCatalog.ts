@@ -119,7 +119,6 @@ export const STANDARD_STUDY_CATALOG: CatalogField[] = [
   { key: "edcPlatform", label: "EDC platform", section: "Operational", field_type: "text", position: 41 },
   { key: "ctmsId", label: "CTMS ID", section: "Operational", field_type: "text", position: 42 },
   { key: "emrId", label: "EMR ID", section: "Operational", field_type: "text", position: 43 },
-  { key: "trainingStatus", label: "Training status", section: "Operational", field_type: "dropdown", values: TRAINING_STATUSES, position: 44 },
 ];
 
 /* ── Diff (pure — unit tested) ───────────────────────────────────────── */

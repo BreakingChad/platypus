@@ -54,7 +54,6 @@ const MIGRATION_SEED: FieldDefinitionRow[] = [
   ["paymentTerms", "Financial", "text", 19],
   ["accrualGoal", "Operational", "number", 20],
   ["edcPlatform", "Operational", "text", 21],
-  ["trainingStatus", "Operational", "dropdown", 22],
 ].map(([key, section, field_type, position]) =>
   seededRow({
     key: key as string,
@@ -151,8 +150,6 @@ describe("diffCatalog", () => {
     const diff = diffCatalog(MIGRATION_SEED);
     const irb = diff.toUpdate.find((u) => u.key === "irbType");
     expect((irb?.patch.options as { values: string[] }).values).toEqual(["Central", "Local"]);
-    const training = diff.toUpdate.find((u) => u.key === "trainingStatus");
-    expect((training?.patch.options as { values: string[] }).values?.length).toBe(3);
   });
 
   it("does not overwrite choices an admin already set", () => {
