@@ -34,6 +34,7 @@ import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
 import { HighlightsStrip, PathBar, StudySitesCard } from "./StudyDetail.crm";
+import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
 import type { StudySiteRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
@@ -72,7 +73,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "feasibility" | "startup" | "activity" | "tasks" | "documents";
+type Tab = "overview" | "feasibility" | "startup" | "workstream" | "activity" | "tasks" | "documents";
 
 export function StudyDetail({
   studyId,
@@ -635,6 +636,8 @@ export function StudyDetail({
         {shownTab === "feasibility" && <FeasibilityTab study={study} />}
 
         {shownTab === "startup" && <StartupDocsTab study={study} />}
+
+        {shownTab === "workstream" && <StudyWorkstreamTab study={study} stages={stages.rows} />}
 
         {shownTab === "activity" && !isXl && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />

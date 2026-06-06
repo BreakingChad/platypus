@@ -9,6 +9,7 @@ import type {
   FieldDefinitionRow,
   FieldType,
   PipelineStageRow,
+  WorkstreamRow,
   StudyRow,
 } from "../lib/types";
 import { Button } from "./ui/Button";
@@ -51,6 +52,12 @@ export function NewStudyModal({
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
   });
+
+  const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
+  const activeWs = workstreams.rows.filter((w) => w.status === "active");
+  const defaultWs = activeWs.find((w) => w.is_default) ?? activeWs[0] ?? null;
+  const [workstreamId, setWorkstreamId] = useState<string>("");
+  const wsValue = workstreamId || defaultWs?.id || "";
 
   const studyFields = useMemo(
     () =>
@@ -156,6 +163,7 @@ export function NewStudyModal({
         code,
         title,
         stage_key: stageKey,
+        workstream_id: wsValue || null,
         intake_status: "submitted",
         intake_date: new Date().toISOString(),
       };
@@ -275,6 +283,18 @@ export function NewStudyModal({
             <p className="text-[11px] text-slate-500 mt-1">
               Defaults to the first non-terminal stage. You can move the study anytime from its detail page.
             </p>
+          </div>
+
+          {/* Work stream picker — assigned at creation */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Work stream</label>
+            <Select value={wsValue} onChange={(e) => setWorkstreamId(e.target.value)}>
+              {activeWs.length === 0 && <option value="">— None configured —</option>}
+              {activeWs.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}{w.is_default ? " (default)" : ""}</option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-slate-500 mt-1">The pathway this study follows.</p>
           </div>
 
           {/* Field-driven inputs, grouped by section */}

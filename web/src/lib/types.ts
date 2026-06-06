@@ -190,6 +190,17 @@ export type OrgInviteRow = {
   accepted_at: string | null;
 };
 
+export type WorkstreamRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  status: string;       // active | archived
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StudySiteRow = {
   id: string;
   org_id: string;
@@ -335,6 +346,7 @@ export type StudyRow = {
   closed_at: string | null;
   pi_name: string | null;
   custom_field_values: Record<string, unknown>;
+  workstream_id?: string | null;
   root_study_id?: string | null;
   amendment_of?: string | null;
   version_label?: string | null;
@@ -393,6 +405,7 @@ export type Database = {
       intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
       startup_documents:       { Row: StartupDocumentRow;      Insert: Partial<StartupDocumentRow>;      Update: Partial<StartupDocumentRow>;      Relationships: [] };
       study_sites:             { Row: StudySiteRow;            Insert: Partial<StudySiteRow>;            Update: Partial<StudySiteRow>;            Relationships: [] };
+      workstreams:             { Row: WorkstreamRow;           Insert: Partial<WorkstreamRow>;           Update: Partial<WorkstreamRow>;           Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };

@@ -7,7 +7,8 @@ import { writeAuditEvent } from "../lib/auditLog";
 import { useModalA11y } from "../lib/useModalA11y";
 import { missingRequired, type FormFieldSnapshot } from "../lib/forms";
 import { nextStudyCode, buildStudyInsert } from "../lib/submissions";
-import type { FieldDefinitionRow, IntakeFormRow, StudyRow } from "../lib/types";
+import type { FieldDefinitionRow, IntakeFormRow, StudyRow, WorkstreamRow } from "../lib/types";
+import { useOrgTable } from "../lib/useOrgTable";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 
@@ -45,6 +46,10 @@ export function InternalIntakeModal({
     for (const f of fields) if (!seen.includes(f.section)) seen.push(f.section);
     return seen;
   }, [fields]);
+  const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
+  const activeWs = workstreams.rows.filter((w) => w.status === "active");
+  const defaultWs = activeWs.find((w) => w.is_default) ?? activeWs[0] ?? null;
+  const [workstreamId, setWorkstreamId] = useState<string>("");
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -61,7 +66,8 @@ export function InternalIntakeModal({
         orgId, code, stageKey: "intake", values, studyFields,
         fallbackTitle: form.title,
       });
-      const { data, error } = await supabase.from("studies").insert(insert as any).select("id, code").single();
+      const wsId = workstreamId || defaultWs?.id || null;
+      const { data, error } = await supabase.from("studies").insert({ ...insert, workstream_id: wsId } as any).select("id, code").single();
       if (error) throw error;
       const id = (data as any).id as string;
       if (userId) {
@@ -99,6 +105,18 @@ export function InternalIntakeModal({
           </p>
         </div>
         <div className="p-5 overflow-y-auto space-y-4">
+          {activeWs.length > 0 && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Work stream</span>
+              <select
+                value={workstreamId || defaultWs?.id || ""}
+                onChange={(e) => setWorkstreamId(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+              >
+                {activeWs.map((w) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? " (default)" : ""}</option>)}
+              </select>
+            </label>
+          )}
           {fields.length === 0 && (
             <p className="text-sm text-slate-500 italic">This form has no fields — add some in Configure → Intake forms.</p>
           )}
