@@ -31,6 +31,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
+import { VersionBar } from "./StudyDetail.versionBar";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -507,6 +508,8 @@ export function StudyDetail({
           </div>
         }
       />
+
+      <VersionBar study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />
 
       {/* SPLIT (≥ xl): record column + docked work pane */}
       <div className="mt-2 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5 xl:items-start">

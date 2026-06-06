@@ -31,6 +31,7 @@ import {
 } from "../lib/portfolioFilters";
 import { computeHealth, healthSortWeight, type HealthLevel } from "../lib/studyHealth";
 import { useStickyState, useStickyStateWithRoleDefault } from "../lib/useStickyState";
+import { isHistorical } from "../lib/amendments";
 import { InfoTip } from "../components/ui/Tip";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { useStarredStudies } from "../lib/useStarred";
@@ -102,6 +103,7 @@ export function StudiesList({
   type LifeTab = "pipeline" | "active" | "closed";
   const [lifeTab, setLifeTab] = useStickyState<LifeTab>("studies/lifeTab", "pipeline");
   const [staleOnly, setStaleOnly] = useStickyState<boolean>("studies/staleOnly", false);
+  const [showHistorical, setShowHistorical] = useStickyState<boolean>("studies/showHistorical", false);
   // Column sort: "smart" (pinned → health → newest) is the default; clicking
   // a header sorts by it, again flips direction, a third click restores smart.
   const [sortBy, setSortBy] = useStickyState<string>("studies/sortBy", "smart");
@@ -294,6 +296,7 @@ export function StudiesList({
         const isActive = row.stage_key === "activation";
         return lifeTab === "active" ? isActive : !isActive;
       })
+      .filter(({ row }) => (showHistorical ? true : !isHistorical(row)))
       .filter(({ row }) => (stageFilter === "all" ? true : row.stage_key === stageFilter))
       .filter(({ health }) => (healthFilter === "all" ? true : health.level === healthFilter))
       .filter(({ row }) => matchesAdvFilters(row, advFilters))
@@ -345,7 +348,7 @@ export function StudiesList({
         if (av > bv) return 1 * dir;
         return (b.row.created_at ?? "").localeCompare(a.row.created_at ?? "");
       });
-  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab, staleOnly, sortBy, sortDir, stageByKey, starred, advRaw]);
+  }, [studies.rows, stages.rows, search, stageFilter, healthFilter, showClosed, lifeTab, staleOnly, sortBy, sortDir, stageByKey, starred, advRaw, showHistorical]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};

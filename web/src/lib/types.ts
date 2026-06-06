@@ -321,6 +321,12 @@ export type StudyRow = {
   closed_at: string | null;
   pi_name: string | null;
   custom_field_values: Record<string, unknown>;
+  root_study_id?: string | null;
+  amendment_of?: string | null;
+  version_label?: string | null;
+  amendment_purpose?: string | null;
+  superseded_at?: string | null;
+  superseded_by?: string | null;
   ai_summary?: string | null;
   ai_summary_at?: string | null;
   ai_summary_by?: string | null;
