@@ -1,4 +1,13 @@
 import { friendlyError } from "../lib/errors";
+import {
+  DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
@@ -89,6 +98,25 @@ export function StageDesigner() {
     } catch (e: any) {
       toast.error(friendlyError(e, "Reorder failed"));
     }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = sorted.findIndex((s) => s.id === active.id);
+    const to = sorted.findIndex((s) => s.id === over.id);
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(sorted, from, to);
+    // Renumber every position so the new order persists cleanly.
+    void Promise.all(
+      next.map((s, i) =>
+        s.position === (i + 1) * 10 ? null : update(s.id, { position: (i + 1) * 10 })
+      )
+    ).catch((e: any) => toast.error(friendlyError(e, "Reorder failed")));
   };
 
   const tryRemove = async (stage: PipelineStageRow) => {
@@ -229,20 +257,24 @@ export function StageDesigner() {
             <span className="w-24 text-center">Order</span>
             <span className="w-8" />
           </div>
-          {sorted.map((s, idx) => (
-            <StageRow
-              key={s.id}
-              stage={s}
-              isFirst={idx === 0}
-              isLast={idx === sorted.length - 1}
-              onUpdate={(patch) =>
-                update(s.id, patch).catch((e: any) => toast.error(friendlyError(e, "Update failed")))
-              }
-              onMoveUp={() => move(s, "up")}
-              onMoveDown={() => move(s, "down")}
-              onRemove={() => tryRemove(s)}
-            />
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={sorted.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              {sorted.map((s, idx) => (
+                <StageRow
+                  key={s.id}
+                  stage={s}
+                  isFirst={idx === 0}
+                  isLast={idx === sorted.length - 1}
+                  onUpdate={(patch) =>
+                    update(s.id, patch).catch((e: any) => toast.error(friendlyError(e, "Update failed")))
+                  }
+                  onMoveUp={() => move(s, "up")}
+                  onMoveDown={() => move(s, "down")}
+                  onRemove={() => tryRemove(s)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 
@@ -275,6 +307,7 @@ function StageRow({
   const [editing, setEditing] = useState(false);
   const [draftLabel, setDraftLabel] = useState(stage.label);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stage.id });
 
   const commitLabel = () => {
     const trimmed = draftLabel.trim();
@@ -283,11 +316,21 @@ function StageRow({
   };
 
   return (
-    <div className="px-4 py-2.5 border-b border-slate-100 last:border-b-0 flex items-center gap-2 group">
-      {/* drag handle (visual only for now) */}
-      <span className="w-8 text-slate-300 flex justify-center cursor-grab" title="Drag handle (visual)">
-        <Icon name="layers" size={14} />
-      </span>
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      className="px-4 py-2.5 border-b border-slate-100 last:border-b-0 flex items-center gap-2 group bg-white"
+    >
+      {/* drag handle — reorder by dragging (arrows below also work) */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="w-8 text-slate-300 hover:text-slate-500 flex justify-center cursor-grab active:cursor-grabbing"
+        title="Drag to reorder"
+        aria-label="Drag to reorder stage"
+      >
+        <Icon name="menu" size={14} />
+      </button>
 
       {/* color swatch — click opens palette */}
       <div className="relative w-9">

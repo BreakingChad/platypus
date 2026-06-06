@@ -81,6 +81,8 @@ export function WorkStreamBuilder() {
   });
 
   const [selectedStageKey, setSelectedStageKey] = useState<string | null>(null);
+  const [moduleNameDraft, setModuleNameDraft] = useState("");
+  const [addingModule, setAddingModule] = useState(false);
 
   // Pick the first stage when stages load.
   useEffect(() => {
@@ -106,18 +108,21 @@ export function WorkStreamBuilder() {
   /* ---------- mutators ---------- */
 
   const addModule = async () => {
-    if (!orgId || !selectedStageKey) return;
+    const name = moduleNameDraft.trim();
+    if (!orgId || !selectedStageKey || !name) return;
     const nextPos = stageModules.reduce((m, x) => Math.max(m, x.position), 0) + 10;
     try {
       const { error } = await supabase.from("workflow_modules").insert({
         org_id: orgId,
         stage_key: selectedStageKey,
-        name: "New module",
+        name,
         enabled: true,
         position: nextPos,
       } as any);
       if (error) throw error;
-      toast.success(stamped("Module added"));
+      toast.success(stamped(`Module "${name}" added`));
+      setModuleNameDraft("");
+      setAddingModule(false);
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't add module"));
     }
@@ -395,9 +400,28 @@ export function WorkStreamBuilder() {
                       </option>
                     ))}
                 </Select>
-                <Button variant="primary" size="sm" onClick={addModule}>
-                  <Icon name="plus" size={12} /> Add module
-                </Button>
+                {addingModule ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={moduleNameDraft}
+                      onChange={(e) => setModuleNameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && moduleNameDraft.trim()) void addModule();
+                        if (e.key === "Escape") { setAddingModule(false); setModuleNameDraft(""); }
+                      }}
+                      placeholder="Module name…"
+                      autoFocus
+                      className="text-sm w-44"
+                    />
+                    <Button variant="primary" size="sm" onClick={addModule} disabled={!moduleNameDraft.trim()}>
+                      Add
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="primary" size="sm" onClick={() => setAddingModule(true)}>
+                    <Icon name="plus" size={12} /> Add module
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -409,7 +433,7 @@ export function WorkStreamBuilder() {
                 title={`No modules on ${selectedStage.label} yet`}
                 sub="Add a module above. Each module groups related tasks that fire together when a study lands on this stage."
                 action={
-                  <Button variant="primary" onClick={addModule}>
+                  <Button variant="primary" onClick={() => setAddingModule(true)}>
                     <Icon name="plus" size={12} /> Add module
                   </Button>
                 }
@@ -497,7 +521,8 @@ function ModuleCard({
 
   const commitName = () => {
     const next = nameDraft.trim();
-    if (next && next !== mod.name) void onUpdate({ name: next });
+    if (!next) { setNameDraft(mod.name); setRenaming(false); return; }
+    if (next !== mod.name) void onUpdate({ name: next });
     setRenaming(false);
   };
 
