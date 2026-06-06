@@ -190,6 +190,18 @@ export type OrgInviteRow = {
   accepted_at: string | null;
 };
 
+export type StudySiteRow = {
+  id: string;
+  org_id: string;
+  study_id: string;
+  site_id: string;
+  is_primary: boolean;
+  site_status: string;   // selected | activated | closed
+  activated_date: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 export type StartupDocumentRow = {
   id: string;
   org_id: string;
@@ -380,6 +392,7 @@ export type Database = {
       document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
       intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
       startup_documents:       { Row: StartupDocumentRow;      Insert: Partial<StartupDocumentRow>;      Update: Partial<StartupDocumentRow>;      Relationships: [] };
+      study_sites:             { Row: StudySiteRow;            Insert: Partial<StudySiteRow>;            Update: Partial<StudySiteRow>;            Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };

@@ -1,4 +1,5 @@
 import { friendlyError } from "../lib/errors";
+import { confirmDialog } from "../lib/confirm";
 import { fmtDate } from "../lib/dates";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
@@ -32,6 +33,8 @@ import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
+import { HighlightsStrip, PathBar, StudySitesCard } from "./StudyDetail.crm";
+import type { StudySiteRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -90,6 +93,7 @@ export function StudyDetail({
     realtime: true,
   });
   const sites = useOrgTable<SiteRow>("sites", { orderBy: "name" });
+  const studySites = useOrgTable<StudySiteRow>("study_sites", { realtime: true });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
     realtime: true,
@@ -440,60 +444,14 @@ export function StudyDetail({
         kicker={`Study · ${study.code}`}
         title={study.title}
         subtitle={
-          <>
-            {[study.sponsor, study.nct, study.therapeutic_area, study.phase]
-              .filter(Boolean)
-              .join(" · ") || (
-              <span className="text-slate-400 italic">No identifiers set yet</span>
-            )}
-            <SiteChip
-              study={study}
-              sites={sites.rows}
-              isAdmin={isAdmin}
-              onAssign={async (siteId) => {
-                try {
-                  const { error } = await supabase
-                    .from("studies")
-                    .update({ site_id: siteId } as any)
-                    .eq("id", study.id);
-                  if (error) throw error;
-                  if (orgId && userId) {
-                    void writeAuditEvent({
-                      orgId, actorId: userId, actorEmail: userEmail,
-                      entityType: "study", entityId: study.id,
-                      action: "site_assigned",
-                      payload: {
-                        site_id: siteId,
-                        site_name: sites.rows.find((s) => s.id === siteId)?.name ?? null,
-                      },
-                    });
-                  }
-                  toast.success(stamped("Site assigned"));
-                } catch (e: any) {
-                  toast.error(friendlyError(e, "Couldn't assign site"));
-                }
-              }}
-            />
-          </>
+          [study.sponsor, study.nct, study.therapeutic_area, study.phase]
+            .filter(Boolean)
+            .join(" · ") || (
+            <span className="text-slate-400 italic">No identifiers set yet</span>
+          )
         }
         actions={
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <StageMenu
-              stage={stage ?? null}
-              stages={stages.rows}
-              isAdmin={isAdmin && !study.closed}
-              advancing={advancing}
-              onAdvance={(k) => void advanceStage(k)}
-            />
-            {health && !study.closed && health.targetDays > 0 && health.level !== "unknown" && (
-              <span
-                className="text-[11px] font-mono text-slate-500"
-                title={health.summary}
-              >
-                {health.daysInStage}d / {health.targetDays}d
-              </span>
-            )}
-            {health && !study.closed && <HealthDot health={health} variant="pill" />}
             {study.closed && <Pill tone="neutral">closed</Pill>}
             {isAdmin && (
               <Button
@@ -510,6 +468,17 @@ export function StudyDetail({
       />
 
       <VersionBar study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />
+
+      <HighlightsStrip study={study} health={health} siteCount={studySites.rows.filter((r) => r.study_id === study.id).length} />
+      {!study.closed && (
+        <PathBar
+          stages={stages.rows}
+          currentKey={study.stage_key}
+          isAdmin={isAdmin}
+          advancing={advancing}
+          onAdvance={(k) => void advanceStage(k)}
+        />
+      )}
 
       {/* SPLIT (≥ xl): record column + docked work pane */}
       <div className="mt-2 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5 xl:items-start">
@@ -556,6 +525,39 @@ export function StudyDetail({
       <div className="mt-5">
         {shownTab === "overview" && (
           <div className="space-y-5">
+            <StudySitesCard
+              study={study}
+              sites={sites.rows}
+              studySites={studySites.rows.filter((r) => r.study_id === study.id)}
+              isAdmin={isAdmin}
+              onAdd={async (siteId) => {
+                if (!orgId) return;
+                try {
+                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
+                  await supabase.from("study_sites").insert({ org_id: orgId, study_id: study.id, site_id: siteId, is_primary: mine.length === 0, site_status: "selected" } as any);
+                  if (mine.length === 0) await supabase.from("studies").update({ site_id: siteId } as any).eq("id", study.id);
+                  if (userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "site_added", payload: { site_id: siteId, site_name: sites.rows.find((s) => s.id === siteId)?.name ?? null } });
+                  toast.success(stamped("Site added"));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't add the site")); }
+              }}
+              onRemove={async (row) => {
+                if (!(await confirmDialog({ title: "Remove site", message: `Remove ${sites.rows.find((s) => s.id === row.site_id)?.name ?? "this site"} from the study?`, confirmLabel: "Remove", danger: true }))) return;
+                try { await supabase.from("study_sites").delete().eq("id", row.id); toast.success(stamped("Site removed")); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't remove the site")); }
+              }}
+              onStatus={async (row, statusVal) => {
+                try { await supabase.from("study_sites").update({ site_status: statusVal } as any).eq("id", row.id); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't update")); }
+              }}
+              onSetPrimary={async (row) => {
+                try {
+                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
+                  await Promise.all(mine.map((r) => supabase.from("study_sites").update({ is_primary: r.id === row.id } as any).eq("id", r.id)));
+                  await supabase.from("studies").update({ site_id: row.site_id } as any).eq("id", study.id);
+                  toast.success(stamped("Primary site set"));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't set primary")); }
+              }}
+            />
             <AiSummaryCard study={study} aiEnabled={aiEnabled} />
             <div className="xl:hidden">
               <NotesCard studyId={study.id} />
