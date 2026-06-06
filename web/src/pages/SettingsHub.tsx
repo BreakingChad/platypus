@@ -39,8 +39,8 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     title: "Pipeline & work",
     sub: "The stages studies move through and what fires at each.",
     tools: [
-      { href: "#/settings/stages", icon: "workflow", name: "Pipeline stages", what: "The lifecycle studies move through — names, colors, target days. Reorder by drag; or shape them in the flow next door.", touch: "Once, then tuned" },
-      { href: "#/settings/work-streams", icon: "workflow", name: "Pipeline & work streams", what: "The visual flow — stages left-to-right (sequential or parallel) with the modules that spawn tasks at each. Edit stages and modules in one place.", touch: "Per study type" },
+      { href: "#/settings/stages", icon: "workflow", name: "Pipeline stages", what: "The stage backbone — names, colors, target days. The pipeline every work stream runs on.", touch: "Once, then tuned" },
+      { href: "#/settings/work-streams", icon: "workflow", name: "Work streams", what: "Build each work stream's modules on the pipeline — the visual flow editor, with parallel stages and per-task roles.", touch: "Per study type" },
       { href: "#/settings/forms", icon: "mail", name: "Intake forms", what: "External study-intake forms — build from your field schema, activate, share one link. Versions freeze at activation.", touch: "Per intake channel" },
     ],
   },

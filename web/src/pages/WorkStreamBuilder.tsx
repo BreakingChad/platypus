@@ -65,6 +65,13 @@ import { EmptyState } from "../components/ui/EmptyState";
  */
 
 const TASK_KINDS: TaskKind[] = ["manual", "date", "handoff", "escalation", "external_handoff"];
+const KIND_LABELS: Record<TaskKind, string> = {
+  manual: "Manual task",
+  date: "Date completed",
+  handoff: "Handoff",
+  escalation: "Escalation",
+  external_handoff: "External handoff",
+};
 const STAGE_COLORS = ["#6366F1", "#0284C7", "#059669", "#b45309", "#7C3AED", "#BE185D", "#4F46E5", "#10B981", "#EF4444", "#64748B"];
 
 type DragMeta = { type: "stage" | "module"; stageKey?: string };
@@ -93,6 +100,7 @@ export function WorkStreamBuilder() {
     setSelectedWsId(fallback?.id ?? null);
   }, [activeWorkstreams, selectedWsId]);
   const selectedWs = activeWorkstreams.find((w) => w.id === selectedWsId) ?? null;
+  const selectedWsModuleCount = modules.rows.filter((m) => m.workstream_id === selectedWsId).length;
 
   /** Task-template counts per module, shown on the flow chips. */
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
@@ -149,6 +157,48 @@ export function WorkStreamBuilder() {
       await Promise.all(orderedIds.map((id, i) => stages.update(id, { position: (i + 1) * 10 } as any)));
     } catch (e: any) { toast.error(friendlyError(e, "Reorder failed")); }
   };
+  /** Insert a new sequential stage right after a given stage (not just at the end). */
+  const addStageAfter = async (afterStage: PipelineStageRow) => {
+    if (!orgId) return;
+    try {
+      const created = await stages.insert({
+        key: `stage_${Date.now().toString(36)}`,
+        label: "New stage",
+        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
+        target_days: 14,
+        terminal: false,
+        is_core: false,
+        parallel_group: null,
+        position: afterStage.position + 1,
+      } as any);
+      if (!created) return;
+      const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== created.id);
+      const idx = sorted.findIndex((s) => s.id === afterStage.id);
+      const order = [...sorted];
+      order.splice(idx + 1, 0, created);
+      await reorderStages(order.map((s) => s.id));
+      toast.success(stamped("Stage added — name it"));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
+  };
+
+  /** Add another stage into an existing parallel lane (unlimited width). */
+  const addParallelBranch = async (group: number, afterStage: PipelineStageRow) => {
+    if (!orgId) return;
+    try {
+      await stages.insert({
+        key: `stage_${Date.now().toString(36)}`,
+        label: "New parallel stage",
+        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
+        target_days: 14,
+        terminal: false,
+        is_core: false,
+        parallel_group: group,
+        position: afterStage.position + 1,
+      } as any);
+      toast.success(stamped("Parallel branch added — name it"));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add the parallel branch")); }
+  };
+
   const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
     try {
       await Promise.all(patches.map((p) =>
@@ -212,11 +262,11 @@ export function WorkStreamBuilder() {
   const stageLabel = (key: string) => stages.rows.find((s) => s.key === key)?.label ?? key;
 
   /** Deep-copy a module (+ its task templates) onto a stage. */
-  const deepCopyModule = async (src: WorkflowModuleRow, toStageKey: string, position: number, name?: string): Promise<{ taskCount: number }> => {
+  const deepCopyModule = async (src: WorkflowModuleRow, toStageKey: string, position: number, name?: string, toWorkstreamId?: string | null): Promise<{ taskCount: number }> => {
     const { data: created, error } = await supabase
       .from("workflow_modules")
       .insert({
-        org_id: src.org_id, stage_key: toStageKey, workstream_id: src.workstream_id, owner_team_id: src.owner_team_id,
+        org_id: src.org_id, stage_key: toStageKey, workstream_id: toWorkstreamId ?? src.workstream_id, owner_team_id: src.owner_team_id,
         name: name ?? src.name, description: src.description, enabled: src.enabled, position,
       } as any)
       .select("id")
@@ -286,8 +336,17 @@ export function WorkStreamBuilder() {
   const duplicateWorkstream = async (src: WorkstreamRow) => {
     if (!orgId) return;
     try {
-      await workstreams.insert({ name: `${src.name} (copy)`, description: src.description, status: "active", is_default: false } as any);
-      toast.success(stamped(`Copied "${src.name}"`));
+      const created = await workstreams.insert({ name: `${src.name} (copy)`, description: src.description, status: "active", is_default: false } as any);
+      if (!created) return;
+      // Deep-copy the whole flow: every module on this work stream + its tasks.
+      const srcMods = modules.rows.filter((m) => m.workstream_id === src.id).sort((a, b) => a.position - b.position);
+      let tasks = 0;
+      for (const m of srcMods) {
+        const r = await deepCopyModule(m, m.stage_key, m.position, undefined, created.id);
+        tasks += r.taskCount;
+      }
+      setSelectedWsId(created.id);
+      toast.success(stamped(`Copied "${src.name}" — ${srcMods.length} module${srcMods.length === 1 ? "" : "s"}, ${tasks} task${tasks === 1 ? "" : "s"}`));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't copy")); }
   };
   const archiveWorkstream = async (src: WorkstreamRow) => {
@@ -408,6 +467,12 @@ export function WorkStreamBuilder() {
             </span>
             <span className="text-[11px] text-slate-400">— drag stages to reorder, drag modules between stages, click a module to edit its tasks</span>
           </div>
+          {selectedWs && selectedWsModuleCount === 0 && (
+            <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-xs text-slate-600 flex items-center gap-2">
+              <Icon name="info" size={14} className="text-brand-500 flex-shrink-0" />
+              <span><span className="font-semibold text-slate-800">{selectedWs.name}</span> has no modules yet. Add one under any stage with <span className="font-semibold">+ module</span> — modules spawn tasks when a study reaches that stage.</span>
+            </div>
+          )}
           <SortableContext items={flatStageIds} strategy={rectSortingStrategy}>
             <FlowCanvas
               stages={stages.rows}
@@ -415,6 +480,8 @@ export function WorkStreamBuilder() {
               teams={teams.rows}
               taskCounts={taskCounts}
               onAddStage={() => void addStage()}
+              onAddStageAfter={(s) => void addStageAfter(s)}
+              onAddParallel={(group, after) => void addParallelBranch(group, after)}
               onRenameStage={(id, label) => void updateStage(id, { label })}
               onTargetStage={(id, days) => void updateStage(id, { target_days: days })}
               onToggleTerminal={(id, v) => void updateStage(id, { terminal: v })}
@@ -541,7 +608,7 @@ function WorkstreamManager({
 
 function FlowCanvas({
   stages, modules, teams, taskCounts,
-  onAddStage, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
+  onAddStage, onAddStageAfter, onAddParallel, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
   onMerge, onSplit, canMerge, onAddModule, onOpenModule, onCopyFrom,
 }: {
   stages: PipelineStageRow[];
@@ -549,6 +616,8 @@ function FlowCanvas({
   teams: TeamRow[];
   taskCounts: Record<string, number>;
   onAddStage: () => void;
+  onAddStageAfter: (afterStage: PipelineStageRow) => void;
+  onAddParallel: (group: number, afterStage: PipelineStageRow) => void;
   onRenameStage: (id: string, label: string) => void;
   onTargetStage: (id: string, days: number) => void;
   onToggleTerminal: (id: string, v: boolean) => void;
@@ -597,9 +666,25 @@ function FlowCanvas({
                   onCopyFrom={onCopyFrom}
                 />
               ))}
+              {col.stages.length > 1 && col.group != null && (
+                <button
+                  onClick={() => onAddParallel(col.group as number, col.stages[col.stages.length - 1])}
+                  className="w-64 rounded-lg border border-dashed border-brand-300 text-brand-600 hover:bg-brand-50 transition flex items-center justify-center gap-1.5 text-xs font-semibold py-2"
+                >
+                  <Icon name="plus" size={12} /> parallel branch
+                </button>
+              )}
             </div>
-            <div className="px-1.5 self-center text-slate-300 flex items-center" aria-hidden="true">
-              <Icon name="arrow-right" size={18} />
+            {/* connector + insert-between */}
+            <div className="group/conn px-1 self-center flex flex-col items-center justify-center" title="Insert a stage here">
+              <button
+                onClick={() => onAddStageAfter(col.stages[col.stages.length - 1])}
+                className="opacity-0 group-hover/conn:opacity-100 transition text-slate-300 hover:text-brand-600 mb-0.5"
+                aria-label="Insert stage here"
+              >
+                <Icon name="plus" size={14} />
+              </button>
+              <Icon name="arrow-right" size={18} className="text-slate-300" aria-hidden="true" />
             </div>
           </div>
         ))}
@@ -1049,7 +1134,7 @@ function TemplateRow({
       </div>
       <div className="grid grid-cols-[1fr_84px_1fr] gap-2 items-center mt-1.5 pl-7">
         <Select value={template.kind} onChange={(e) => void onUpdate({ kind: e.target.value as TaskKind })} className="text-xs py-1 px-2" title="Task type">
-          {TASK_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          {TASK_KINDS.map((k) => <option key={k} value={k}>{KIND_LABELS[k]}</option>)}
         </Select>
         <div className="flex items-center gap-1">
           <Input type="number" value={template.due_offset_days ?? ""} onChange={(e) => void onUpdate({ due_offset_days: e.target.value === "" ? null : Number(e.target.value) })}
