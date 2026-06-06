@@ -44,6 +44,7 @@ export type PipelineStageRow = {
   terminal: boolean;
   is_core: boolean;
   position: number;
+  parallel_group?: number | null;
   created_at: string;
 };
 

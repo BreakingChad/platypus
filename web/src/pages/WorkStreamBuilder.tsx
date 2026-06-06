@@ -39,6 +39,7 @@ import type {
 
 import { Card } from "../components/ui/Card";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
+import { flowColumns, mergeWithPrevious, canMergeWithPrevious } from "../lib/flow";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
@@ -81,6 +82,7 @@ export function WorkStreamBuilder() {
   });
 
   const [selectedStageKey, setSelectedStageKey] = useState<string | null>(null);
+  const [view, setView] = useState<"flow" | "edit">("flow");
   const [moduleNameDraft, setModuleNameDraft] = useState("");
   const [addingModule, setAddingModule] = useState(false);
 
@@ -170,6 +172,19 @@ export function WorkStreamBuilder() {
   /* ---------- copy tools — clients iterate; they don't author from scratch ---------- */
 
   const [copyBusy, setCopyBusy] = useState(false);
+
+  const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
+    try {
+      await Promise.all(
+        patches.map((p) =>
+          supabase.from("pipeline_stages").update({ parallel_group: p.parallel_group } as any).eq("id", p.id)
+        )
+      );
+      await stages.refresh();
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't change the lane"));
+    }
+  };
 
   /** Deep-copy one module (+ its task templates) onto a stage. */
   const deepCopyModule = async (
@@ -301,10 +316,42 @@ export function WorkStreamBuilder() {
         kicker="Configure"
         title="Work streams"
         subtitle="Design the operating model. When a study enters a stage, the modules configured here fire and spawn tasks automatically — assigned to the right roles, with the right due dates."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="group" aria-label="View">
+              {([["flow", "Flow"], ["edit", "Edit"]] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setView(k)}
+                  className={
+                    "px-3 py-1.5 rounded-md text-xs font-semibold transition " +
+                    (view === k ? "bg-brand-gradient text-white shadow" : "text-slate-600 hover:text-slate-900")
+                  }
+                  aria-pressed={view === k}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Pill tone="brand">live · admin-driven</Pill>
+          </div>
+        }
       />
       <AutoSaveNote />
 
+      {view === "flow" && (
+        <FlowView
+          stages={stages.rows}
+          modules={modules.rows}
+          teams={teams.rows}
+          onOpenStage={(key) => { setSelectedStageKey(key); setView("edit"); }}
+          onMerge={(id) => void setStageParallel(mergeWithPrevious(stages.rows, id))}
+          onSplit={(id) => void setStageParallel([{ id, parallel_group: null }])}
+          canMerge={(id) => canMergeWithPrevious(stages.rows, id)}
+        />
+      )}
+
+      {view === "edit" && (
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 mt-6">
         {/* LEFT — stage rail */}
         <div>
@@ -483,6 +530,109 @@ export function WorkStreamBuilder() {
             </DndContext>
           )}
         </div>
+      </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Flow view — left-to-right pipeline, parallel stages stacked in one lane
+ * ========================================================================== */
+
+function FlowView({
+  stages,
+  modules,
+  teams,
+  onOpenStage,
+  onMerge,
+  onSplit,
+  canMerge,
+}: {
+  stages: PipelineStageRow[];
+  modules: WorkflowModuleRow[];
+  teams: TeamRow[];
+  onOpenStage: (key: string) => void;
+  onMerge: (id: string) => void;
+  onSplit: (id: string) => void;
+  canMerge: (id: string) => boolean;
+}) {
+  const cols = flowColumns(stages);
+  const teamColor = (id: string | null) => teams.find((t) => t.id === id)?.color ?? "#94a3b8";
+  if (stages.length === 0) {
+    return (
+      <Card className="mt-6">
+        <EmptyState iconName="workflow" title="No stages yet" sub="Add pipeline stages under Configure → Pipeline stages, then design the flow here." />
+      </Card>
+    );
+  }
+  return (
+    <div className="mt-6 overflow-x-auto pb-4">
+      <div className="flex items-stretch gap-0 min-w-max">
+        {cols.map((col, ci) => (
+          <div key={ci} className="flex items-center">
+            <div className="flex flex-col gap-2 justify-center">
+              {col.stages.length > 1 && (
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
+                  parallel
+                </div>
+              )}
+              {col.stages.map((s) => {
+                const mods = modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position);
+                return (
+                  <div
+                    key={s.id}
+                    className="w-60 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+                    style={{ borderTopWidth: 3, borderTopColor: s.color }}
+                  >
+                    <button
+                      onClick={() => onOpenStage(s.key)}
+                      className="w-full text-left px-3 py-2 border-b border-slate-100 hover:bg-brand-50/40 transition"
+                      title="Open this stage to edit its modules"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="text-sm font-semibold text-slate-900 truncate flex-1">{s.label}</span>
+                        {s.terminal && <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">terminal</span>}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        {s.target_days > 0 ? `target ${s.target_days}d` : "no target"}
+                      </div>
+                    </button>
+                    <div className="p-2 space-y-1">
+                      {mods.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic px-1 py-1">No modules</p>
+                      ) : (
+                        mods.map((m) => (
+                          <div key={m.id} className="flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor(m.owner_team_id) }} />
+                            <span className="text-[11px] text-slate-700 truncate">{m.name}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="px-2 pb-2 flex justify-end">
+                      {col.stages.length > 1 ? (
+                        <button onClick={() => onSplit(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700">
+                          split out
+                        </button>
+                      ) : canMerge(s.id) ? (
+                        <button onClick={() => onMerge(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700" title="Run this stage in parallel with the one before it">
+                          ∥ run parallel with previous
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {ci < cols.length - 1 && (
+              <div className="px-1 text-slate-300 flex items-center" aria-hidden="true">
+                <Icon name="arrow-right" size={18} />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
