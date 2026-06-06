@@ -173,6 +173,50 @@ export function WorkStreamBuilder() {
 
   const [copyBusy, setCopyBusy] = useState(false);
 
+  const STAGE_COLORS = ["#6366F1","#0284C7","#059669","#b45309","#7C3AED","#BE185D","#4F46E5","#10B981","#EF4444","#64748B"];
+  const addStage = async () => {
+    if (!orgId) return;
+    const nextPos = stages.rows.reduce((m, s) => Math.max(m, s.position), 0) + 10;
+    try {
+      await stages.insert({
+        key: `stage_${Date.now().toString(36)}`,
+        label: "New stage",
+        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
+        target_days: 14,
+        terminal: false,
+        is_core: false,
+        position: nextPos,
+      } as any);
+      toast.success(stamped("Stage added — name it"));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
+  };
+  const updateStage = (id: string, patch: Partial<PipelineStageRow>) =>
+    stages.update(id, patch).catch((e: any) => toast.error(friendlyError(e, "Update failed")));
+  const removeStage = async (s: PipelineStageRow) => {
+    if (s.is_core) { toast.error("Core stages can't be removed"); return; }
+    if (!(await confirmDialog({ title: "Remove stage", message: `Remove "${s.label}"? Its modules go with it.`, confirmLabel: "Remove", danger: true }))) return;
+    try { await stages.remove(s.id); toast.success(stamped(`Removed "${s.label}"`)); }
+    catch (e: any) { toast.error(friendlyError(e, "Remove failed")); }
+  };
+  const moveStage = async (s: PipelineStageRow, dir: "left" | "right") => {
+    const sorted = [...stages.rows].sort((a, b) => a.position - b.position);
+    const i = sorted.findIndex((x) => x.id === s.id);
+    const j = dir === "left" ? i - 1 : i + 1;
+    if (j < 0 || j >= sorted.length) return;
+    const other = sorted[j];
+    await Promise.all([stages.update(s.id, { position: other.position }), stages.update(other.id, { position: s.position })])
+      .catch((e: any) => toast.error(friendlyError(e, "Reorder failed")));
+  };
+  const addModuleTo = async (stageKey: string, name: string) => {
+    if (!orgId || !name.trim()) return;
+    const pos = modules.rows.filter((m) => m.stage_key === stageKey).reduce((m, x) => Math.max(m, x.position), 0) + 10;
+    try {
+      const { error } = await supabase.from("workflow_modules").insert({ org_id: orgId, stage_key: stageKey, name: name.trim(), enabled: true, position: pos } as any);
+      if (error) throw error;
+      toast.success(stamped(`Module "${name.trim()}" added`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add module")); }
+  };
+
   const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
     try {
       await Promise.all(
@@ -314,8 +358,8 @@ export function WorkStreamBuilder() {
     <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
-        title="Work streams"
-        subtitle="Design the operating model. When a study enters a stage, the modules configured here fire and spawn tasks automatically — assigned to the right roles, with the right due dates."
+        title="Pipeline & work streams"
+        subtitle="Design the operating model as one flow: stages left-to-right (sequential or parallel), each with the modules that spawn tasks when a study reaches it. Edit stages and modules right here."
         actions={
           <div className="flex items-center gap-2">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="group" aria-label="View">
@@ -344,10 +388,19 @@ export function WorkStreamBuilder() {
           stages={stages.rows}
           modules={modules.rows}
           teams={teams.rows}
+          isAdmin={isAdmin}
           onOpenStage={(key) => { setSelectedStageKey(key); setView("edit"); }}
           onMerge={(id) => void setStageParallel(mergeWithPrevious(stages.rows, id))}
           onSplit={(id) => void setStageParallel([{ id, parallel_group: null }])}
           canMerge={(id) => canMergeWithPrevious(stages.rows, id)}
+          onAddStage={() => void addStage()}
+          onRenameStage={(id, label) => void updateStage(id, { label })}
+          onTargetStage={(id, days) => void updateStage(id, { target_days: days })}
+          onToggleTerminal={(id, v) => void updateStage(id, { terminal: v })}
+          onMoveStage={(s, dir) => void moveStage(s, dir)}
+          onRemoveStage={(s) => void removeStage(s)}
+          onAddModule={(key, name) => void addModuleTo(key, name)}
+          onRemoveModule={(id, name) => void removeModule(id, name)}
         />
       )}
 
@@ -540,32 +593,109 @@ export function WorkStreamBuilder() {
  * Flow view — left-to-right pipeline, parallel stages stacked in one lane
  * ========================================================================== */
 
+function StageCardEditable({
+  s, mods, teams, isAdmin, inLane, canMerge,
+  onOpenStage, onRename, onTarget, onTerminal, onMove, onRemove, onMerge, onSplit, onAddModule, onRemoveModule,
+}: any) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(s.label);
+  const [addingMod, setAddingMod] = useState(false);
+  const [modName, setModName] = useState("");
+  const teamColor = (id: string | null) => teams.find((t: TeamRow) => t.id === id)?.color ?? "#94a3b8";
+  return (
+    <div className="w-64 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" style={{ borderTopWidth: 3, borderTopColor: s.color }}>
+      <div className="px-3 py-2 border-b border-slate-100">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+          {renaming && isAdmin ? (
+            <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => { const t = draft.trim(); if (t && t !== s.label) onRename(s.id, t); setRenaming(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setDraft(s.label); setRenaming(false); } }}
+              className="text-sm font-semibold text-slate-900 border border-brand-200 rounded px-1 py-0.5 outline-none flex-1 min-w-0" />
+          ) : (
+            <button onClick={() => isAdmin && setRenaming(true)} className="text-sm font-semibold text-slate-900 truncate flex-1 text-left hover:text-brand-700" title={isAdmin ? "Rename" : s.label}>{s.label}</button>
+          )}
+          {isAdmin && (
+            <span className="flex items-center text-slate-300">
+              <button onClick={() => onMove(s, "left")} className="hover:text-slate-600 px-0.5" title="Move left" aria-label="Move left">‹</button>
+              <button onClick={() => onMove(s, "right")} className="hover:text-slate-600 px-0.5" title="Move right" aria-label="Move right">›</button>
+              {!s.is_core && <button onClick={() => onRemove(s)} className="hover:text-red-600 px-0.5" title="Remove stage" aria-label="Remove">×</button>}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          {isAdmin ? (
+            <label className="flex items-center gap-1 text-[11px] text-slate-400">
+              target
+              <input type="number" value={s.target_days} onChange={(e) => onTarget(s.id, Number(e.target.value))} className="w-12 text-[11px] font-mono border border-slate-200 rounded px-1 py-0.5" />d
+            </label>
+          ) : (
+            <span className="text-[11px] text-slate-400 font-mono">{s.target_days > 0 ? `target ${s.target_days}d` : "no target"}</span>
+          )}
+          {isAdmin && (
+            <label className="flex items-center gap-1 text-[11px] text-slate-400 cursor-pointer ml-auto">
+              <input type="checkbox" checked={s.terminal} onChange={(e) => onTerminal(s.id, e.target.checked)} className="accent-brand-500 w-3 h-3" />terminal
+            </label>
+          )}
+          {!isAdmin && s.terminal && <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 ml-auto">terminal</span>}
+        </div>
+      </div>
+      <div className="p-2 space-y-1">
+        {mods.length === 0 && !addingMod && <p className="text-[11px] text-slate-400 italic px-1 py-1">No modules</p>}
+        {mods.map((m: WorkflowModuleRow) => (
+          <div key={m.id} className="group flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor(m.owner_team_id) }} />
+            <button onClick={() => onOpenStage(s.key)} className="text-[11px] text-slate-700 truncate flex-1 text-left hover:text-brand-700" title="Open to edit tasks">{m.name}</button>
+            {isAdmin && <button onClick={() => onRemoveModule(m.id, m.name)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100" aria-label="Remove module">×</button>}
+          </div>
+        ))}
+        {isAdmin && (addingMod ? (
+          <div className="flex items-center gap-1">
+            <input autoFocus value={modName} onChange={(e) => setModName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && modName.trim()) { onAddModule(s.key, modName); setModName(""); setAddingMod(false); } if (e.key === "Escape") { setAddingMod(false); setModName(""); } }}
+              placeholder="Module name…" className="flex-1 text-[11px] border border-slate-200 rounded px-1.5 py-1 outline-none" />
+            <button onClick={() => { if (modName.trim()) { onAddModule(s.key, modName); setModName(""); setAddingMod(false); } }} className="text-[11px] font-semibold text-brand-700">add</button>
+          </div>
+        ) : (
+          <button onClick={() => setAddingMod(true)} className="text-[11px] font-semibold text-brand-700 hover:underline px-1">+ module</button>
+        ))}
+      </div>
+      {isAdmin && (
+        <div className="px-2 pb-2 flex justify-end">
+          {inLane ? (
+            <button onClick={() => onSplit(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700">split out</button>
+          ) : canMerge ? (
+            <button onClick={() => onMerge(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700" title="Run in parallel with the previous stage">∥ parallel w/ previous</button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FlowView({
-  stages,
-  modules,
-  teams,
-  onOpenStage,
-  onMerge,
-  onSplit,
-  canMerge,
+  stages, modules, teams, isAdmin,
+  onOpenStage, onMerge, onSplit, canMerge,
+  onAddStage, onRenameStage, onTargetStage, onToggleTerminal, onMoveStage, onRemoveStage, onAddModule, onRemoveModule,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
+  isAdmin: boolean;
   onOpenStage: (key: string) => void;
   onMerge: (id: string) => void;
   onSplit: (id: string) => void;
   canMerge: (id: string) => boolean;
+  onAddStage: () => void;
+  onRenameStage: (id: string, label: string) => void;
+  onTargetStage: (id: string, days: number) => void;
+  onToggleTerminal: (id: string, v: boolean) => void;
+  onMoveStage: (s: PipelineStageRow, dir: "left" | "right") => void;
+  onRemoveStage: (s: PipelineStageRow) => void;
+  onAddModule: (stageKey: string, name: string) => void;
+  onRemoveModule: (id: string, name: string) => void;
 }) {
   const cols = flowColumns(stages);
-  const teamColor = (id: string | null) => teams.find((t) => t.id === id)?.color ?? "#94a3b8";
-  if (stages.length === 0) {
-    return (
-      <Card className="mt-6">
-        <EmptyState iconName="workflow" title="No stages yet" sub="Add pipeline stages under Configure → Pipeline stages, then design the flow here." />
-      </Card>
-    );
-  }
   return (
     <div className="mt-6 overflow-x-auto pb-4">
       <div className="flex items-stretch gap-0 min-w-max">
@@ -573,66 +703,43 @@ function FlowView({
           <div key={ci} className="flex items-center">
             <div className="flex flex-col gap-2 justify-center">
               {col.stages.length > 1 && (
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
-                  parallel
-                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">parallel</div>
               )}
-              {col.stages.map((s) => {
-                const mods = modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position);
-                return (
-                  <div
-                    key={s.id}
-                    className="w-60 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-                    style={{ borderTopWidth: 3, borderTopColor: s.color }}
-                  >
-                    <button
-                      onClick={() => onOpenStage(s.key)}
-                      className="w-full text-left px-3 py-2 border-b border-slate-100 hover:bg-brand-50/40 transition"
-                      title="Open this stage to edit its modules"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                        <span className="text-sm font-semibold text-slate-900 truncate flex-1">{s.label}</span>
-                        {s.terminal && <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">terminal</span>}
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {s.target_days > 0 ? `target ${s.target_days}d` : "no target"}
-                      </div>
-                    </button>
-                    <div className="p-2 space-y-1">
-                      {mods.length === 0 ? (
-                        <p className="text-[11px] text-slate-400 italic px-1 py-1">No modules</p>
-                      ) : (
-                        mods.map((m) => (
-                          <div key={m.id} className="flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor(m.owner_team_id) }} />
-                            <span className="text-[11px] text-slate-700 truncate">{m.name}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="px-2 pb-2 flex justify-end">
-                      {col.stages.length > 1 ? (
-                        <button onClick={() => onSplit(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700">
-                          split out
-                        </button>
-                      ) : canMerge(s.id) ? (
-                        <button onClick={() => onMerge(s.id)} className="text-[10px] font-semibold text-slate-400 hover:text-brand-700" title="Run this stage in parallel with the one before it">
-                          ∥ run parallel with previous
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
+              {col.stages.map((s) => (
+                <StageCardEditable
+                  key={s.id}
+                  s={s}
+                  mods={modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position)}
+                  teams={teams}
+                  isAdmin={isAdmin}
+                  inLane={col.stages.length > 1}
+                  canMerge={canMerge(s.id)}
+                  onOpenStage={onOpenStage}
+                  onRename={onRenameStage}
+                  onTarget={onTargetStage}
+                  onTerminal={onToggleTerminal}
+                  onMove={onMoveStage}
+                  onRemove={onRemoveStage}
+                  onMerge={onMerge}
+                  onSplit={onSplit}
+                  onAddModule={onAddModule}
+                  onRemoveModule={onRemoveModule}
+                />
+              ))}
             </div>
-            {ci < cols.length - 1 && (
-              <div className="px-1 text-slate-300 flex items-center" aria-hidden="true">
-                <Icon name="arrow-right" size={18} />
-              </div>
-            )}
+            <div className="px-1 text-slate-300 flex items-center" aria-hidden="true">
+              <Icon name="arrow-right" size={18} />
+            </div>
           </div>
         ))}
+        {isAdmin && (
+          <button onClick={onAddStage} className="w-40 self-stretch rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold min-h-[120px]">
+            <Icon name="plus" size={14} /> Stage
+          </button>
+        )}
+        {stages.length === 0 && !isAdmin && (
+          <div className="text-sm text-slate-500 px-2 py-8">No stages configured yet.</div>
+        )}
       </div>
     </div>
   );

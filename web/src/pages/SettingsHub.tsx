@@ -23,7 +23,6 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     sub: "Set up once at onboarding — rarely changes after.",
     tools: [
       { href: "#/settings/org", icon: "settings", name: "Organization", what: "Name, sponsor mode, study-code prefix, region.", touch: "Once" },
-      { href: "#/settings/stages", icon: "workflow", name: "Pipeline stages", what: "The lifecycle studies move through — names, colors, target days that power the Health signal.", touch: "Once, then tuned" },
       { href: "#/settings/fields", icon: "file", name: "Study & site fields", what: "Every field on the study record and site profiles — sections, order, what's required.", touch: "Occasionally" },
     ],
   },
@@ -37,10 +36,11 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     ],
   },
   {
-    title: "Work",
-    sub: "What the system does on its own.",
+    title: "Pipeline & work",
+    sub: "The stages studies move through and what fires at each.",
     tools: [
-      { href: "#/settings/work-streams", icon: "workflow", name: "Work streams", what: "Pattern Builder — the tasks that auto-spawn when a study enters each stage, wired to roles.", touch: "Per study type" },
+      { href: "#/settings/stages", icon: "workflow", name: "Pipeline stages", what: "The lifecycle studies move through — names, colors, target days. Reorder by drag; or shape them in the flow next door.", touch: "Once, then tuned" },
+      { href: "#/settings/work-streams", icon: "workflow", name: "Pipeline & work streams", what: "The visual flow — stages left-to-right (sequential or parallel) with the modules that spawn tasks at each. Edit stages and modules in one place.", touch: "Per study type" },
       { href: "#/settings/forms", icon: "mail", name: "Intake forms", what: "External study-intake forms — build from your field schema, activate, share one link. Versions freeze at activation.", touch: "Per intake channel" },
     ],
   },

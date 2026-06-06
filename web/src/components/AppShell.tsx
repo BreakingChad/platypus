@@ -495,7 +495,7 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },
   "#/audit": { kicker: "Audit", title: "Audit feed" },
-  "#/settings/work-streams": { kicker: "Configure", title: "Work streams" },
+  "#/settings/work-streams": { kicker: "Configure", title: "Pipeline & work streams" },
   "#/settings/forms": { kicker: "Configure", title: "Intake forms" },
   "#/setup": { kicker: "Get started", title: "Guided setup" },
   "#/profile": { kicker: "You", title: "Profile" },
