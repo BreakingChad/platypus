@@ -85,6 +85,16 @@ export function WorkStreamBuilder() {
   const [editorModuleId, setEditorModuleId] = useState<string | null>(null);
   const editorModule = modules.rows.find((m) => m.id === editorModuleId) ?? null;
 
+  /** Which saved work stream is being edited (selection follows the default). */
+  const [selectedWsId, setSelectedWsId] = useState<string | null>(null);
+  const activeWorkstreams = workstreams.rows.filter((w) => w.status === "active");
+  useEffect(() => {
+    if (selectedWsId && activeWorkstreams.some((w) => w.id === selectedWsId)) return;
+    const fallback = activeWorkstreams.find((w) => w.is_default) ?? activeWorkstreams[0] ?? null;
+    setSelectedWsId(fallback?.id ?? null);
+  }, [activeWorkstreams, selectedWsId]);
+  const selectedWs = activeWorkstreams.find((w) => w.id === selectedWsId) ?? null;
+
   /** Task-template counts per module, shown on the flow chips. */
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [countsNonce, setCountsNonce] = useState(0);
@@ -346,7 +356,7 @@ export function WorkStreamBuilder() {
   if (!isAdmin) {
     return (
       <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
-        <PageHeader kicker="Configure" title="Pipeline & work streams" />
+        <PageHeader kicker="Configure" title="Work streams" />
         <Card className="mt-6">
           <EmptyState iconName="lock" title="Admin-only surface" sub="Only org admins can design the pipeline and work streams." />
         </Card>
@@ -360,13 +370,15 @@ export function WorkStreamBuilder() {
     <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
-        title="Pipeline & work streams"
-        subtitle="Design the operating model on one canvas. Drag stages to reorder the pipeline, drag modules within or between stages, and click any module to edit its tasks."
+        title="Work streams"
+        subtitle="Define the pathways studies follow. Pick a work stream below to edit it, then drag stages and modules on the canvas. A study is put on one work stream at intake."
       />
       <AutoSaveNote />
 
       <WorkstreamManager
-        workstreams={workstreams.rows.filter((x) => x.status === "active")}
+        workstreams={activeWorkstreams}
+        selectedId={selectedWsId}
+        onSelect={(id) => setSelectedWsId(id)}
         onCreate={(name) => void createWorkstream(name)}
         onRename={(id, name) => void renameWorkstream(id, name)}
         onSetDefault={(id) => void setDefaultWorkstream(id)}
@@ -385,6 +397,13 @@ export function WorkStreamBuilder() {
         </Card>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <div className="mt-6 mb-1 flex items-center gap-2 flex-wrap">
+            <Icon name="workflow" size={14} className="text-brand-500" />
+            <span className="text-sm font-semibold text-slate-800">
+              {selectedWs ? <>Editing <span className="text-brand-700">{selectedWs.name}</span></> : "Pipeline & modules"}
+            </span>
+            <span className="text-[11px] text-slate-400">— drag stages to reorder, drag modules between stages, click a module to edit its tasks</span>
+          </div>
           <SortableContext items={flatStageIds} strategy={rectSortingStrategy}>
             <FlowCanvas
               stages={stages.rows}
@@ -439,9 +458,11 @@ export function WorkStreamBuilder() {
  * ========================================================================== */
 
 function WorkstreamManager({
-  workstreams, onCreate, onRename, onSetDefault, onDuplicate, onArchive,
+  workstreams, selectedId, onSelect, onCreate, onRename, onSetDefault, onDuplicate, onArchive,
 }: {
   workstreams: WorkstreamRow[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
   onCreate: (name: string) => void;
   onRename: (id: string, name: string) => void;
   onSetDefault: (id: string) => void;
@@ -454,10 +475,10 @@ function WorkstreamManager({
   const [editName, setEditName] = useState("");
   return (
     <div className="mt-5 rounded-xl border border-slate-200 bg-white p-3">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-3">
         <Icon name="workflow" size={14} className="text-slate-400" />
         <span className="text-xs font-semibold text-slate-700">Saved work streams</span>
-        <span className="text-[11px] text-slate-400">— pick one when creating a study from intake</span>
+        <span className="text-[11px] text-slate-400">— click one to edit it; a study is assigned one at intake</span>
         <div className="flex-1" />
         {adding ? (
           <div className="flex items-center gap-1.5">
@@ -471,27 +492,44 @@ function WorkstreamManager({
         )}
       </div>
       {workstreams.length === 0 ? (
-        <p className="text-[11px] text-slate-400 italic">None yet — save your first pathway above. New studies pick a work stream at intake.</p>
+        <p className="text-[11px] text-slate-400 italic">None yet — create your first pathway above. New studies pick a work stream at intake.</p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {workstreams.map((ws) => (
-            <span key={ws.id} className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 pl-2.5 pr-1.5 py-1 text-xs">
-              {ws.is_default && <span className="text-amber-500" title="Default for new studies">★</span>}
-              {editId === ws.id ? (
-                <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
-                  onBlur={() => { const t = editName.trim(); if (t && t !== ws.name) onRename(ws.id, t); setEditId(null); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditId(null); }}
-                  className="text-xs border border-brand-200 rounded px-1 py-0.5 outline-none" />
-              ) : (
-                <button onClick={() => { setEditId(ws.id); setEditName(ws.name); }} className="font-semibold text-slate-700 hover:text-brand-700" title="Rename">{ws.name}</button>
-              )}
-              <span className="hidden group-hover:inline-flex items-center gap-1 text-slate-400">
-                {!ws.is_default && <button onClick={() => onSetDefault(ws.id)} className="hover:text-amber-500" title="Set as default">★</button>}
-                <button onClick={() => onDuplicate(ws)} className="hover:text-brand-700" title="Duplicate"><Icon name="copy" size={11} /></button>
-                <button onClick={() => onArchive(ws)} className="hover:text-red-600" title="Archive">×</button>
-              </span>
-            </span>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          {workstreams.map((ws) => {
+            const selected = ws.id === selectedId;
+            return (
+              <div
+                key={ws.id}
+                onClick={() => onSelect(ws.id)}
+                className={
+                  "group flex items-center gap-2 rounded-lg border pl-3 pr-2 py-2 text-sm cursor-pointer transition " +
+                  (selected ? "border-brand-400 bg-brand-50 ring-1 ring-brand-500/20" : "border-slate-200 bg-white hover:border-slate-300")
+                }
+              >
+                <button
+                  onClick={(e) => { e.stopPropagation(); onSetDefault(ws.id); }}
+                  className={ws.is_default ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}
+                  title={ws.is_default ? "Default for new studies" : "Set as default for new studies"}
+                  aria-label="Set as default"
+                >★</button>
+                {editId === ws.id ? (
+                  <input autoFocus value={editName} onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
+                    onBlur={() => { const t = editName.trim(); if (t && t !== ws.name) onRename(ws.id, t); setEditId(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditId(null); }}
+                    className="text-sm font-semibold border border-brand-200 rounded px-1 py-0.5 outline-none" />
+                ) : (
+                  <span className={"font-semibold " + (selected ? "text-brand-800" : "text-slate-700")}>{ws.name}</span>
+                )}
+                {ws.is_default && <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600">default</span>}
+                {selected && <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600">editing</span>}
+                <span className="flex items-center gap-1 text-slate-400 ml-1 opacity-0 group-hover:opacity-100 transition">
+                  <button onClick={(e) => { e.stopPropagation(); setEditId(ws.id); setEditName(ws.name); }} className="hover:text-brand-700 p-0.5" title="Rename" aria-label="Rename"><Icon name="edit" size={13} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); onDuplicate(ws); }} className="hover:text-brand-700 p-0.5" title="Duplicate" aria-label="Duplicate"><Icon name="copy" size={13} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); onArchive(ws); }} className="hover:text-red-600 p-0.5" title="Delete" aria-label="Delete"><Icon name="trash" size={13} /></button>
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
