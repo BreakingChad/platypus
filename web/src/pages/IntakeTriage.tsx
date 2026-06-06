@@ -25,6 +25,8 @@ import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { NewStudyModal } from "../components/NewStudyModal";
+import { InternalIntakeModal } from "./InternalIntakeModal";
+import type { IntakeFormRow } from "../lib/types";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Loader } from "../components/ui/Loader";
 import { SubmissionsQueue } from "../components/SubmissionsQueue";
@@ -56,6 +58,8 @@ export function IntakeTriage({
   const toast = useToast();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  const forms = useOrgTable<IntakeFormRow>("intake_forms", { realtime: true });
+  const internalForm = forms.rows.find((x) => x.status === "active" && (x as any).scope === "internal") ?? null;
 
   const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at", realtime: true });
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
@@ -230,7 +234,20 @@ export function IntakeTriage({
       <PageBlocks pageKey="intake" region="bottom" navigate={onNavigate} />
       </>)}
 
-      {creating && (
+      {creating && internalForm && orgId && (
+        <InternalIntakeModal
+          form={internalForm}
+          orgId={orgId}
+          studyFields={studyFields}
+          existingCodes={studies.rows.map((s) => s.code)}
+          prefix={"STU"}
+          userId={userId}
+          userEmail={userEmail}
+          onClose={() => setCreating(false)}
+          onCreated={(id) => { setCreating(false); onNavigate(`#/studies/${id}`); }}
+        />
+      )}
+      {creating && !internalForm && (
         <NewStudyModal
           stages={stages.rows}
           existingCodes={studies.rows.map((s) => s.code)}

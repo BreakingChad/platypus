@@ -56,6 +56,7 @@ export function FormsAdmin() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [scope, setScope] = useState<"internal" | "external" | "specialized">("specialized");
 
   const landingUrl = `${window.location.origin}${window.location.pathname}#/f`;
   const formUrl = (slug: string) => `${window.location.origin}${window.location.pathname}#/f/${slug}`;
@@ -77,6 +78,7 @@ export function FormsAdmin() {
         title: title.trim(),
         description: description.trim() || null,
         status: "draft",
+        scope,
         slug: uniqueSlug(title, forms.rows.map((f) => f.slug)),
         version: 1,
         fields: [],
@@ -224,12 +226,27 @@ export function FormsAdmin() {
       />
       <AutoSaveNote />
 
+      {(() => {
+        const active = forms.rows.filter((x) => x.status === "active");
+        const hasInternal = active.some((x) => x.scope === "internal");
+        const hasExternal = active.some((x) => x.scope === "external");
+        if (hasInternal && hasExternal) return null;
+        const missing = [!hasInternal && "internal", !hasExternal && "external"].filter(Boolean).join(" and ");
+        return (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2">
+            <Icon name="alert" size={14} className="flex-shrink-0" />
+            Onboarding needs at least one <strong>internal</strong> and one <strong>external</strong> active
+            form. Missing: <strong>{missing}</strong>. The internal form powers "+ New intake".
+          </div>
+        );
+      })()}
+
       {/* COMPOSER */}
       <Card primary className="mt-6 mb-6">
         <div className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">
           New intake form
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_2fr_auto] gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_2fr_auto_auto] gap-3 items-end">
           <MicroField label="Form title">
             <Input
               value={title}
@@ -246,6 +263,17 @@ export function FormsAdmin() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Sponsors & CROs: tell us about your study"
             />
+          </MicroField>
+          <MicroField label="Kind">
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as any)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+            >
+              <option value="internal">Internal (study wizard)</option>
+              <option value="external">External (public)</option>
+              <option value="specialized">Specialized</option>
+            </select>
           </MicroField>
           <Button onClick={() => void createDraft()} disabled={!title.trim()}>
             + Create draft
@@ -367,6 +395,14 @@ function FormCard({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-slate-900 truncate">{form.title}</span>
             <Pill tone={STATUS_META[status].tone}>{STATUS_META[status].label}</Pill>
+            <span className={
+              "text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5 " +
+              ((form as any).scope === "internal" ? "bg-brand-50 text-brand-700"
+                : (form as any).scope === "external" ? "bg-sky-50 text-sky-700"
+                : "bg-slate-100 text-slate-500")
+            }>
+              {(form as any).scope ?? "specialized"}
+            </span>
             <span className="text-[11px] font-mono text-slate-400">v{form.version}</span>
           </div>
           <div className="text-[11px] text-slate-500 truncate">

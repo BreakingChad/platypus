@@ -210,6 +210,7 @@ export type IntakeFormRow = {
   id: string;
   org_id: string;
   title: string;
+  scope: string;
   description: string | null;
   /** draft | active | inactive | archived */
   status: string;
