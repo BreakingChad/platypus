@@ -285,7 +285,6 @@ export function NavDesigner() {
         kicker="Configure"
         title="Nav designer"
         subtitle="Decide what sidebar items each access role sees, where they're grouped, what labels they use, and what order they appear in. Drag to reorder. Hides apply per role."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
 
       {/* Toolbar */}

@@ -15,7 +15,6 @@ import type {
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
-import { Pill } from "./ui/Pill";
 import { Icon } from "./ui/Icon";
 
 /** NewStudyModal — driven by field_definitions.
@@ -333,10 +332,7 @@ export function NewStudyModal({
 
         {/* FOOTER */}
         <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="text-[11px] text-slate-500 flex items-center gap-2">
-            <Pill tone="brand">live</Pill>
-            Inserts directly into Supabase
-          </div>
+          <div />
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={saving}>
               Cancel

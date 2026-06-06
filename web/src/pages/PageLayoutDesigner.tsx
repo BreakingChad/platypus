@@ -280,7 +280,6 @@ export function PageLayoutDesigner() {
         kicker="Configure"
         title="Page designer"
         subtitle="Every page in the workspace, shaped per access role. Place any block above or below a page's built-in content, reorder by drag, tune each block's settings — what you save here is exactly what that role sees, live."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
 
       {/* Toolbar */}

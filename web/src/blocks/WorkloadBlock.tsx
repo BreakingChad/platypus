@@ -5,7 +5,6 @@ import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { TaskRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
-import { Pill } from "../components/ui/Pill";
 import { EmptyState } from "../components/ui/EmptyState";
 import type { BlockContext } from "./registry";
 
@@ -91,7 +90,6 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-display font-bold text-slate-900 flex items-center gap-2">
           Coordinator workload
-          <Pill tone="neutral">live · open tasks per person</Pill>
         </h2>
       </div>
       <Card>

@@ -84,9 +84,6 @@ export function AiSummaryCard({ study, aiEnabled }: { study: StudyRow; aiEnabled
           <div>
             <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
               AI summary
-              <Tip side="bottom" label="A plain-English read of this study generated from its structured fields by Claude. A starting point for reviewers — always verify against the protocol.">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-100 rounded px-1 py-0.5 cursor-pointer">beta</span>
-              </Tip>
             </h3>
             {at && (
               <p className="text-[10px] font-mono text-slate-400">

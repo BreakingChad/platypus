@@ -287,7 +287,7 @@ export function TasksTab({
             title={showDone ? "No tasks on this study" : "No open tasks"}
             sub={
               isAdmin
-                ? "Add a manual task above, or wire workflow modules to spawn tasks on stage advance (coming)."
+                ? "Add a manual task above. Workflow modules can also spawn tasks automatically as a study advances through its stages."
                 : "When a task is created for this study, it'll appear here."
             }
           />

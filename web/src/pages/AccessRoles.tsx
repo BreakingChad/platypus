@@ -120,7 +120,6 @@ export function AccessRoles() {
         kicker="Configure"
         title="Access roles"
         subtitle="Who can see what in Platypus. Module-level permissions + portfolio scope. Built-in roles (Director, Coordinator, …) are starting points — clone or rename to fit your org."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
       <AutoSaveNote />
 

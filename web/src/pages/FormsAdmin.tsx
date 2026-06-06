@@ -220,7 +220,6 @@ export function FormsAdmin() {
             <Button size="sm" onClick={() => void copy(landingUrl, "Landing page link")}>
               <Icon name="external" size={12} /> Copy landing link
             </Button>
-            <Pill tone="brand">live · admin-driven</Pill>
           </div>
         }
       />

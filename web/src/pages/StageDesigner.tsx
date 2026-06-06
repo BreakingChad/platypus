@@ -162,7 +162,6 @@ export function StageDesigner() {
         kicker="Configure"
         title="Pipeline stages"
         subtitle="Design the stages every study moves through, the colour they're shown in, how long they should take, and which stages are terminal."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
       <AutoSaveNote />
 

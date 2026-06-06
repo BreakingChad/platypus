@@ -255,7 +255,6 @@ export function FieldsDesigner() {
                 {catalogBusy ? "Loading catalog…" : "Load standard catalog"}
               </Button>
             )}
-            <Pill tone={ENTITY_META[entityType].pillTone}>live · admin-driven</Pill>
           </div>
         }
       />
@@ -364,9 +363,6 @@ export function FieldsDesigner() {
               Pick the section below — available in <strong>every</strong> section.
             </div>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400">
-            writes live · Supabase
-          </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[2fr_1.3fr_1fr_auto_auto] gap-2 items-center">
           <Input

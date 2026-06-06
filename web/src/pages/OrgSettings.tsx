@@ -301,14 +301,6 @@ function AiSettingsSection({
     <div>
       <div className="flex items-center gap-2 mb-1">
         <h3 className="text-sm font-semibold text-slate-900">AI</h3>
-        <Tip
-          side="bottom"
-          label="Powers study summaries and (soon) protocol ingestion and document-congruency checks. Processing runs server-side; your API key is never exposed to the browser."
-        >
-          <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-100 rounded px-1 py-0.5 cursor-pointer">
-            beta
-          </span>
-        </Tip>
       </div>
       <p className="text-xs text-slate-500 mb-3">
         Plain-English study summaries from structured fields, with more AI assists on the roadmap.

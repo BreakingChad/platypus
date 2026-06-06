@@ -24,7 +24,6 @@ import { Select } from "../components/ui/Select";
 import { MicroField } from "../components/ui/MicroField";
 import { InfoTip } from "../components/ui/Tip";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
-import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -220,7 +219,6 @@ export function TeamBuilder() {
                 {seeding ? "Loading…" : "Load recommended teams"}
               </Button>
             )}
-            <Pill tone="brand">live · admin-driven</Pill>
           </div>
         }
       />

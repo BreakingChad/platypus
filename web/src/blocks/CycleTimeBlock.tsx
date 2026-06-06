@@ -5,7 +5,6 @@ import { useOrgTable } from "../lib/useOrgTable";
 import type { AuditEventRow, PipelineStageRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Icon } from "../components/ui/Icon";
-import { Pill } from "../components/ui/Pill";
 import { EmptyState } from "../components/ui/EmptyState";
 import type { BlockContext } from "./registry";
 
@@ -106,7 +105,6 @@ export function CycleTimeBlock({ ctx: _ctx }: { ctx: BlockContext }) {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-display font-bold text-slate-900 flex items-center gap-2">
           Cycle time by stage
-          <Pill tone="info">last 2000 stage changes</Pill>
         </h2>
       </div>
       <Card>

@@ -901,7 +901,7 @@ function UploadDocumentModal({
         </div>
 
         <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <Pill tone="brand">v1 · live upload</Pill>
+          <div />
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={busy}>
               Cancel

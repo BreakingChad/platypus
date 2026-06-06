@@ -47,7 +47,6 @@ import { flowColumns, mergeWithPrevious, canMergeWithPrevious } from "../lib/flo
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
 import { InfoTip } from "../components/ui/Tip";
@@ -363,7 +362,6 @@ export function WorkStreamBuilder() {
         kicker="Configure"
         title="Pipeline & work streams"
         subtitle="Design the operating model on one canvas. Drag stages to reorder the pipeline, drag modules within or between stages, and click any module to edit its tasks."
-        actions={<Pill tone="brand">live · admin-driven</Pill>}
       />
       <AutoSaveNote />
 
