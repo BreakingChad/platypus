@@ -181,24 +181,6 @@ export function WorkStreamBuilder() {
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
   };
 
-  /** Add another stage into an existing parallel lane (unlimited width). */
-  const addParallelBranch = async (group: number, afterStage: PipelineStageRow) => {
-    if (!orgId) return;
-    try {
-      await stages.insert({
-        key: `stage_${Date.now().toString(36)}`,
-        label: "New parallel stage",
-        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
-        target_days: 14,
-        terminal: false,
-        is_core: false,
-        parallel_group: group,
-        position: afterStage.position + 1,
-      } as any);
-      toast.success(stamped("Parallel branch added — name it"));
-    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add the parallel branch")); }
-  };
-
   const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
     try {
       await Promise.all(patches.map((p) =>
@@ -206,6 +188,48 @@ export function WorkStreamBuilder() {
       ));
       await stages.refresh();
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't change the lane")); }
+  };
+
+  /** Parallelize: drop one stage onto another → they run at the same time.
+   *  Joins the target's lane (or starts a new one). Unlimited width — keep
+   *  dragging stages onto the lane. */
+  const parallelizeStages = async (draggedId: string, targetId: string) => {
+    const dragged = stages.rows.find((s) => s.id === draggedId);
+    const target = stages.rows.find((s) => s.id === targetId);
+    if (!dragged || !target || draggedId === targetId) return;
+    const group = target.parallel_group ?? target.position;
+    // Order: place dragged immediately after target (keeps the lane contiguous).
+    const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== draggedId);
+    const idx = sorted.findIndex((s) => s.id === targetId);
+    const order = [...sorted];
+    order.splice(idx + 1, 0, dragged);
+    try {
+      await Promise.all([
+        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", target.id),
+        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+      ]);
+      await stages.refresh();
+      toast.success(stamped(`${dragged.label} now runs in parallel with ${target.label}`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't parallelize")); }
+  };
+
+  /** Move a stage to a sequential position (its own column), splitting it out
+   *  of any lane it was in. afterStageId null = move to the front. */
+  const reorderStageSequential = async (draggedId: string, afterStageId: string | null) => {
+    const dragged = stages.rows.find((s) => s.id === draggedId);
+    if (!dragged) return;
+    const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== draggedId);
+    const insertAt = afterStageId ? sorted.findIndex((s) => s.id === afterStageId) + 1 : 0;
+    const order = [...sorted];
+    order.splice(insertAt, 0, dragged);
+    try {
+      await Promise.all([
+        supabase.from("pipeline_stages").update({ parallel_group: null } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+      ]);
+      await stages.refresh();
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't move the stage")); }
   };
 
   /* ---------- module mutators ---------- */
@@ -367,19 +391,21 @@ export function WorkStreamBuilder() {
     if (!over) return;
     const overMeta = over.data.current as DragMeta | { type: "stage-drop"; stageKey: string } | undefined;
 
-    /* ---- stage reorder ---- */
+    /* ---- stage: drop on a GAP = reorder sequentially; drop on a CARD = parallelize ---- */
     if (meta?.type === "stage") {
       if (active.id === over.id) return;
-      const flat = [...stages.rows].sort((a, b) => a.position - b.position);
-      const from = flat.findIndex((s) => s.id === active.id);
+      // Dropped on a between-columns gap → sequential move (split out of any lane).
+      if ((overMeta as any)?.type === "stage-gap") {
+        void reorderStageSequential(String(active.id), (overMeta as any).afterStageId ?? null);
+        return;
+      }
+      // Otherwise resolve which stage we dropped onto → parallelize with it.
       let overStageId: string | null = null;
       if (overMeta?.type === "stage") overStageId = String(over.id);
       else if (overMeta?.type === "module") overStageId = stages.rows.find((s) => s.key === (overMeta as DragMeta).stageKey)?.id ?? null;
       else if ((overMeta as any)?.type === "stage-drop") overStageId = stages.rows.find((s) => s.key === (overMeta as any).stageKey)?.id ?? null;
-      if (!overStageId) return;
-      const to = flat.findIndex((s) => s.id === overStageId);
-      if (from < 0 || to < 0 || from === to) return;
-      void reorderStages(arrayMove(flat, from, to).map((s) => s.id));
+      if (!overStageId || overStageId === active.id) return;
+      void parallelizeStages(String(active.id), overStageId);
       return;
     }
 
@@ -479,9 +505,9 @@ export function WorkStreamBuilder() {
               modules={modules.rows.filter((m) => m.workstream_id === selectedWsId)}
               teams={teams.rows}
               taskCounts={taskCounts}
+              isStageDragging={activeDrag?.meta.type === "stage"}
               onAddStage={() => void addStage()}
               onAddStageAfter={(s) => void addStageAfter(s)}
-              onAddParallel={(group, after) => void addParallelBranch(group, after)}
               onRenameStage={(id, label) => void updateStage(id, { label })}
               onTargetStage={(id, days) => void updateStage(id, { target_days: days })}
               onToggleTerminal={(id, v) => void updateStage(id, { terminal: v })}
@@ -607,17 +633,17 @@ function WorkstreamManager({
  * ========================================================================== */
 
 function FlowCanvas({
-  stages, modules, teams, taskCounts,
-  onAddStage, onAddStageAfter, onAddParallel, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
+  stages, modules, teams, taskCounts, isStageDragging,
+  onAddStage, onAddStageAfter, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
   onMerge, onSplit, canMerge, onAddModule, onOpenModule, onCopyFrom,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
+  isStageDragging: boolean;
   onAddStage: () => void;
   onAddStageAfter: (afterStage: PipelineStageRow) => void;
-  onAddParallel: (group: number, afterStage: PipelineStageRow) => void;
   onRenameStage: (id: string, label: string) => void;
   onTargetStage: (id: string, days: number) => void;
   onToggleTerminal: (id: string, v: boolean) => void;
@@ -632,62 +658,53 @@ function FlowCanvas({
   const cols = flowColumns(stages);
   return (
     <div className="mt-6 overflow-x-auto pb-4">
+      {isStageDragging && (
+        <div className="mb-2 text-[11px] text-brand-600 font-semibold">
+          Drop on another stage to run them in parallel · drop in a gap to set the sequence
+        </div>
+      )}
       <div className="flex items-start gap-0 min-w-max">
-        {cols.map((col, ci) => (
-          <div key={ci} className="flex items-start">
-            <div className={col.stages.length > 1
-              ? "flex flex-col gap-2 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 p-2"
-              : "flex flex-col gap-3"}>
-              {col.stages.length > 1 && (
-                <div className="flex items-center gap-1.5 px-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
-                  <span className="text-[10px] text-slate-400">· run at the same time</span>
-                </div>
-              )}
-              {col.stages.map((s) => (
-                <StageCard
-                  key={s.id}
-                  s={s}
-                  mods={modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position)}
-                  allStages={stages}
-                  modules={modules}
-                  teams={teams}
-                  taskCounts={taskCounts}
-                  inLane={col.stages.length > 1}
-                  canMerge={canMerge(s.id)}
-                  onRename={onRenameStage}
-                  onTarget={onTargetStage}
-                  onTerminal={onToggleTerminal}
-                  onRemove={onRemoveStage}
-                  onMerge={onMerge}
-                  onSplit={onSplit}
-                  onAddModule={onAddModule}
-                  onOpenModule={onOpenModule}
-                  onCopyFrom={onCopyFrom}
-                />
-              ))}
-              {col.stages.length > 1 && col.group != null && (
-                <button
-                  onClick={() => onAddParallel(col.group as number, col.stages[col.stages.length - 1])}
-                  className="w-64 rounded-lg border border-dashed border-brand-300 text-brand-600 hover:bg-brand-50 transition flex items-center justify-center gap-1.5 text-xs font-semibold py-2"
-                >
-                  <Icon name="plus" size={12} /> parallel branch
-                </button>
-              )}
+        <GapDrop index={0} afterStageId={null} active={isStageDragging} showArrow={false} />
+        {cols.map((col, ci) => {
+          const lastOfCol = col.stages[col.stages.length - 1];
+          return (
+            <div key={ci} className="flex items-start">
+              <div className={col.stages.length > 1
+                ? "flex flex-col gap-2 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 p-2"
+                : "flex flex-col gap-3"}>
+                {col.stages.length > 1 && (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
+                    <span className="text-[10px] text-slate-400">· run at the same time</span>
+                  </div>
+                )}
+                {col.stages.map((s) => (
+                  <StageCard
+                    key={s.id}
+                    s={s}
+                    mods={modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position)}
+                    allStages={stages}
+                    modules={modules}
+                    teams={teams}
+                    taskCounts={taskCounts}
+                    inLane={col.stages.length > 1}
+                    canMerge={canMerge(s.id)}
+                    onRename={onRenameStage}
+                    onTarget={onTargetStage}
+                    onTerminal={onToggleTerminal}
+                    onRemove={onRemoveStage}
+                    onMerge={onMerge}
+                    onSplit={onSplit}
+                    onAddModule={onAddModule}
+                    onOpenModule={onOpenModule}
+                    onCopyFrom={onCopyFrom}
+                  />
+                ))}
+              </div>
+              <GapDrop index={ci + 1} afterStageId={lastOfCol.id} active={isStageDragging} showArrow onInsert={() => onAddStageAfter(lastOfCol)} />
             </div>
-            {/* connector + insert-between */}
-            <div className="group/conn px-1 self-center flex flex-col items-center justify-center" title="Insert a stage here">
-              <button
-                onClick={() => onAddStageAfter(col.stages[col.stages.length - 1])}
-                className="opacity-0 group-hover/conn:opacity-100 transition text-slate-300 hover:text-brand-600 mb-0.5"
-                aria-label="Insert stage here"
-              >
-                <Icon name="plus" size={14} />
-              </button>
-              <Icon name="arrow-right" size={18} className="text-slate-300" aria-hidden="true" />
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <button
           onClick={onAddStage}
           className="w-40 self-start mt-0 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold min-h-[140px]"
@@ -695,6 +712,35 @@ function FlowCanvas({
           <Icon name="plus" size={14} /> Stage
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Between-columns drop zone: reorder a dragged stage here (sequential), and —
+ *  when not dragging — hover to insert a new stage at this position. */
+function GapDrop({ index, afterStageId, active, showArrow, onInsert }: {
+  index: number;
+  afterStageId: string | null;
+  active: boolean;
+  showArrow: boolean;
+  onInsert?: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `gap:${index}`, data: { type: "stage-gap", afterStageId } });
+  if (active) {
+    return (
+      <div ref={setNodeRef} className="self-stretch flex items-center justify-center px-1 min-w-[36px]" title="Drop here to set the sequence">
+        <div className={"rounded-full transition-all " + (isOver ? "w-1.5 h-40 bg-brand-500" : "w-1 h-28 bg-brand-200")} />
+      </div>
+    );
+  }
+  return (
+    <div ref={setNodeRef} className="group/conn px-1 self-center flex flex-col items-center justify-center min-w-[24px]">
+      {onInsert && (
+        <button onClick={onInsert} className="opacity-0 group-hover/conn:opacity-100 transition text-slate-300 hover:text-brand-600 mb-0.5" title="Insert a stage here" aria-label="Insert stage here">
+          <Icon name="plus" size={14} />
+        </button>
+      )}
+      {showArrow && <Icon name="arrow-right" size={18} className="text-slate-300" aria-hidden="true" />}
     </div>
   );
 }
