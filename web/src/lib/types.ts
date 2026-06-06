@@ -209,6 +209,7 @@ export type StudySiteRow = {
   site_id: string;
   is_primary: boolean;
   site_status: string;   // selected | activated | closed
+  pi_name: string | null;
   activated_date: string | null;
   note: string | null;
   created_at: string;

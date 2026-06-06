@@ -470,7 +470,12 @@ export function StudyDetail({
 
       <VersionBar study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />
 
-      <HighlightsStrip study={study} health={health} siteCount={studySites.rows.filter((r) => r.study_id === study.id).length} />
+      <HighlightsStrip
+        study={study}
+        health={health}
+        siteCount={studySites.rows.filter((r) => r.study_id === study.id).length}
+        piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id && r.pi_name && r.pi_name.trim()).map((r) => r.pi_name!.trim().toLowerCase())).size}
+      />
       {!study.closed && (
         <PathBar
           stages={stages.rows}
@@ -631,6 +636,10 @@ export function StudyDetail({
               onStatus={async (row, statusVal) => {
                 try { await supabase.from("study_sites").update({ site_status: statusVal } as any).eq("id", row.id); }
                 catch (e: any) { toast.error(friendlyError(e, "Couldn't update")); }
+              }}
+              onSetPi={async (row, pi) => {
+                try { await supabase.from("study_sites").update({ pi_name: pi || null } as any).eq("id", row.id); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't set PI")); }
               }}
               onSetPrimary={async (row) => {
                 try {

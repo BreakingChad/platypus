@@ -16,18 +16,22 @@ export function HighlightsStrip({
   study,
   health,
   siteCount,
+  piCount,
 }: {
   study: StudyRow;
   health: { level: string; daysInStage: number; targetDays: number; summary: string } | null;
   siteCount: number;
+  piCount: number;
 }) {
   const goal = Number((study.custom_field_values as any)?.accrualGoal ?? 0);
+  // PIs and sites are per-site facts (multi-site → multi-PI), so the top-line
+  // shows COUNTS, not a single name. Per-site detail lives in the Sites tab.
   const cells: { l: string; v: React.ReactNode }[] = [
     { l: "Sponsor", v: study.sponsor || dash() },
-    { l: "PI", v: study.pi_name || dash() },
     { l: "Phase", v: study.phase || dash() },
-    { l: "Enrollment", v: goal > 0 ? `0 / ${goal}` : dash() },
     { l: "Sites", v: siteCount > 0 ? `${siteCount}` : dash() },
+    { l: piCount === 1 ? "PI" : "PIs", v: piCount > 0 ? `${piCount}` : dash() },
+    { l: "Enrollment", v: goal > 0 ? `0 / ${goal}` : dash() },
     {
       l: "Health",
       v:
@@ -132,6 +136,22 @@ export function PathBar({
   );
 }
 
+
+function SitePiInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft.trim() !== value.trim()) onSave(draft.trim()); }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      placeholder="Site PI…"
+      className="mt-0.5 text-[11px] text-slate-600 border border-transparent hover:border-slate-200 focus:border-brand-300 rounded px-1 -mx-1 py-0.5 outline-none w-full bg-transparent"
+      aria-label="Site PI"
+    />
+  );
+}
+
 /* ---------- smart action button (split: next step + alternatives) ---------- */
 export function SmartActionButton({
   study, stages, advancing, savingClose, onAdvance, onToggleClosed,
@@ -216,6 +236,7 @@ export function StudySitesCard({
   onRemove,
   onStatus,
   onSetPrimary,
+  onSetPi,
 }: {
   study: StudyRow;
   sites: SiteRow[];
@@ -225,6 +246,7 @@ export function StudySitesCard({
   onRemove: (row: StudySiteRow) => void;
   onStatus: (row: StudySiteRow, status: string) => void;
   onSetPrimary: (row: StudySiteRow) => void;
+  onSetPi: (row: StudySiteRow, pi: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
   useDismissable("[data-add-site]", () => setAdding(false), adding);
@@ -284,10 +306,17 @@ export function StudySitesCard({
               key={r.id}
               className="px-4 py-2.5 border-b border-slate-100 last:border-b-0 flex items-center gap-2"
             >
-              <span className="text-sm text-slate-900 truncate flex-1">
-                {siteName(r.site_id)}
-                {r.is_primary && (
-                  <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-600">primary</span>
+              <span className="min-w-0 flex-1">
+                <span className="text-sm text-slate-900 truncate block">
+                  {siteName(r.site_id)}
+                  {r.is_primary && (
+                    <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-600">primary</span>
+                  )}
+                </span>
+                {isAdmin ? (
+                  <SitePiInput value={r.pi_name ?? ""} onSave={(v) => onSetPi(r, v)} />
+                ) : (
+                  <span className="text-[11px] text-slate-500 block truncate">{r.pi_name ? `PI · ${r.pi_name}` : "PI not set"}</span>
                 )}
               </span>
               {isAdmin ? (
