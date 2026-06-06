@@ -138,6 +138,7 @@ export type TaskRow = {
   due_at: string | null;
   assigned_to_user_id: string | null;
   assigned_to_role_id: string | null;
+  site_id?: string | null;
   /** Handoff tasks: the role that receives the work (0021). */
   handoff_to_role_id: string | null;
   completed_at: string | null;

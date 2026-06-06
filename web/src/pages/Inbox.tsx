@@ -28,6 +28,8 @@ import type {
   TeamRoleRow,
   TeamRoleHolderRow,
   DocumentRow,
+  SiteRow,
+  StudySiteRow,
 } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -1022,6 +1024,9 @@ function NewTaskModal({
   const [studyId, setStudyId] = useState<string>("");
   const [studyQ, setStudyQ] = useState("");
   const [stageKey, setStageKey] = useState<string>("");
+  const [siteId, setSiteId] = useState<string>("");
+  const sitesTbl = useOrgTable<SiteRow>("sites", { orderBy: "name" });
+  const studySitesTbl = useOrgTable<StudySiteRow>("study_sites", {});
   const [dueAt, setDueAt] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
@@ -1075,8 +1080,14 @@ function NewTaskModal({
   const recipientValid =
     recipient === "me" || (recipient === "person" && !!personId) || (recipient === "role" && !!roleId);
 
+  // Sites available for the chosen study (its assigned sites), else all sites.
+  const studySiteIds = studySitesTbl.rows.filter((r) => r.study_id === studyId).map((r) => r.site_id);
+  const siteOptions = studyId && studySiteIds.length > 0
+    ? sitesTbl.rows.filter((s) => studySiteIds.includes(s.id))
+    : sitesTbl.rows;
+
   const submit = async () => {
-    if (!title.trim() || !recipientValid || saving) return;
+    if (!title.trim() || !recipientValid || !studyId || saving) return;
     setSaving(true);
     try {
       let assignedUser: string | null = null;
@@ -1094,6 +1105,7 @@ function NewTaskModal({
         .insert({
           org_id: orgId,
           study_id: studyId || null,
+          site_id: siteId || null,
           stage_key: stageKey || null,
           kind: "manual",
           title: title.trim(),
@@ -1160,7 +1172,7 @@ function NewTaskModal({
               placeholder="e.g. Confirm pharmacy delegation log"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter" && title.trim() && recipientValid) void submit();
+                if (e.key === "Enter" && title.trim() && recipientValid && studyId) void submit();
               }}
             />
           </label>
@@ -1267,7 +1279,7 @@ function NewTaskModal({
           {/* STUDY — searchable, collapses to a chip */}
           <div>
             <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Study <span className="font-normal text-slate-400">— optional</span>
+              Study <span className="font-normal text-red-500">*</span>
             </span>
             {selectedStudy ? (
               <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
@@ -1279,6 +1291,7 @@ function NewTaskModal({
                   onClick={() => {
                     setStudyId("");
                     setStageKey("");
+                    setSiteId("");
                   }}
                   className="ml-auto text-slate-300 hover:text-red-500 leading-none"
                   aria-label="Unlink study"
@@ -1315,6 +1328,20 @@ function NewTaskModal({
             )}
           </div>
 
+          {selectedStudy && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">
+                Site location <span className="font-normal text-slate-400">— optional</span>
+              </span>
+              <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+                <option value="">— Any / none —</option>
+                {siteOptions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            </label>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1341,7 +1368,7 @@ function NewTaskModal({
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submit} disabled={!title.trim() || !recipientValid || saving}>
+          <Button variant="primary" onClick={submit} disabled={!title.trim() || !recipientValid || !studyId || saving}>
             {saving ? "Sending…" : recipient === "me" ? "Add task" : "Send task"}
           </Button>
         </div>
