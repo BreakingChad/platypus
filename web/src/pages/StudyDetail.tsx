@@ -30,6 +30,7 @@ import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
+import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -67,7 +68,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "feasibility" | "activity" | "tasks" | "documents";
+type Tab = "overview" | "feasibility" | "startup" | "activity" | "tasks" | "documents";
 
 export function StudyDetail({
   studyId,
@@ -627,6 +628,8 @@ export function StudyDetail({
         )}
 
         {shownTab === "feasibility" && <FeasibilityTab study={study} />}
+
+        {shownTab === "startup" && <StartupDocsTab study={study} />}
 
         {shownTab === "activity" && !isXl && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />

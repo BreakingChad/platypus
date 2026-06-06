@@ -367,6 +367,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     tabs: [
       { key: "overview", label: "Overview" },
       { key: "feasibility", label: "Feasibility" },
+      { key: "startup", label: "Startup docs" },
       { key: "activity", label: "Activity" },
       { key: "tasks", label: "Tasks" },
       { key: "documents", label: "Documents" },

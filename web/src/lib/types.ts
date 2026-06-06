@@ -189,6 +189,22 @@ export type OrgInviteRow = {
   accepted_at: string | null;
 };
 
+export type StartupDocumentRow = {
+  id: string;
+  org_id: string;
+  study_id: string;
+  bucket: string;       // operations | regulatory | startup
+  track: string;        // original | amendment
+  title: string;
+  note: string | null;
+  status: string;       // staged | filed | archived
+  disposition: string | null;  // binder | site_file | archived
+  filed_note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type IntakeFormRow = {
   id: string;
   org_id: string;
@@ -355,6 +371,7 @@ export type Database = {
       study_notes:             { Row: StudyNoteRow;            Insert: Partial<StudyNoteRow>;            Update: Partial<StudyNoteRow>;            Relationships: [] };
       document_versions:       { Row: DocumentVersionRow;      Insert: Partial<DocumentVersionRow>;      Update: Partial<DocumentVersionRow>;      Relationships: [] };
       intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
+      startup_documents:       { Row: StartupDocumentRow;      Insert: Partial<StartupDocumentRow>;      Update: Partial<StartupDocumentRow>;      Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };
