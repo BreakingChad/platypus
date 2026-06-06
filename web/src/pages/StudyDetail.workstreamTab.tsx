@@ -71,13 +71,17 @@ export function StudyWorkstreamTab({
         {current?.description && <p className="text-xs text-slate-500 mt-2">{current.description}</p>}
       </Card>
 
-      {/* the pathway for this study */}
+      {/* the tasks this work stream creates, grouped by stage */}
       <div className="space-y-3">
         {stages.map((s, i) => {
-          const mods = modules.rows.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position);
-          const stageTasks = myTasks.filter((t) => t.stage_key === s.key);
-          const done = stageTasks.filter((t) => t.status === "done").length;
+          const mods = modules.rows.filter((m) => m.stage_key === s.key);
+          const stageTasks = myTasks
+            .filter((t) => t.stage_key === s.key)
+            .sort((a, b) => (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999"));
           const state = i < curIdx ? "past" : i === curIdx ? "current" : "upcoming";
+          // Nothing to show for an upcoming stage with no config and no tasks.
+          if (stageTasks.length === 0 && mods.length === 0 && state === "upcoming") return null;
+          const done = stageTasks.filter((t) => t.status === "done").length;
           return (
             <div
               key={s.id}
@@ -92,33 +96,38 @@ export function StudyWorkstreamTab({
                 {state === "current" && <Pill tone="brand">current</Pill>}
                 {state === "past" && <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">done</span>}
                 <div className="flex-1" />
-                {stageTasks.length > 0 && (
-                  <span className="text-[11px] font-mono text-slate-400">{done}/{stageTasks.length} tasks</span>
-                )}
-                {s.target_days > 0 && <span className="text-[11px] font-mono text-slate-400">{s.target_days}d</span>}
+                {stageTasks.length > 0 && <span className="text-[11px] font-mono text-slate-400">{done}/{stageTasks.length}</span>}
               </div>
-              <div className="p-3">
-                {mods.length === 0 && stageTasks.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic">No modules or tasks on this stage.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {mods.map((m) => (
-                      <div key={m.id} className="rounded-lg bg-slate-50 px-3 py-1.5">
-                        <div className="text-xs font-semibold text-slate-700">{m.name}</div>
-                      </div>
-                    ))}
-                    {stageTasks.map((t) => (
-                      <div key={t.id} className="flex items-center gap-2 px-3 py-1">
-                        <Icon name={t.status === "done" ? "check" : "clock"} size={12} className={t.status === "done" ? "text-emerald-600" : "text-slate-400"} />
-                        <span className={"text-xs " + (t.status === "done" ? "text-slate-400 line-through" : "text-slate-700")}>{t.title}</span>
-                      </div>
-                    ))}
+              <div className="p-2">
+                {stageTasks.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {stageTasks.map((t) => {
+                      const due = t.due_at ? new Date(t.due_at) : null;
+                      const overdue = due ? due.getTime() < Date.now() && t.status !== "done" : false;
+                      return (
+                        <div key={t.id} className="flex items-center gap-2 px-2 py-1.5">
+                          <Icon name={t.status === "done" ? "check" : t.status === "skipped" ? "x" : "clock"} size={13} className={t.status === "done" ? "text-emerald-600" : t.status === "skipped" ? "text-slate-300" : "text-slate-400"} />
+                          <span className={"text-xs flex-1 truncate " + (t.status === "done" || t.status === "skipped" ? "text-slate-400 line-through" : "text-slate-800")}>{t.title}</span>
+                          {t.assigned_to_role_id == null && t.assigned_to_user_id == null && <span className="text-[10px] text-slate-400 italic">unassigned</span>}
+                          {due && <span className={"text-[10px] font-mono whitespace-nowrap " + (overdue ? "text-red-700 font-bold" : "text-slate-400")}>{due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                        </div>
+                      );
+                    })}
                   </div>
+                ) : mods.length > 0 ? (
+                  <p className="text-[11px] text-slate-400 italic px-2 py-1.5">
+                    {mods.length} module{mods.length === 1 ? "" : "s"} configured — tasks spawn when the study reaches this stage.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic px-2 py-1.5">No tasks here.</p>
                 )}
               </div>
             </div>
           );
         })}
+        {myTasks.length === 0 && (
+          <Card><div className="text-xs text-slate-500 px-1 py-2">No tasks yet — this work stream spawns them as the study moves through its stages.</div></Card>
+        )}
       </div>
     </div>
   );
