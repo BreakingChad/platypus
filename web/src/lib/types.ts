@@ -209,7 +209,8 @@ export type StudySiteRow = {
   site_id: string;
   is_primary: boolean;
   site_status: string;   // selected | activated | closed
-  pi_name: string | null;
+  pi_name: string | null;               // legacy free-text (0032), kept for back-compat
+  pi_investigator_id: string | null;    // 0033 — source of truth
   activated_date: string | null;
   note: string | null;
   created_at: string;
@@ -316,6 +317,38 @@ export type SiteRow = {
   updated_at: string;
 };
 
+export type InvestigatorRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  degree: string | null;
+  email: string | null;
+  phone: string | null;
+  npi: string | null;
+  license_number: string | null;
+  license_state: string | null;
+  status: string;                       // active | inactive
+  cv_on_file: boolean;
+  cv_date: string | null;
+  form_1572_on_file: boolean;
+  financial_disclosure_on_file: boolean;
+  gcp_training_date: string | null;
+  gcp_training_expires: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SiteInvestigatorRow = {
+  id: string;
+  org_id: string;
+  site_id: string;
+  investigator_id: string;
+  is_primary: boolean;
+  created_at: string;
+};
+
 export type StudyNoteRow = {
   id: string;
   org_id: string;
@@ -407,6 +440,8 @@ export type Database = {
       intake_forms:            { Row: IntakeFormRow;           Insert: Partial<IntakeFormRow>;           Update: Partial<IntakeFormRow>;           Relationships: [] };
       startup_documents:       { Row: StartupDocumentRow;      Insert: Partial<StartupDocumentRow>;      Update: Partial<StartupDocumentRow>;      Relationships: [] };
       study_sites:             { Row: StudySiteRow;            Insert: Partial<StudySiteRow>;            Update: Partial<StudySiteRow>;            Relationships: [] };
+      investigators:           { Row: InvestigatorRow;         Insert: Partial<InvestigatorRow>;         Update: Partial<InvestigatorRow>;         Relationships: [] };
+      site_investigators:      { Row: SiteInvestigatorRow;     Insert: Partial<SiteInvestigatorRow>;     Update: Partial<SiteInvestigatorRow>;     Relationships: [] };
       workstreams:             { Row: WorkstreamRow;           Insert: Partial<WorkstreamRow>;           Update: Partial<WorkstreamRow>;           Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };

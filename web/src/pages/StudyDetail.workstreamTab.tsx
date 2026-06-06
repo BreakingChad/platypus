@@ -34,13 +34,18 @@ export function StudyWorkstreamTab({
   const current = workstreams.rows.find((w) => w.id === study.workstream_id) ?? null;
   const curIdx = stages.findIndex((s) => s.key === study.stage_key);
 
-  const setWorkstream = async (id: string) => {
+  // Once a work stream is assigned, it's locked to the study — assignment is a
+  // one-time decision. Only admins can make that initial assignment.
+  const locked = !!study.workstream_id;
+
+  const assignWorkstream = async (id: string) => {
+    if (!id || locked) return;
     try {
       const { error } = await supabase.from("studies").update({ workstream_id: id } as any).eq("id", study.id);
       if (error) throw error;
-      toast.success(stamped("Work stream updated"));
+      toast.success(stamped("Work stream assigned — now locked to this study"));
     } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't change the work stream"));
+      toast.error(friendlyError(e, "Couldn't assign the work stream"));
     }
   };
 
@@ -51,24 +56,36 @@ export function StudyWorkstreamTab({
           <Icon name="workflow" size={16} className="text-slate-400" />
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider text-slate-400">On work stream</div>
-            <div className="text-sm font-semibold text-slate-900">
+            <div className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
               {current ? current.name : <span className="text-slate-400 italic">none assigned</span>}
+              {locked && current && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500" title="Locked to this study — the work stream can't be changed once assigned">
+                  <Icon name="lock" size={11} /> Locked
+                </span>
+              )}
             </div>
           </div>
           <div className="flex-1" />
-          {isAdmin && active.length > 0 && (
+          {/* Assign (one-time) only when none is set yet, and only for admins. */}
+          {!locked && isAdmin && active.length > 0 && (
             <select
-              value={study.workstream_id ?? ""}
-              onChange={(e) => e.target.value && void setWorkstream(e.target.value)}
+              value=""
+              onChange={(e) => e.target.value && void assignWorkstream(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              aria-label="Change work stream"
+              aria-label="Assign work stream"
             >
-              <option value="">— Pick a work stream —</option>
+              <option value="">— Assign a work stream —</option>
               {active.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           )}
         </div>
         {current?.description && <p className="text-xs text-slate-500 mt-2">{current.description}</p>}
+        {locked && (
+          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+            <Icon name="lock" size={11} className="flex-shrink-0" />
+            A study's work stream is fixed once assigned. Changing it would require an amendment-style reassignment (coming later).
+          </p>
+        )}
       </Card>
 
       {/* the tasks this work stream creates, grouped by stage */}

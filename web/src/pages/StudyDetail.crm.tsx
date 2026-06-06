@@ -3,7 +3,7 @@ import { useToast } from "../lib/Toast";
 import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useDismissable } from "../lib/useDismissable";
-import type { PipelineStageRow, SiteRow, StudyRow, StudySiteRow } from "../lib/types";
+import type { PipelineStageRow, SiteRow, StudyRow, StudySiteRow, InvestigatorRow, SiteInvestigatorRow } from "../lib/types";
 import { HealthDot } from "../components/ui/HealthDot";
 import { Icon } from "../components/ui/Icon";
 import { Pill } from "../components/ui/Pill";
@@ -137,18 +137,35 @@ export function PathBar({
 }
 
 
-function SitePiInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  const [draft, setDraft] = useState(value);
+/** Per-study-site PI picker — sourced from the investigators credentialed at
+ *  THAT site. PIs are an object that lives under sites (0033). */
+function SitePiPicker({
+  value, options, fallbackName, onSave,
+}: {
+  value: string | null;                 // pi_investigator_id
+  options: InvestigatorRow[];           // investigators affiliated with this site
+  fallbackName: string | null;          // legacy pi_name, shown if no FK / no options
+  onSave: (investigatorId: string | null) => void;
+}) {
+  if (options.length === 0) {
+    return (
+      <span className="mt-0.5 block text-[11px] text-slate-400 italic">
+        {fallbackName ? `PI · ${fallbackName} (legacy)` : "No investigators at this site — add them in the site profile"}
+      </span>
+    );
+  }
   return (
-    <input
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => { if (draft.trim() !== value.trim()) onSave(draft.trim()); }}
-      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-      placeholder="Site PI…"
+    <select
+      value={value ?? ""}
+      onChange={(e) => onSave(e.target.value || null)}
       className="mt-0.5 text-[11px] text-slate-600 border border-transparent hover:border-slate-200 focus:border-brand-300 rounded px-1 -mx-1 py-0.5 outline-none w-full bg-transparent"
       aria-label="Site PI"
-    />
+    >
+      <option value="">— Select PI —</option>
+      {options.map((i) => (
+        <option key={i.id} value={i.id}>{i.name}{i.degree ? `, ${i.degree}` : ""}</option>
+      ))}
+    </select>
   );
 }
 
@@ -231,6 +248,8 @@ export function StudySitesCard({
   study,
   sites,
   studySites,
+  investigators,
+  siteInvestigators,
   isAdmin,
   onAdd,
   onRemove,
@@ -241,13 +260,22 @@ export function StudySitesCard({
   study: StudyRow;
   sites: SiteRow[];
   studySites: StudySiteRow[];
+  investigators: InvestigatorRow[];
+  siteInvestigators: SiteInvestigatorRow[];
   isAdmin: boolean;
   onAdd: (siteId: string) => void;
   onRemove: (row: StudySiteRow) => void;
   onStatus: (row: StudySiteRow, status: string) => void;
   onSetPrimary: (row: StudySiteRow) => void;
-  onSetPi: (row: StudySiteRow, pi: string) => void;
+  onSetPi: (row: StudySiteRow, investigatorId: string | null, name: string | null) => void;
 }) {
+  const investigatorsForSite = (siteId: string) =>
+    siteInvestigators
+      .filter((l) => l.site_id === siteId)
+      .map((l) => investigators.find((i) => i.id === l.investigator_id))
+      .filter((i): i is InvestigatorRow => !!i);
+  const piName = (row: StudySiteRow) =>
+    investigators.find((i) => i.id === row.pi_investigator_id)?.name ?? row.pi_name ?? null;
   const [adding, setAdding] = useState(false);
   useDismissable("[data-add-site]", () => setAdding(false), adding);
   const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? "(removed site)";
@@ -314,9 +342,14 @@ export function StudySitesCard({
                   )}
                 </span>
                 {isAdmin ? (
-                  <SitePiInput value={r.pi_name ?? ""} onSave={(v) => onSetPi(r, v)} />
+                  <SitePiPicker
+                    value={r.pi_investigator_id ?? null}
+                    options={investigatorsForSite(r.site_id)}
+                    fallbackName={piName(r)}
+                    onSave={(invId) => onSetPi(r, invId, invId ? (investigators.find((i) => i.id === invId)?.name ?? null) : null)}
+                  />
                 ) : (
-                  <span className="text-[11px] text-slate-500 block truncate">{r.pi_name ? `PI · ${r.pi_name}` : "PI not set"}</span>
+                  <span className="text-[11px] text-slate-500 block truncate">{piName(r) ? `PI · ${piName(r)}` : "PI not set"}</span>
                 )}
               </span>
               {isAdmin ? (

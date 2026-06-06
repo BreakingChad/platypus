@@ -35,7 +35,7 @@ import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
 import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
-import type { StudySiteRow } from "../lib/types";
+import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -95,6 +95,8 @@ export function StudyDetail({
   });
   const sites = useOrgTable<SiteRow>("sites", { orderBy: "name" });
   const studySites = useOrgTable<StudySiteRow>("study_sites", { realtime: true });
+  const investigators = useOrgTable<InvestigatorRow>("investigators", { orderBy: "name", realtime: true });
+  const siteInvestigators = useOrgTable<SiteInvestigatorRow>("site_investigators", { realtime: true });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
     realtime: true,
@@ -474,7 +476,7 @@ export function StudyDetail({
         study={study}
         health={health}
         siteCount={studySites.rows.filter((r) => r.study_id === study.id).length}
-        piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id && r.pi_name && r.pi_name.trim()).map((r) => r.pi_name!.trim().toLowerCase())).size}
+        piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id).map((r) => r.pi_investigator_id ?? (r.pi_name ? r.pi_name.trim().toLowerCase() : null)).filter(Boolean)).size}
       />
       {!study.closed && (
         <PathBar
@@ -617,6 +619,8 @@ export function StudyDetail({
               study={study}
               sites={sites.rows}
               studySites={studySites.rows.filter((r) => r.study_id === study.id)}
+              investigators={investigators.rows}
+              siteInvestigators={siteInvestigators.rows}
               isAdmin={isAdmin}
               onAdd={async (siteId) => {
                 if (!orgId) return;
@@ -637,8 +641,8 @@ export function StudyDetail({
                 try { await supabase.from("study_sites").update({ site_status: statusVal } as any).eq("id", row.id); }
                 catch (e: any) { toast.error(friendlyError(e, "Couldn't update")); }
               }}
-              onSetPi={async (row, pi) => {
-                try { await supabase.from("study_sites").update({ pi_name: pi || null } as any).eq("id", row.id); }
+              onSetPi={async (row, investigatorId, name) => {
+                try { await supabase.from("study_sites").update({ pi_investigator_id: investigatorId, pi_name: name } as any).eq("id", row.id); }
                 catch (e: any) { toast.error(friendlyError(e, "Couldn't set PI")); }
               }}
               onSetPrimary={async (row) => {

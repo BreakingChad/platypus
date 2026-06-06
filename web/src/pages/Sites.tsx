@@ -22,6 +22,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Loader } from "../components/ui/Loader";
+import { SiteInvestigators } from "./Sites.investigators";
 
 /** Sites — the site information collection system.
  *
@@ -559,6 +560,9 @@ function SiteProfilePanel({
               </ul>
             )}
           </section>
+
+          {/* Investigators credentialed at this site */}
+          <SiteInvestigators siteId={site.id} editable={!!userId} />
 
           {/* Configurable profile sections */}
           {siteFields.length === 0 && (
