@@ -444,6 +444,7 @@ export function WorkStreamBuilder() {
           onRemoveStage={(s) => void removeStage(s)}
           onAddModule={(key, name) => void addModuleTo(key, name)}
           onRemoveModule={(id, name) => void removeModule(id, name)}
+          onSetModuleTeam={(id, teamId) => void updateModule(id, { owner_team_id: teamId })}
         />
       )}
 
@@ -698,7 +699,7 @@ function WorkstreamManager({
 
 function StageCardEditable({
   s, mods, teams, isAdmin, inLane, canMerge,
-  onOpenStage, onRename, onTarget, onTerminal, onMove, onRemove, onMerge, onSplit, onAddModule, onRemoveModule,
+  onOpenStage, onRename, onTarget, onTerminal, onMove, onRemove, onMerge, onSplit, onAddModule, onRemoveModule, onSetModuleTeam,
 }: any) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(s.label);
@@ -746,10 +747,26 @@ function StageCardEditable({
       <div className="p-2 space-y-1">
         {mods.length === 0 && !addingMod && <p className="text-[11px] text-slate-400 italic px-1 py-1">No modules</p>}
         {mods.map((m: WorkflowModuleRow) => (
-          <div key={m.id} className="group flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
-            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor(m.owner_team_id) }} />
-            <button onClick={() => onOpenStage(s.key)} className="text-[11px] text-slate-700 truncate flex-1 text-left hover:text-brand-700" title="Open to edit tasks">{m.name}</button>
-            {isAdmin && <button onClick={() => onRemoveModule(m.id, m.name)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100" aria-label="Remove module">×</button>}
+          <div key={m.id} className="group rounded-md bg-slate-50 px-2 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor(m.owner_team_id) }} />
+              <button onClick={() => onOpenStage(s.key)} className="text-[11px] font-semibold text-slate-700 truncate flex-1 text-left hover:text-brand-700" title="Open to assign tasks to roles">{m.name}</button>
+              {isAdmin && <button onClick={() => onRemoveModule(m.id, m.name)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100" aria-label="Remove module">×</button>}
+            </div>
+            {isAdmin ? (
+              <select
+                value={m.owner_team_id ?? ""}
+                onChange={(e) => onSetModuleTeam(m.id, e.target.value || null)}
+                className="mt-1 w-full text-[10px] rounded border border-slate-200 bg-white px-1 py-0.5"
+                aria-label="Owner team"
+                title="The team that owns this module — its roles are who tasks get assigned to"
+              >
+                <option value="">— assign team —</option>
+                {teams.map((t: TeamRow) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) : (
+              <div className="text-[10px] text-slate-400 mt-0.5 pl-3">{teams.find((t: TeamRow) => t.id === m.owner_team_id)?.name ?? "unassigned"}</div>
+            )}
           </div>
         ))}
         {isAdmin && (addingMod ? (
@@ -779,7 +796,7 @@ function StageCardEditable({
 function FlowView({
   stages, modules, teams, isAdmin,
   onOpenStage, onMerge, onSplit, canMerge,
-  onAddStage, onRenameStage, onTargetStage, onToggleTerminal, onMoveStage, onRemoveStage, onAddModule, onRemoveModule,
+  onAddStage, onRenameStage, onTargetStage, onToggleTerminal, onMoveStage, onRemoveStage, onAddModule, onRemoveModule, onSetModuleTeam,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
@@ -797,6 +814,7 @@ function FlowView({
   onRemoveStage: (s: PipelineStageRow) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onRemoveModule: (id: string, name: string) => void;
+  onSetModuleTeam: (id: string, teamId: string | null) => void;
 }) {
   const cols = flowColumns(stages);
   return (
@@ -827,6 +845,7 @@ function FlowView({
                   onSplit={onSplit}
                   onAddModule={onAddModule}
                   onRemoveModule={onRemoveModule}
+                  onSetModuleTeam={onSetModuleTeam}
                 />
               ))}
             </div>
