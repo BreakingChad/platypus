@@ -73,7 +73,7 @@ function studyValueFor(key: string, study: StudyRow): unknown {
   return (study.custom_field_values ?? {})[key] ?? null;
 }
 
-type Tab = "overview" | "feasibility" | "startup" | "workstream" | "activity" | "tasks" | "documents";
+type Tab = "overview" | "feasibility" | "sites" | "startup" | "workstream" | "activity" | "tasks" | "documents";
 
 export function StudyDetail({
   studyId,
@@ -526,39 +526,6 @@ export function StudyDetail({
       <div className="mt-5">
         {shownTab === "overview" && (
           <div className="space-y-5">
-            <StudySitesCard
-              study={study}
-              sites={sites.rows}
-              studySites={studySites.rows.filter((r) => r.study_id === study.id)}
-              isAdmin={isAdmin}
-              onAdd={async (siteId) => {
-                if (!orgId) return;
-                try {
-                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
-                  await supabase.from("study_sites").insert({ org_id: orgId, study_id: study.id, site_id: siteId, is_primary: mine.length === 0, site_status: "selected" } as any);
-                  if (mine.length === 0) await supabase.from("studies").update({ site_id: siteId } as any).eq("id", study.id);
-                  if (userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "site_added", payload: { site_id: siteId, site_name: sites.rows.find((s) => s.id === siteId)?.name ?? null } });
-                  toast.success(stamped("Site added"));
-                } catch (e: any) { toast.error(friendlyError(e, "Couldn't add the site")); }
-              }}
-              onRemove={async (row) => {
-                if (!(await confirmDialog({ title: "Remove site", message: `Remove ${sites.rows.find((s) => s.id === row.site_id)?.name ?? "this site"} from the study?`, confirmLabel: "Remove", danger: true }))) return;
-                try { await supabase.from("study_sites").delete().eq("id", row.id); toast.success(stamped("Site removed")); }
-                catch (e: any) { toast.error(friendlyError(e, "Couldn't remove the site")); }
-              }}
-              onStatus={async (row, statusVal) => {
-                try { await supabase.from("study_sites").update({ site_status: statusVal } as any).eq("id", row.id); }
-                catch (e: any) { toast.error(friendlyError(e, "Couldn't update")); }
-              }}
-              onSetPrimary={async (row) => {
-                try {
-                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
-                  await Promise.all(mine.map((r) => supabase.from("study_sites").update({ is_primary: r.id === row.id } as any).eq("id", r.id)));
-                  await supabase.from("studies").update({ site_id: row.site_id } as any).eq("id", study.id);
-                  toast.success(stamped("Primary site set"));
-                } catch (e: any) { toast.error(friendlyError(e, "Couldn't set primary")); }
-              }}
-            />
             <AiSummaryCard study={study} aiEnabled={aiEnabled} />
             <div className="xl:hidden">
               <NotesCard studyId={study.id} />
@@ -638,6 +605,44 @@ export function StudyDetail({
         {shownTab === "startup" && <StartupDocsTab study={study} />}
 
         {shownTab === "workstream" && <StudyWorkstreamTab study={study} stages={stages.rows} />}
+
+        {shownTab === "sites" && (
+          <div className="space-y-5">
+            <StudySitesCard
+              study={study}
+              sites={sites.rows}
+              studySites={studySites.rows.filter((r) => r.study_id === study.id)}
+              isAdmin={isAdmin}
+              onAdd={async (siteId) => {
+                if (!orgId) return;
+                try {
+                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
+                  await supabase.from("study_sites").insert({ org_id: orgId, study_id: study.id, site_id: siteId, is_primary: mine.length === 0, site_status: "selected" } as any);
+                  if (mine.length === 0) await supabase.from("studies").update({ site_id: siteId } as any).eq("id", study.id);
+                  if (userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "site_added", payload: { site_id: siteId, site_name: sites.rows.find((s) => s.id === siteId)?.name ?? null } });
+                  toast.success(stamped("Site added"));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't add the site")); }
+              }}
+              onRemove={async (row) => {
+                if (!(await confirmDialog({ title: "Remove site", message: `Remove ${sites.rows.find((s) => s.id === row.site_id)?.name ?? "this site"} from the study?`, confirmLabel: "Remove", danger: true }))) return;
+                try { await supabase.from("study_sites").delete().eq("id", row.id); toast.success(stamped("Site removed")); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't remove the site")); }
+              }}
+              onStatus={async (row, statusVal) => {
+                try { await supabase.from("study_sites").update({ site_status: statusVal } as any).eq("id", row.id); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't update")); }
+              }}
+              onSetPrimary={async (row) => {
+                try {
+                  const mine = studySites.rows.filter((r) => r.study_id === study.id);
+                  await Promise.all(mine.map((r) => supabase.from("study_sites").update({ is_primary: r.id === row.id } as any).eq("id", r.id)));
+                  await supabase.from("studies").update({ site_id: row.site_id } as any).eq("id", study.id);
+                  toast.success(stamped("Primary site set"));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't set primary")); }
+              }}
+            />
+          </div>
+        )}
 
         {shownTab === "activity" && !isXl && (
           <ActivityTab studyId={study.id} study={study} stages={stages.rows} />

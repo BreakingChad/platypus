@@ -75,42 +75,63 @@ export function PathBar({
   advancing: boolean;
   onAdvance: (key: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  useDismissable("[data-stage-dd]", () => setOpen(false), open);
   if (stages.length === 0) return null;
   const curIdx = stages.findIndex((s) => s.key === currentKey);
+  const current = curIdx >= 0 ? stages[curIdx] : null;
   const next = curIdx >= 0 && curIdx < stages.length - 1 ? stages[curIdx + 1] : null;
   return (
     <div className="mt-3 flex items-center gap-2">
-      <div className="flex flex-1 overflow-hidden rounded-lg border border-slate-200" role="list">
-        {stages.map((s, i) => {
-          const done = curIdx >= 0 && i < curIdx;
-          const active = i === curIdx;
-          return (
-            <button
-              key={s.id}
-              disabled={!isAdmin || active}
-              onClick={() => onAdvance(s.key)}
-              title={isAdmin ? `Move to ${s.label}` : s.label}
-              className={
-                "flex-1 text-[11px] font-semibold px-2 py-2 text-center border-r border-slate-200 last:border-r-0 transition truncate " +
-                (active
-                  ? "text-white"
-                  : done
-                    ? "bg-brand-50 text-brand-700 hover:bg-brand-100"
-                    : "bg-white text-slate-500 hover:bg-slate-50") +
-                (isAdmin && !active ? " cursor-pointer" : " cursor-default")
-              }
-              style={active ? { backgroundColor: s.color } : undefined}
-            >
-              {s.label}
-            </button>
-          );
-        })}
+      <span className="text-xs font-semibold text-slate-500">Stage</span>
+      <div className="relative" data-stage-dd>
+        <button
+          onClick={() => isAdmin && setOpen((o) => !o)}
+          disabled={advancing}
+          className={
+            "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition " +
+            (isAdmin ? "hover:opacity-90 cursor-pointer" : "cursor-default")
+          }
+          style={{ backgroundColor: current?.color ?? "#64748b" }}
+          aria-haspopup={isAdmin ? "listbox" : undefined}
+          aria-expanded={open}
+          title={isAdmin ? "Move to another stage" : current?.label}
+        >
+          {current?.label ?? "Unassigned"}
+          {isAdmin && <Icon name="chevron-down" size={12} aria-hidden="true" />}
+        </button>
+        {open && (
+          <div role="listbox" className="absolute left-0 top-full mt-1 z-50 w-60 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-80 overflow-y-auto">
+            {stages.map((s, i) => {
+              const active = i === curIdx;
+              const done = curIdx >= 0 && i < curIdx;
+              return (
+                <button
+                  key={s.id}
+                  role="option"
+                  aria-selected={active}
+                  disabled={active}
+                  onClick={() => { setOpen(false); onAdvance(s.key); }}
+                  className={
+                    "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition " +
+                    (active ? "text-slate-400 cursor-default" : "text-slate-700 hover:bg-slate-50")
+                  }
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                  {s.label}
+                  {active && <span className="ml-auto text-[10px] font-mono text-slate-400">current</span>}
+                  {done && <span className="ml-auto text-[10px] font-mono text-slate-300">done</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       {isAdmin && next && (
         <button
           onClick={() => onAdvance(next.key)}
           disabled={advancing}
-          className="rounded-lg bg-brand-gradient text-white text-xs font-semibold px-3 py-2 whitespace-nowrap shadow-sm hover:opacity-95 transition disabled:opacity-60"
+          className="rounded-lg bg-brand-gradient text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap shadow-sm hover:opacity-95 transition disabled:opacity-60"
         >
           Mark complete → {next.label}
         </button>
