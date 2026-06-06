@@ -35,6 +35,7 @@ import type {
   WorkflowModuleRow,
   WorkflowTaskTemplateRow,
   TaskKind,
+  WorkstreamRow,
 } from "../lib/types";
 
 import { Card } from "../components/ui/Card";
@@ -75,6 +76,7 @@ export function WorkStreamBuilder() {
     realtime: true,
   });
   const teams = useOrgTable<TeamRow>("teams", { orderBy: "position", realtime: true });
+  const workstreams = useOrgTable<WorkstreamRow>("workstreams", { orderBy: "created_at", realtime: true });
   const roles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", {
     orderBy: "position",
@@ -318,6 +320,36 @@ export function WorkStreamBuilder() {
     }
   };
 
+  /* ---------- saved work streams ---------- */
+  const createWorkstream = async (name: string) => {
+    if (!orgId || !name.trim()) return;
+    try {
+      const isFirst = workstreams.rows.length === 0;
+      await workstreams.insert({ name: name.trim(), status: "active", is_default: isFirst } as any);
+      toast.success(stamped(`Work stream "${name.trim()}" saved`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't save the work stream")); }
+  };
+  const renameWorkstream = (id: string, name: string) =>
+    workstreams.update(id, { name }).catch((e: any) => toast.error(friendlyError(e, "Rename failed")));
+  const setDefaultWorkstream = async (id: string) => {
+    try {
+      await Promise.all(workstreams.rows.map((x) => workstreams.update(x.id, { is_default: x.id === id })));
+      toast.success(stamped("Default work stream set"));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't set default")); }
+  };
+  const duplicateWorkstream = async (src: WorkstreamRow) => {
+    if (!orgId) return;
+    try {
+      await workstreams.insert({ name: `${src.name} (copy)`, description: src.description, status: "active", is_default: false } as any);
+      toast.success(stamped(`Copied "${src.name}"`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't copy")); }
+  };
+  const archiveWorkstream = async (src: WorkstreamRow) => {
+    if (!(await confirmDialog({ title: "Archive work stream", message: `Archive "${src.name}"? Studies already on it keep it; it won't appear when creating new studies.`, confirmLabel: "Archive" }))) return;
+    try { await workstreams.update(src.id, { status: "archived" }); toast.success(stamped(`Archived "${src.name}"`)); }
+    catch (e: any) { toast.error(friendlyError(e, "Couldn't archive")); }
+  };
+
   /* ---------- dnd ---------- */
 
   const onDragStart = (e: DragStartEvent) => setActiveDragId(String(e.active.id));
@@ -382,6 +414,17 @@ export function WorkStreamBuilder() {
         }
       />
       <AutoSaveNote />
+
+      {isAdmin && (
+        <WorkstreamManager
+          workstreams={workstreams.rows.filter((x) => x.status === "active")}
+          onCreate={(name) => void createWorkstream(name)}
+          onRename={(id, name) => void renameWorkstream(id, name)}
+          onSetDefault={(id) => void setDefaultWorkstream(id)}
+          onDuplicate={(ws) => void duplicateWorkstream(ws)}
+          onArchive={(ws) => void archiveWorkstream(ws)}
+        />
+      )}
 
       {view === "flow" && (
         <FlowView
@@ -592,6 +635,66 @@ export function WorkStreamBuilder() {
 /* ============================================================================
  * Flow view — left-to-right pipeline, parallel stages stacked in one lane
  * ========================================================================== */
+
+function WorkstreamManager({
+  workstreams, onCreate, onRename, onSetDefault, onDuplicate, onArchive,
+}: {
+  workstreams: WorkstreamRow[];
+  onCreate: (name: string) => void;
+  onRename: (id: string, name: string) => void;
+  onSetDefault: (id: string) => void;
+  onDuplicate: (ws: WorkstreamRow) => void;
+  onArchive: (ws: WorkstreamRow) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  return (
+    <div className="mt-5 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon name="workflow" size={14} className="text-slate-400" />
+        <span className="text-xs font-semibold text-slate-700">Saved work streams</span>
+        <span className="text-[11px] text-slate-400">— pick one when creating a study from intake</span>
+        <div className="flex-1" />
+        {adding ? (
+          <div className="flex items-center gap-1.5">
+            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) { onCreate(name); setName(""); setAdding(false); } if (e.key === "Escape") { setAdding(false); setName(""); } }}
+              placeholder="e.g. Industry interventional" className="text-sm w-52" />
+            <Button size="sm" variant="primary" onClick={() => { if (name.trim()) { onCreate(name); setName(""); setAdding(false); } }} disabled={!name.trim()}>Save</Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={12} /> New work stream</Button>
+        )}
+      </div>
+      {workstreams.length === 0 ? (
+        <p className="text-[11px] text-slate-400 italic">None yet — save your first pathway above. New studies pick a work stream at intake.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {workstreams.map((ws) => (
+            <span key={ws.id} className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 pl-2.5 pr-1.5 py-1 text-xs">
+              {ws.is_default && <span className="text-amber-500" title="Default for new studies">★</span>}
+              {editId === ws.id ? (
+                <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => { const t = editName.trim(); if (t && t !== ws.name) onRename(ws.id, t); setEditId(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditId(null); }}
+                  className="text-xs border border-brand-200 rounded px-1 py-0.5 outline-none" />
+              ) : (
+                <button onClick={() => { setEditId(ws.id); setEditName(ws.name); }} className="font-semibold text-slate-700 hover:text-brand-700" title="Rename">{ws.name}</button>
+              )}
+              <span className="hidden group-hover:inline-flex items-center gap-1 text-slate-400">
+                {!ws.is_default && <button onClick={() => onSetDefault(ws.id)} className="hover:text-amber-500" title="Set as default">★</button>}
+                <button onClick={() => onDuplicate(ws)} className="hover:text-brand-700" title="Duplicate"><Icon name="copy" size={11} /></button>
+                <button onClick={() => onArchive(ws)} className="hover:text-red-600" title="Archive">×</button>
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StageCardEditable({
   s, mods, teams, isAdmin, inLane, canMerge,
