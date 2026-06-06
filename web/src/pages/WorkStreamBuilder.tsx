@@ -42,7 +42,6 @@ import type {
 } from "../lib/types";
 
 import { Card } from "../components/ui/Card";
-import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { flowColumns, mergeWithPrevious, canMergeWithPrevious } from "../lib/flow";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -373,8 +372,12 @@ export function WorkStreamBuilder() {
         kicker="Configure"
         title="Work streams"
         subtitle="Define the pathways studies follow. Pick a work stream below to edit it, then drag stages and modules on the canvas. A study is put on one work stream at intake."
+        actions={
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 text-emerald-700 px-2.5 py-1.5 text-xs font-semibold" title="There's no save button — every change is written instantly">
+            <Icon name="check" size={13} /> Auto-saved
+          </span>
+        }
       />
-      <AutoSaveNote />
 
       <WorkstreamManager
         workstreams={activeWorkstreams}
@@ -507,12 +510,6 @@ function WorkstreamManager({
                   (selected ? "border-brand-400 bg-brand-50 ring-1 ring-brand-500/20" : "border-slate-200 bg-white hover:border-slate-300")
                 }
               >
-                <button
-                  onClick={(e) => { e.stopPropagation(); onSetDefault(ws.id); }}
-                  className={ws.is_default ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}
-                  title={ws.is_default ? "Default for new studies" : "Set as default for new studies"}
-                  aria-label="Set as default"
-                >★</button>
                 {editId === ws.id ? (
                   <input autoFocus value={editName} onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
                     onBlur={() => { const t = editName.trim(); if (t && t !== ws.name) onRename(ws.id, t); setEditId(null); }}
@@ -521,9 +518,10 @@ function WorkstreamManager({
                 ) : (
                   <span className={"font-semibold " + (selected ? "text-brand-800" : "text-slate-700")}>{ws.name}</span>
                 )}
-                {ws.is_default && <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600">default</span>}
-                {selected && <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600">editing</span>}
+                {ws.is_default && <span className="rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5" title="New studies are assigned this work stream at intake">Default</span>}
+                {selected && <span className="rounded-full bg-brand-100 text-brand-700 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">Editing</span>}
                 <span className="flex items-center gap-1 text-slate-400 ml-1 opacity-0 group-hover:opacity-100 transition">
+                  {!ws.is_default && <button onClick={(e) => { e.stopPropagation(); onSetDefault(ws.id); }} className="hover:text-amber-500 p-0.5" title="Set as default for new studies" aria-label="Set as default">★</button>}
                   <button onClick={(e) => { e.stopPropagation(); setEditId(ws.id); setEditName(ws.name); }} className="hover:text-brand-700 p-0.5" title="Rename" aria-label="Rename"><Icon name="edit" size={13} /></button>
                   <button onClick={(e) => { e.stopPropagation(); onDuplicate(ws); }} className="hover:text-brand-700 p-0.5" title="Duplicate" aria-label="Duplicate"><Icon name="copy" size={13} /></button>
                   <button onClick={(e) => { e.stopPropagation(); onArchive(ws); }} className="hover:text-red-600 p-0.5" title="Delete" aria-label="Delete"><Icon name="trash" size={13} /></button>
@@ -568,9 +566,14 @@ function FlowCanvas({
       <div className="flex items-start gap-0 min-w-max">
         {cols.map((col, ci) => (
           <div key={ci} className="flex items-start">
-            <div className="flex flex-col gap-3">
+            <div className={col.stages.length > 1
+              ? "flex flex-col gap-2 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 p-2"
+              : "flex flex-col gap-3"}>
               {col.stages.length > 1 && (
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">parallel</div>
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
+                  <span className="text-[10px] text-slate-400">· run at the same time</span>
+                </div>
               )}
               {col.stages.map((s) => (
                 <StageCard
