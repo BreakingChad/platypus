@@ -39,6 +39,7 @@ import type {
   WorkflowTaskTemplateRow,
   TaskKind,
   WorkstreamRow,
+  WorkstreamStageRow,
 } from "../lib/types";
 
 import { Card } from "../components/ui/Card";
@@ -76,6 +77,23 @@ const STAGE_COLORS = ["#6366F1", "#0284C7", "#059669", "#b45309", "#7C3AED", "#B
 
 type DragMeta = { type: "stage" | "module"; stageKey?: string };
 
+/** A stage as it appears in ONE work stream's flow: library identity (libId,
+ *  key, label, color) + this stream's flow attrs (position, parallel, target,
+ *  terminal). `id` is the row in the active flow table (join row when migrated,
+ *  else the pipeline_stages row) — what sortable/reorder/target operate on. */
+type FlowStage = {
+  id: string;
+  libId: string;
+  key: string;
+  label: string;
+  color: string;
+  is_core: boolean;
+  position: number;
+  parallel_group: number | null;
+  target_days: number;
+  terminal: boolean;
+};
+
 export function WorkStreamBuilder() {
   const { orgId } = useCurrentOrg();
   const { isAdmin, loading: memberLoading } = useCurrentMember();
@@ -86,6 +104,7 @@ export function WorkStreamBuilder() {
   const workstreams = useOrgTable<WorkstreamRow>("workstreams", { orderBy: "created_at", realtime: true });
   const roles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", { orderBy: "position", realtime: true });
+  const wsStages = useOrgTable<WorkstreamStageRow>("workstream_stages", { realtime: true });
 
   /** Which module's editor drawer is open. */
   const [editorModuleId, setEditorModuleId] = useState<string | null>(null);
@@ -101,6 +120,36 @@ export function WorkStreamBuilder() {
   }, [activeWorkstreams, selectedWsId]);
   const selectedWs = activeWorkstreams.find((w) => w.id === selectedWsId) ?? null;
   const selectedWsModuleCount = modules.rows.filter((m) => m.workstream_id === selectedWsId).length;
+
+  /* ---------- per-work-stream flow (0035) ----------
+   * pipeline_stages = the shared LIBRARY (key, label, color).
+   * workstream_stages = each work stream's flow (order, parallel, target, terminal).
+   * Until migration 0035 is applied the join is empty, so we fall back to the
+   * shared pipeline so the editor keeps working (old behavior). */
+  const useJoin = wsStages.rows.length > 0;
+  const flowStages: FlowStage[] = useMemo(() => {
+    if (useJoin) {
+      return wsStages.rows
+        .filter((j) => j.workstream_id === selectedWsId)
+        .map((j) => {
+          const lib = stages.rows.find((s) => s.key === j.stage_key);
+          if (!lib) return null;
+          return { id: j.id, libId: lib.id, key: j.stage_key, label: lib.label, color: lib.color, is_core: lib.is_core, position: j.position, parallel_group: j.parallel_group, target_days: j.target_days, terminal: j.terminal };
+        })
+        .filter((x): x is FlowStage => x !== null)
+        .sort((a, b) => a.position - b.position);
+    }
+    return [...stages.rows]
+      .sort((a, b) => a.position - b.position)
+      .map((s) => ({ id: s.id, libId: s.id, key: s.key, label: s.label, color: s.color, is_core: s.is_core, position: s.position, parallel_group: s.parallel_group ?? null, target_days: s.target_days, terminal: s.terminal }));
+  }, [useJoin, wsStages.rows, stages.rows, selectedWsId]);
+  /** Library stages not yet in this work stream's flow (can be added back). */
+  const libStagesNotInFlow = useMemo(
+    () => stages.rows.filter((s) => !flowStages.some((f) => f.key === s.key)).sort((a, b) => a.position - b.position),
+    [stages.rows, flowStages]
+  );
+  const activeTable = useJoin ? "workstream_stages" : "pipeline_stages";
+  const refreshFlow = () => (useJoin ? wsStages.refresh() : stages.refresh());
 
   /** Task-template counts per module, shown on the flow chips. */
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
@@ -128,54 +177,87 @@ export function WorkStreamBuilder() {
 
   /* ---------- stage mutators ---------- */
 
+  /** Create a brand-new library stage, and (when migrated) add it to this
+   *  work stream's flow at the end. */
   const addStage = async () => {
     if (!orgId) return;
-    const nextPos = stages.rows.reduce((m, s) => Math.max(m, s.position), 0) + 10;
+    const nextPos = flowStages.reduce((m, s) => Math.max(m, s.position), 0) + 10;
     try {
+      const key = `stage_${Date.now().toString(36)}`;
       await stages.insert({
-        key: `stage_${Date.now().toString(36)}`,
-        label: "New stage",
-        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
-        target_days: 14,
-        terminal: false,
-        is_core: false,
-        position: nextPos,
+        key, label: "New stage", color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
+        target_days: 14, terminal: false, is_core: false, position: nextPos,
       } as any);
+      if (useJoin && selectedWsId) {
+        await supabase.from("workstream_stages").insert({ org_id: orgId, workstream_id: selectedWsId, stage_key: key, position: nextPos, parallel_group: null, target_days: 14, terminal: false } as any);
+        await wsStages.refresh();
+      }
       toast.success(stamped("Stage added — name it"));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
   };
-  const updateStage = (id: string, patch: Partial<PipelineStageRow>) =>
-    stages.update(id, patch).catch((e: any) => toast.error(friendlyError(e, "Update failed")));
-  const removeStage = async (s: PipelineStageRow) => {
-    if (s.is_core) { toast.error("Core stages can't be removed"); return; }
-    if (!(await confirmDialog({ title: "Remove stage", message: `Remove "${s.label}"? Its modules go with it.`, confirmLabel: "Remove", danger: true }))) return;
-    try { await stages.remove(s.id); toast.success(stamped(`Removed "${s.label}"`)); }
-    catch (e: any) { toast.error(friendlyError(e, "Remove failed")); }
+
+  /** Add an EXISTING library stage back into this work stream's flow. */
+  const addExistingStage = async (stageKey: string) => {
+    if (!orgId || !selectedWsId || !useJoin) return;
+    const lib = stages.rows.find((s) => s.key === stageKey);
+    const nextPos = flowStages.reduce((m, s) => Math.max(m, s.position), 0) + 10;
+    try {
+      await supabase.from("workstream_stages").insert({ org_id: orgId, workstream_id: selectedWsId, stage_key: stageKey, position: nextPos, parallel_group: null, target_days: lib?.target_days ?? 14, terminal: lib?.terminal ?? false } as any);
+      await wsStages.refresh();
+      toast.success(stamped(`Added "${lib?.label ?? stageKey}" to this work stream`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
   };
+
+  /** Per-stream flow attributes (target days, terminal) — write to the active table. */
+  const updateFlowStage = (id: string, patch: { target_days?: number; terminal?: boolean }) =>
+    supabase.from(activeTable).update(patch as any).eq("id", id).then(({ error }) => {
+      if (error) toast.error(friendlyError(error, "Update failed")); else void refreshFlow();
+    });
+
+  /** Stage name lives in the LIBRARY (shared across all work streams). */
+  const renameStage = (libId: string, label: string) =>
+    stages.update(libId, { label } as any).catch((e: any) => toast.error(friendlyError(e, "Rename failed")));
+
+  /** Remove a stage from THIS work stream's flow (migrated) or from the library (legacy). */
+  const removeStage = async (s: FlowStage) => {
+    if (s.is_core) { toast.error("Core stages can't be removed"); return; }
+    const msg = useJoin
+      ? `Remove "${s.label}" from this work stream? Its modules here go with it; the stage stays in your library.`
+      : `Remove "${s.label}"? Its modules go with it.`;
+    if (!(await confirmDialog({ title: "Remove stage", message: msg, confirmLabel: "Remove", danger: true }))) return;
+    try {
+      await supabase.from(activeTable).delete().eq("id", s.id);
+      await refreshFlow();
+      toast.success(stamped(useJoin ? `Removed "${s.label}" from this work stream` : `Removed "${s.label}"`));
+    } catch (e: any) { toast.error(friendlyError(e, "Remove failed")); }
+  };
+
   const reorderStages = async (orderedIds: string[]) => {
     try {
-      await Promise.all(orderedIds.map((id, i) => stages.update(id, { position: (i + 1) * 10 } as any)));
+      await Promise.all(orderedIds.map((id, i) => supabase.from(activeTable).update({ position: (i + 1) * 10 } as any).eq("id", id)));
+      await refreshFlow();
     } catch (e: any) { toast.error(friendlyError(e, "Reorder failed")); }
   };
-  /** Insert a new sequential stage right after a given stage (not just at the end). */
-  const addStageAfter = async (afterStage: PipelineStageRow) => {
+
+  /** Insert a new sequential stage right after a given flow stage. */
+  const addStageAfter = async (afterStage: FlowStage) => {
     if (!orgId) return;
     try {
-      const created = await stages.insert({
-        key: `stage_${Date.now().toString(36)}`,
-        label: "New stage",
-        color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
-        target_days: 14,
-        terminal: false,
-        is_core: false,
-        parallel_group: null,
-        position: afterStage.position + 1,
+      const key = `stage_${Date.now().toString(36)}`;
+      const lib = await stages.insert({
+        key, label: "New stage", color: STAGE_COLORS[stages.rows.length % STAGE_COLORS.length],
+        target_days: 14, terminal: false, is_core: false, position: afterStage.position + 1,
       } as any);
-      if (!created) return;
-      const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== created.id);
-      const idx = sorted.findIndex((s) => s.id === afterStage.id);
-      const order = [...sorted];
-      order.splice(idx + 1, 0, created);
+      if (!lib) return;
+      let newRowId = lib.id;
+      if (useJoin && selectedWsId) {
+        const j = await wsStages.insert({ workstream_id: selectedWsId, stage_key: key, position: afterStage.position + 1, parallel_group: null, target_days: 14, terminal: false } as any);
+        newRowId = j?.id ?? lib.id;
+      }
+      const order = flowStages.filter((s) => s.id !== newRowId);
+      const idx = order.findIndex((s) => s.id === afterStage.id);
+      const newFlow = { ...afterStage, id: newRowId };
+      order.splice(idx + 1, 0, newFlow);
       await reorderStages(order.map((s) => s.id));
       toast.success(stamped("Stage added — name it"));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't add stage")); }
@@ -183,52 +265,46 @@ export function WorkStreamBuilder() {
 
   const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
     try {
-      await Promise.all(patches.map((p) =>
-        supabase.from("pipeline_stages").update({ parallel_group: p.parallel_group } as any).eq("id", p.id)
-      ));
-      await stages.refresh();
+      await Promise.all(patches.map((p) => supabase.from(activeTable).update({ parallel_group: p.parallel_group } as any).eq("id", p.id)));
+      await refreshFlow();
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't change the lane")); }
   };
 
-  /** Parallelize: drop one stage onto another → they run at the same time.
-   *  Joins the target's lane (or starts a new one). Unlimited width — keep
-   *  dragging stages onto the lane. */
+  /** Parallelize: drop one stage onto another → they run at the same time in
+   *  THIS work stream. Joins the target's lane. Unlimited width. */
   const parallelizeStages = async (draggedId: string, targetId: string) => {
-    const dragged = stages.rows.find((s) => s.id === draggedId);
-    const target = stages.rows.find((s) => s.id === targetId);
+    const dragged = flowStages.find((s) => s.id === draggedId);
+    const target = flowStages.find((s) => s.id === targetId);
     if (!dragged || !target || draggedId === targetId) return;
     const group = target.parallel_group ?? target.position;
-    // Order: place dragged immediately after target (keeps the lane contiguous).
-    const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== draggedId);
-    const idx = sorted.findIndex((s) => s.id === targetId);
-    const order = [...sorted];
+    const order = flowStages.filter((s) => s.id !== draggedId);
+    const idx = order.findIndex((s) => s.id === targetId);
     order.splice(idx + 1, 0, dragged);
     try {
       await Promise.all([
-        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", target.id),
-        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", dragged.id),
-        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+        supabase.from(activeTable).update({ parallel_group: group } as any).eq("id", target.id),
+        supabase.from(activeTable).update({ parallel_group: group } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from(activeTable).update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
       ]);
-      await stages.refresh();
+      await refreshFlow();
       toast.success(stamped(`${dragged.label} now runs in parallel with ${target.label}`));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't parallelize")); }
   };
 
   /** Move a stage to a sequential position (its own column), splitting it out
-   *  of any lane it was in. afterStageId null = move to the front. */
+   *  of any lane. afterStageId null = move to the front. */
   const reorderStageSequential = async (draggedId: string, afterStageId: string | null) => {
-    const dragged = stages.rows.find((s) => s.id === draggedId);
+    const dragged = flowStages.find((s) => s.id === draggedId);
     if (!dragged) return;
-    const sorted = [...stages.rows].sort((a, b) => a.position - b.position).filter((s) => s.id !== draggedId);
-    const insertAt = afterStageId ? sorted.findIndex((s) => s.id === afterStageId) + 1 : 0;
-    const order = [...sorted];
+    const order = flowStages.filter((s) => s.id !== draggedId);
+    const insertAt = afterStageId ? order.findIndex((s) => s.id === afterStageId) + 1 : 0;
     order.splice(insertAt, 0, dragged);
     try {
       await Promise.all([
-        supabase.from("pipeline_stages").update({ parallel_group: null } as any).eq("id", dragged.id),
-        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+        supabase.from(activeTable).update({ parallel_group: null } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from(activeTable).update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
       ]);
-      await stages.refresh();
+      await refreshFlow();
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't move the stage")); }
   };
 
@@ -402,8 +478,8 @@ export function WorkStreamBuilder() {
       // Otherwise resolve which stage we dropped onto → parallelize with it.
       let overStageId: string | null = null;
       if (overMeta?.type === "stage") overStageId = String(over.id);
-      else if (overMeta?.type === "module") overStageId = stages.rows.find((s) => s.key === (overMeta as DragMeta).stageKey)?.id ?? null;
-      else if ((overMeta as any)?.type === "stage-drop") overStageId = stages.rows.find((s) => s.key === (overMeta as any).stageKey)?.id ?? null;
+      else if (overMeta?.type === "module") overStageId = flowStages.find((s) => s.key === (overMeta as DragMeta).stageKey)?.id ?? null;
+      else if ((overMeta as any)?.type === "stage-drop") overStageId = flowStages.find((s) => s.key === (overMeta as any).stageKey)?.id ?? null;
       if (!overStageId || overStageId === active.id) return;
       void parallelizeStages(String(active.id), overStageId);
       return;
@@ -416,7 +492,7 @@ export function WorkStreamBuilder() {
     let overModuleId: string | null = null;
     if (overMeta?.type === "module") { overModuleId = String(over.id); targetKey = (overMeta as DragMeta).stageKey ?? null; }
     else if ((overMeta as any)?.type === "stage-drop") targetKey = (overMeta as any).stageKey;
-    else if (overMeta?.type === "stage") targetKey = stages.rows.find((s) => s.id === String(over.id))?.key ?? null;
+    else if (overMeta?.type === "stage") targetKey = flowStages.find((s) => s.id === String(over.id))?.key ?? null;
     if (!targetKey) return;
     if (targetKey === mod.stage_key && (active.id === over.id || overModuleId === mod.id)) return;
 
@@ -449,7 +525,7 @@ export function WorkStreamBuilder() {
     );
   }
 
-  const flatStageIds = [...stages.rows].sort((a, b) => a.position - b.position).map((s) => s.id);
+  const flatStageIds = flowStages.map((s) => s.id);
 
   return (
     <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
@@ -475,12 +551,12 @@ export function WorkStreamBuilder() {
         onArchive={(ws) => void archiveWorkstream(ws)}
       />
 
-      {stages.rows.length === 0 ? (
+      {flowStages.length === 0 ? (
         <Card className="mt-6">
           <EmptyState
             iconName="workflow"
-            title="No stages yet"
-            sub="Add your first pipeline stage to start designing the flow."
+            title={selectedWs ? "No stages in this work stream" : "No stages yet"}
+            sub={selectedWs ? "Add a stage to start designing this work stream's flow." : "Add your first pipeline stage to start designing the flow."}
             action={<Button variant="primary" onClick={() => void addStage()}><Icon name="plus" size={12} /> Add stage</Button>}
           />
         </Card>
@@ -493,9 +569,9 @@ export function WorkStreamBuilder() {
             </span>
             <span className="text-[11px] text-slate-400">— click a module to edit its tasks</span>
           </div>
-          <div className="mb-3 flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-            <Icon name="info" size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
-            <span><span className="font-semibold">Modules</span> save to this work stream. <span className="font-semibold">Stage order, parallel grouping, names &amp; targets are the shared pipeline</span> — editing them here changes every work stream.</span>
+          <div className="mb-3 flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <Icon name="info" size={13} className="text-slate-400 flex-shrink-0 mt-0.5" />
+            <span>Stage <span className="font-semibold">order, parallel grouping, targets &amp; modules</span> are specific to this work stream. Stage <span className="font-semibold">names &amp; colors</span> come from the shared library (Pipeline stages) — renaming changes them everywhere.{!useJoin && " · Run migration 0035 to unlock per-work-stream flow."}</span>
           </div>
           {selectedWs && selectedWsModuleCount === 0 && (
             <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-xs text-slate-600 flex items-center gap-2">
@@ -505,20 +581,23 @@ export function WorkStreamBuilder() {
           )}
           <SortableContext items={flatStageIds} strategy={rectSortingStrategy}>
             <FlowCanvas
-              stages={stages.rows}
+              stages={flowStages}
               modules={modules.rows.filter((m) => m.workstream_id === selectedWsId)}
               teams={teams.rows}
               taskCounts={taskCounts}
               isStageDragging={activeDrag?.meta.type === "stage"}
+              libStagesNotInFlow={libStagesNotInFlow.map((s) => ({ key: s.key, label: s.label }))}
+              canAddExisting={useJoin}
               onAddStage={() => void addStage()}
+              onAddExisting={(key) => void addExistingStage(key)}
               onAddStageAfter={(s) => void addStageAfter(s)}
-              onRenameStage={(id, label) => void updateStage(id, { label })}
-              onTargetStage={(id, days) => void updateStage(id, { target_days: days })}
-              onToggleTerminal={(id, v) => void updateStage(id, { terminal: v })}
+              onRenameStage={(id, label) => { const f = flowStages.find((x) => x.id === id); if (f) void renameStage(f.libId, label); }}
+              onTargetStage={(id, days) => void updateFlowStage(id, { target_days: days })}
+              onToggleTerminal={(id, v) => void updateFlowStage(id, { terminal: v })}
               onRemoveStage={(s) => void removeStage(s)}
-              onMerge={(id) => void setStageParallel(mergeWithPrevious(stages.rows, id))}
+              onMerge={(id) => void setStageParallel(mergeWithPrevious(flowStages, id))}
               onSplit={(id) => void setStageParallel([{ id, parallel_group: null }])}
-              canMerge={(id) => canMergeWithPrevious(stages.rows, id)}
+              canMerge={(id) => canMergeWithPrevious(flowStages, id)}
               onAddModule={(key, name) => void addModuleTo(key, name)}
               onOpenModule={(id) => setEditorModuleId(id)}
               onCopyFrom={(src, dest) => void copyFromStage(src, dest)}
@@ -526,7 +605,7 @@ export function WorkStreamBuilder() {
           </SortableContext>
           <DragOverlay>
             {activeDrag?.meta.type === "stage" ? (() => {
-              const s = stages.rows.find((x) => x.id === activeDrag.id);
+              const s = flowStages.find((x) => x.id === activeDrag.id);
               return s ? <StageGhost label={s.label} color={s.color} /> : null;
             })() : activeDrag ? (() => {
               const m = modules.rows.find((x) => x.id === activeDrag.id);
@@ -637,21 +716,24 @@ function WorkstreamManager({
  * ========================================================================== */
 
 function FlowCanvas({
-  stages, modules, teams, taskCounts, isStageDragging,
-  onAddStage, onAddStageAfter, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
+  stages, modules, teams, taskCounts, isStageDragging, libStagesNotInFlow, canAddExisting,
+  onAddStage, onAddExisting, onAddStageAfter, onRenameStage, onTargetStage, onToggleTerminal, onRemoveStage,
   onMerge, onSplit, canMerge, onAddModule, onOpenModule, onCopyFrom,
 }: {
-  stages: PipelineStageRow[];
+  stages: FlowStage[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
   isStageDragging: boolean;
+  libStagesNotInFlow: { key: string; label: string }[];
+  canAddExisting: boolean;
   onAddStage: () => void;
-  onAddStageAfter: (afterStage: PipelineStageRow) => void;
+  onAddExisting: (stageKey: string) => void;
+  onAddStageAfter: (afterStage: FlowStage) => void;
   onRenameStage: (id: string, label: string) => void;
   onTargetStage: (id: string, days: number) => void;
   onToggleTerminal: (id: string, v: boolean) => void;
-  onRemoveStage: (s: PipelineStageRow) => void;
+  onRemoveStage: (s: FlowStage) => void;
   onMerge: (id: string) => void;
   onSplit: (id: string) => void;
   canMerge: (id: string) => boolean;
@@ -660,6 +742,7 @@ function FlowCanvas({
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
 }) {
   const cols = flowColumns(stages);
+  const [addOpen, setAddOpen] = useState(false);
   return (
     <div className="mt-6 overflow-x-auto pb-4">
       {isStageDragging && (
@@ -709,12 +792,29 @@ function FlowCanvas({
             </div>
           );
         })}
-        <button
-          onClick={onAddStage}
-          className="w-40 self-start mt-0 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold min-h-[140px]"
-        >
-          <Icon name="plus" size={14} /> Stage
-        </button>
+        <div className="relative self-start" data-add-stage>
+          <button
+            onClick={() => {
+              if (canAddExisting && libStagesNotInFlow.length > 0) setAddOpen((v) => !v);
+              else onAddStage();
+            }}
+            className="w-40 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold min-h-[140px]"
+          >
+            <Icon name="plus" size={14} /> Stage
+          </button>
+          {addOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
+              <div className="absolute left-0 top-2 z-20 w-56 rounded-lg border border-slate-200 bg-white shadow-lg py-1 text-xs">
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add a stage from your library</div>
+                {libStagesNotInFlow.map((s) => (
+                  <button key={s.key} onClick={() => { onAddExisting(s.key); setAddOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50 truncate">{s.label}</button>
+                ))}
+                <button onClick={() => { onAddStage(); setAddOpen(false); }} className="w-full text-left px-3 py-1.5 font-semibold text-brand-700 hover:bg-brand-50 border-t border-slate-100 flex items-center gap-1"><Icon name="plus" size={11} /> Create new stage</button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -757,9 +857,9 @@ function StageCard({
   s, mods, allStages, modules, teams, taskCounts, inLane, canMerge,
   onRename, onTarget, onTerminal, onRemove, onMerge, onSplit, onAddModule, onOpenModule, onCopyFrom,
 }: {
-  s: PipelineStageRow;
+  s: FlowStage;
   mods: WorkflowModuleRow[];
-  allStages: PipelineStageRow[];
+  allStages: FlowStage[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
@@ -768,7 +868,7 @@ function StageCard({
   onRename: (id: string, label: string) => void;
   onTarget: (id: string, days: number) => void;
   onTerminal: (id: string, v: boolean) => void;
-  onRemove: (s: PipelineStageRow) => void;
+  onRemove: (s: FlowStage) => void;
   onMerge: (id: string) => void;
   onSplit: (id: string) => void;
   onAddModule: (stageKey: string, name: string) => void;

@@ -341,6 +341,19 @@ export type InvestigatorRow = {
   updated_at: string;
 };
 
+export type WorkstreamStageRow = {
+  id: string;
+  org_id: string;
+  workstream_id: string;
+  stage_key: string;
+  position: number;
+  parallel_group: number | null;
+  target_days: number;
+  terminal: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SiteInvestigatorRow = {
   id: string;
   org_id: string;
@@ -444,6 +457,7 @@ export type Database = {
       investigators:           { Row: InvestigatorRow;         Insert: Partial<InvestigatorRow>;         Update: Partial<InvestigatorRow>;         Relationships: [] };
       site_investigators:      { Row: SiteInvestigatorRow;     Insert: Partial<SiteInvestigatorRow>;     Update: Partial<SiteInvestigatorRow>;     Relationships: [] };
       workstreams:             { Row: WorkstreamRow;           Insert: Partial<WorkstreamRow>;           Update: Partial<WorkstreamRow>;           Relationships: [] };
+      workstream_stages:       { Row: WorkstreamStageRow;      Insert: Partial<WorkstreamStageRow>;      Update: Partial<WorkstreamStageRow>;      Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };

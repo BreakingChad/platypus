@@ -35,7 +35,7 @@ import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
 import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
-import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow } from "../lib/types";
+import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -97,6 +97,7 @@ export function StudyDetail({
   const studySites = useOrgTable<StudySiteRow>("study_sites", { realtime: true });
   const investigators = useOrgTable<InvestigatorRow>("investigators", { orderBy: "name", realtime: true });
   const siteInvestigators = useOrgTable<SiteInvestigatorRow>("site_investigators", { realtime: true });
+  const wsStages = useOrgTable<WorkstreamStageRow>("workstream_stages", { realtime: true });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
     realtime: true,
@@ -251,6 +252,23 @@ export function StudyDetail({
     () => (study?.stage_key ? stages.rows.find((s) => s.key === study.stage_key) : null),
     [stages.rows, study?.stage_key]
   );
+
+  /** Stage order for THIS study follows its work stream's flow (0035), falling
+   *  back to the shared pipeline order before the migration / for unassigned. */
+  const studyStages = useMemo<PipelineStageRow[]>(() => {
+    const wsId = study?.workstream_id;
+    if (!wsId) return stages.rows;
+    const rows = wsStages.rows.filter((j) => j.workstream_id === wsId);
+    if (rows.length === 0) return stages.rows;
+    return rows
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((j) => {
+        const lib = stages.rows.find((s) => s.key === j.stage_key);
+        return lib ? ({ ...lib, position: j.position, parallel_group: j.parallel_group, target_days: j.target_days, terminal: j.terminal } as PipelineStageRow) : null;
+      })
+      .filter((x): x is PipelineStageRow => x !== null);
+  }, [wsStages.rows, stages.rows, study?.workstream_id]);
 
   const health = useMemo(
     () => (study ? computeHealth(study, stages.rows) : null),
@@ -460,7 +478,7 @@ export function StudyDetail({
             {isAdmin && (
               <SmartActionButton
                 study={study}
-                stages={stages.rows}
+                stages={studyStages}
                 advancing={advancing}
                 savingClose={savingClose}
                 onAdvance={(k) => void advanceStage(k)}
@@ -481,7 +499,7 @@ export function StudyDetail({
       />
       {!study.closed && (
         <PathBar
-          stages={stages.rows}
+          stages={studyStages}
           currentKey={study.stage_key}
           isAdmin={isAdmin}
           advancing={advancing}
@@ -612,7 +630,7 @@ export function StudyDetail({
 
         {shownTab === "startup" && <StartupDocsTab study={study} />}
 
-        {shownTab === "workstream" && <StudyWorkstreamTab study={study} stages={stages.rows} />}
+        {shownTab === "workstream" && <StudyWorkstreamTab study={study} stages={studyStages} />}
 
         {shownTab === "sites" && (
           <div className="space-y-5">
