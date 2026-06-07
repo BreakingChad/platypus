@@ -491,7 +491,11 @@ export function WorkStreamBuilder() {
             <span className="text-sm font-semibold text-slate-800">
               {selectedWs ? <>Editing <span className="text-brand-700">{selectedWs.name}</span></> : "Pipeline & modules"}
             </span>
-            <span className="text-[11px] text-slate-400">— drag stages to reorder, drag modules between stages, click a module to edit its tasks</span>
+            <span className="text-[11px] text-slate-400">— click a module to edit its tasks</span>
+          </div>
+          <div className="mb-3 flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+            <Icon name="info" size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <span><span className="font-semibold">Modules</span> save to this work stream. <span className="font-semibold">Stage order, parallel grouping, names &amp; targets are the shared pipeline</span> — editing them here changes every work stream.</span>
           </div>
           {selectedWs && selectedWsModuleCount === 0 && (
             <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-xs text-slate-600 flex items-center gap-2">
@@ -617,7 +621,7 @@ function WorkstreamManager({
                   {!ws.is_default && <button onClick={(e) => { e.stopPropagation(); onSetDefault(ws.id); }} className="hover:text-amber-500 p-0.5" title="Set as default for new studies" aria-label="Set as default">★</button>}
                   <button onClick={(e) => { e.stopPropagation(); setEditId(ws.id); setEditName(ws.name); }} className="hover:text-brand-700 p-0.5" title="Rename" aria-label="Rename"><Icon name="edit" size={13} /></button>
                   <button onClick={(e) => { e.stopPropagation(); onDuplicate(ws); }} className="hover:text-brand-700 p-0.5" title="Duplicate" aria-label="Duplicate"><Icon name="copy" size={13} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); onArchive(ws); }} className="hover:text-red-600 p-0.5" title="Delete" aria-label="Delete"><Icon name="trash" size={13} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); onArchive(ws); }} className="hover:text-red-600 p-0.5" title="Archive" aria-label="Archive"><Icon name="trash" size={13} /></button>
                 </span>
               </div>
             );
