@@ -177,6 +177,27 @@ export function WorkStreamPanel({
   );
   const enabledModules = modules.filter((m) => m.enabled).length;
 
+  // Empty: a single compact line, not a big nested card competing with the
+  // tasks empty-state below it.
+  if (modules.length === 0) {
+    return (
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white px-4 py-3 flex items-center gap-2 flex-wrap">
+        <Icon name="workflow" size={14} className="text-slate-400 flex-shrink-0" />
+        <span className="text-xs text-slate-500">
+          No work-stream modules fire at <span className="font-semibold text-slate-700">{stage.label}</span> yet.
+        </span>
+        {isAdmin && onNavigate && (
+          <button
+            onClick={() => onNavigate("#/settings/work-streams")}
+            className="text-xs font-semibold text-brand-700 hover:underline ml-auto"
+          >
+            Configure
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Card className="mt-6">
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
@@ -191,13 +212,11 @@ export function WorkStreamPanel({
             </span>
           </div>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            {modules.length === 0
-              ? "No modules configured — this stage doesn't auto-spawn any tasks."
-              : `${enabledModules} of ${modules.length} module${modules.length === 1 ? "" : "s"} active · ${totalTemplates} task template${totalTemplates === 1 ? "" : "s"}`}
+            {`${enabledModules} of ${modules.length} module${modules.length === 1 ? "" : "s"} active · ${totalTemplates} task template${totalTemplates === 1 ? "" : "s"}`}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && studyId && modules.length > 0 && (
+          {isAdmin && studyId && (
             <Button
               variant="primary"
               size="sm"
@@ -220,29 +239,6 @@ export function WorkStreamPanel({
           )}
         </div>
       </div>
-
-      {modules.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-          <div className="text-sm text-slate-700 font-semibold mb-1">
-            No work stream configured
-          </div>
-          <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
-            When admins set up modules in Work streams for{" "}
-            <strong>{stage.label}</strong>, advancing a study to this stage will spawn
-            their task templates automatically.
-          </p>
-          {isAdmin && onNavigate && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="mt-3"
-              onClick={() => onNavigate("#/settings/work-streams")}
-            >
-              <Icon name="plus" size={12} /> Configure modules
-            </Button>
-          )}
-        </div>
-      )}
 
       {modules.length > 0 && (
         <div className="space-y-2">

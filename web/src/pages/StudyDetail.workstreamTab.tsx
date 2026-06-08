@@ -145,25 +145,36 @@ export function StudyWorkstreamTab({
 
       {/* the tasks this work stream creates, grouped by stage — parallel stages share a lane */}
       <div className="space-y-3">
-        {flowColumns(stages).map((col, ci) => {
-          const cards = col.stages.map((s) => renderStageCard(s)).filter(Boolean) as ReactNode[];
-          if (cards.length === 0) return null;
-          if (col.stages.length > 1) {
-            return (
-              <div key={`lane-${ci}`} className="rounded-2xl border border-dashed border-brand-300 bg-brand-50/30 p-2 space-y-2">
-                <div className="px-1 flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
-                  <span className="text-[10px] text-slate-400">· these run at the same time</span>
+        {(() => {
+          let anyShown = false;
+          const lanes = flowColumns(stages).map((col, ci) => {
+            const cards = col.stages.map((s) => renderStageCard(s)).filter(Boolean) as ReactNode[];
+            if (cards.length === 0) return null;
+            anyShown = true;
+            if (col.stages.length > 1) {
+              return (
+                <div key={`lane-${ci}`} className="rounded-2xl border border-dashed border-brand-300 bg-brand-50/30 p-2 space-y-2">
+                  <div className="px-1 flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
+                    <span className="text-[10px] text-slate-400">· these run at the same time</span>
+                  </div>
+                  {cards}
                 </div>
-                {cards}
-              </div>
-            );
-          }
-          return <div key={`col-${ci}`}>{cards}</div>;
-        })}
-        {myTasks.length === 0 && (
-          <Card><div className="text-xs text-slate-500 px-1 py-2">No tasks yet — this work stream spawns them as the study moves through its stages.</div></Card>
-        )}
+              );
+            }
+            return <div key={`col-${ci}`}>{cards}</div>;
+          });
+          // Only show the catch-all empty when nothing above rendered — otherwise
+          // the per-stage "modules spawn tasks" hints already make the point.
+          return (
+            <>
+              {lanes}
+              {!anyShown && (
+                <Card><div className="text-xs text-slate-500 px-1 py-2">No tasks yet — this work stream spawns them as the study moves through its stages.</div></Card>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

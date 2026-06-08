@@ -272,15 +272,8 @@ export function DocumentsTab({ study }: { study: StudyRow }) {
               title={selectedCategory === "all" ? "No documents yet" : `No ${categoryByKey(selectedCategory)?.label ?? selectedCategory} documents`}
               sub={
                 isAdmin
-                  ? "Upload protocol, ICF, IRB approvals, and other regulatory artifacts. They'll show up here organized by CDISC category."
+                  ? "Upload protocol, ICF, IRB approvals, and other regulatory artifacts with the Upload document button — they'll organize here by CDISC category."
                   : "An admin will upload regulatory artifacts here. Check back."
-              }
-              action={
-                isAdmin && (
-                  <Button variant="primary" onClick={() => setUploadModalOpen(true)}>
-                    <Icon name="plus" size={12} /> Upload first document
-                  </Button>
-                )
               }
             />
           </Card>

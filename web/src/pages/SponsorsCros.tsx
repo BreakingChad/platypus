@@ -78,7 +78,7 @@ function SponsorSection({ sponsors, studies, editable }: {
       <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
         <Icon name="building" size={15} className="text-slate-400" />
         <span className="text-sm font-semibold text-slate-800">Sponsors</span>
-        <span className="text-[11px] font-mono text-slate-400">{active.length}</span>
+        {active.length > 0 && <span className="text-[11px] font-mono text-slate-400">{active.length}</span>}
         <div className="flex-1" />
         {editable && !adding && <Button size="sm" variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={12} /> Add sponsor</Button>}
         {editable && adding && (
@@ -169,7 +169,7 @@ function CroSection({ cros, studies, editable }: {
         <Icon name="users" size={15} className="text-slate-400" />
         <span className="text-sm font-semibold text-slate-800">CROs</span>
         <span className="text-[11px] text-slate-400">— contract research organizations</span>
-        <span className="text-[11px] font-mono text-slate-400">{active.length}</span>
+        {active.length > 0 && <span className="text-[11px] font-mono text-slate-400">{active.length}</span>}
         <div className="flex-1" />
         {editable && !adding && <Button size="sm" variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={12} /> Add CRO</Button>}
         {editable && adding && (

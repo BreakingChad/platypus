@@ -78,7 +78,7 @@ export function SiteInvestigators({ siteId, editable }: { siteId: string; editab
       <div className="flex items-center gap-2 mb-2">
         <Icon name="users" size={14} className="text-slate-400" />
         <span className="text-xs font-semibold text-slate-500">Investigators</span>
-        <span className="text-[10px] font-mono text-slate-400">{affiliated.length}</span>
+        {affiliated.length > 0 && <span className="text-[10px] font-mono text-slate-400">{affiliated.length}</span>}
         <div className="flex-1" />
         {editable && (
           <div className="relative" data-add-inv>
