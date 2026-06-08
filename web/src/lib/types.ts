@@ -341,6 +341,37 @@ export type InvestigatorRow = {
   updated_at: string;
 };
 
+export type SponsorRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  sponsor_type: string | null;       // industry | nih | foundation | investigator_initiated | other
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  portal_url: string | null;
+  payment_terms: string | null;
+  notes: string | null;
+  status: string;                    // active | inactive
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CroRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+  status: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WorkstreamStageRow = {
   id: string;
   org_id: string;
@@ -379,7 +410,9 @@ export type StudyRow = {
   code: string;
   title: string;
   nct: string | null;
-  sponsor: string | null;
+  sponsor: string | null;            // legacy free text — kept as fallback
+  sponsor_id?: string | null;        // 0037 — source of truth
+  cro_id?: string | null;            // 0037
   therapeutic_area: string | null;
   phase: string | null;
   stage_key: string | null;
@@ -458,6 +491,8 @@ export type Database = {
       site_investigators:      { Row: SiteInvestigatorRow;     Insert: Partial<SiteInvestigatorRow>;     Update: Partial<SiteInvestigatorRow>;     Relationships: [] };
       workstreams:             { Row: WorkstreamRow;           Insert: Partial<WorkstreamRow>;           Update: Partial<WorkstreamRow>;           Relationships: [] };
       workstream_stages:       { Row: WorkstreamStageRow;      Insert: Partial<WorkstreamStageRow>;      Update: Partial<WorkstreamStageRow>;      Relationships: [] };
+      sponsors:                { Row: SponsorRow;              Insert: Partial<SponsorRow>;              Update: Partial<SponsorRow>;              Relationships: [] };
+      cros:                    { Row: CroRow;                  Insert: Partial<CroRow>;                  Update: Partial<CroRow>;                  Relationships: [] };
       platform_admins:         { Row: PlatformAdminRow;        Insert: Partial<PlatformAdminRow>;        Update: Partial<PlatformAdminRow>;        Relationships: [] };
       org_invites:             { Row: OrgInviteRow;            Insert: Partial<OrgInviteRow>;            Update: Partial<OrgInviteRow>;            Relationships: [] };
       form_submissions:        { Row: FormSubmissionRow;       Insert: Partial<FormSubmissionRow>;       Update: Partial<FormSubmissionRow>;       Relationships: [] };

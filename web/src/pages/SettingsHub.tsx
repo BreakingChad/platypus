@@ -24,6 +24,7 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     tools: [
       { href: "#/settings/org", icon: "settings", name: "Organization", what: "Name, sponsor mode, study-code prefix, region.", touch: "Once" },
       { href: "#/settings/fields", icon: "file", name: "Study & site fields", what: "Every field on the study record and site profiles — sections, order, what's required.", touch: "Occasionally" },
+      { href: "#/settings/sponsors", icon: "building", name: "Sponsors & CROs", what: "Catalogs of the sponsors and CROs behind your studies — picked on a study, not retyped, so filtering and roll-ups stay clean.", touch: "As they sign on" },
     ],
   },
   {

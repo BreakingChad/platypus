@@ -27,6 +27,7 @@ const NavDesigner          = lazy(() => import("./pages/NavDesigner").then(m => 
 const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").then(m => ({ default: m.PageLayoutDesigner })));
 const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({ default: m.AuditFeed })));
 const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
+const SponsorsCros         = lazy(() => import("./pages/SponsorsCros").then(m => ({ default: m.SponsorsCros })));
 const GuidedSetup          = lazy(() => import("./pages/GuidedSetup").then(m => ({ default: m.GuidedSetup })));
 const SettingsHub          = lazy(() => import("./pages/SettingsHub").then(m => ({ default: m.SettingsHub })));
 const MyStudies            = lazy(() => import("./pages/MyStudies").then(m => ({ default: m.MyStudies })));
@@ -138,6 +139,9 @@ function renderRoute(
   }
   if (hash === "#/settings/work-streams") {
     return { node: <WorkStreamBuilder /> };
+  }
+  if (hash === "#/settings/sponsors") {
+    return { node: <SponsorsCros /> };
   }
 
   // Configure: nav designer

@@ -3,10 +3,12 @@ import { useToast } from "../lib/Toast";
 import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
 import { useDismissable } from "../lib/useDismissable";
-import type { PipelineStageRow, SiteRow, StudyRow, StudySiteRow, InvestigatorRow, SiteInvestigatorRow } from "../lib/types";
+import type { PipelineStageRow, SiteRow, StudyRow, StudySiteRow, InvestigatorRow, SiteInvestigatorRow, SponsorRow, CroRow } from "../lib/types";
 import { HealthDot } from "../components/ui/HealthDot";
 import { Icon } from "../components/ui/Icon";
 import { Pill } from "../components/ui/Pill";
+import { Select } from "../components/ui/Select";
+import { Input } from "../components/ui/Input";
 
 /** CRM-style study header pieces (Wave S1) — highlights strip, stage path,
  *  multi-site related list. A study runs at MANY sites at once. */
@@ -17,17 +19,19 @@ export function HighlightsStrip({
   health,
   siteCount,
   piCount,
+  sponsorName,
 }: {
   study: StudyRow;
   health: { level: string; daysInStage: number; targetDays: number; summary: string } | null;
   siteCount: number;
   piCount: number;
+  sponsorName?: string | null;
 }) {
   const goal = Number((study.custom_field_values as any)?.accrualGoal ?? 0);
   // PIs and sites are per-site facts (multi-site → multi-PI), so the top-line
   // shows COUNTS, not a single name. Per-site detail lives in the Sites tab.
   const cells: { l: string; v: React.ReactNode }[] = [
-    { l: "Sponsor", v: study.sponsor || dash() },
+    { l: "Sponsor", v: sponsorName || study.sponsor || dash() },
     { l: "Phase", v: study.phase || dash() },
     { l: "Sites", v: siteCount > 0 ? `${siteCount}` : dash() },
     { l: piCount === 1 ? "PI" : "PIs", v: piCount > 0 ? `${piCount}` : dash() },
@@ -166,6 +170,81 @@ function SitePiPicker({
         <option key={i.id} value={i.id}>{i.name}{i.degree ? `, ${i.degree}` : ""}</option>
       ))}
     </select>
+  );
+}
+
+/* ---------- sponsor & CRO (first-class objects, 0037) ---------- */
+export function SponsorCroCard({
+  study, sponsors, cros, isAdmin, onSetSponsor, onSetCro, onCreateSponsor, onCreateCro,
+}: {
+  study: StudyRow;
+  sponsors: SponsorRow[];
+  cros: CroRow[];
+  isAdmin: boolean;
+  onSetSponsor: (id: string | null) => void;
+  onSetCro: (id: string | null) => void;
+  onCreateSponsor: (name: string) => void;
+  onCreateCro: (name: string) => void;
+}) {
+  const activeSp = sponsors.filter((s) => s.status === "active" || s.id === study.sponsor_id);
+  const activeCr = cros.filter((c) => c.status === "active" || c.id === study.cro_id);
+  const spName = sponsors.find((s) => s.id === study.sponsor_id)?.name ?? study.sponsor ?? null;
+  const crName = cros.find((c) => c.id === study.cro_id)?.name ?? null;
+  const [newSp, setNewSp] = useState(false); const [spDraft, setSpDraft] = useState("");
+  const [newCr, setNewCr] = useState(false); const [crDraft, setCrDraft] = useState("");
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+        <Icon name="building" size={14} className="text-slate-400" />
+        <span className="text-sm font-semibold text-slate-800">Sponsor &amp; CRO</span>
+      </div>
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Sponsor */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-semibold text-slate-500">Sponsor</span>
+            {isAdmin && !newSp && <button onClick={() => { setNewSp(true); setSpDraft(""); }} className="text-[11px] font-semibold text-brand-700 hover:underline">+ new</button>}
+          </div>
+          {!isAdmin ? (
+            <div className="text-sm text-slate-900">{spName || <span className="text-slate-400 italic">—</span>}</div>
+          ) : newSp ? (
+            <div className="flex items-center gap-1.5">
+              <Input autoFocus value={spDraft} onChange={(e) => setSpDraft(e.target.value)} placeholder="Sponsor name"
+                onKeyDown={(e) => { if (e.key === "Enter" && spDraft.trim()) { onCreateSponsor(spDraft.trim()); setNewSp(false); } if (e.key === "Escape") setNewSp(false); }} className="text-sm" />
+              <button onClick={() => { if (spDraft.trim()) { onCreateSponsor(spDraft.trim()); setNewSp(false); } }} className="text-[11px] font-semibold text-brand-700">add</button>
+            </div>
+          ) : (
+            <Select value={study.sponsor_id ?? ""} onChange={(e) => onSetSponsor(e.target.value || null)}>
+              <option value="">— None —</option>
+              {activeSp.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+          )}
+          {study.sponsor && !study.sponsor_id && <p className="text-[10px] text-amber-600 mt-1">Legacy: “{study.sponsor}” — pick a sponsor to link it.</p>}
+        </div>
+        {/* CRO */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-semibold text-slate-500">CRO</span>
+            {isAdmin && !newCr && <button onClick={() => { setNewCr(true); setCrDraft(""); }} className="text-[11px] font-semibold text-brand-700 hover:underline">+ new</button>}
+          </div>
+          {!isAdmin ? (
+            <div className="text-sm text-slate-900">{crName || <span className="text-slate-400 italic">—</span>}</div>
+          ) : newCr ? (
+            <div className="flex items-center gap-1.5">
+              <Input autoFocus value={crDraft} onChange={(e) => setCrDraft(e.target.value)} placeholder="CRO name"
+                onKeyDown={(e) => { if (e.key === "Enter" && crDraft.trim()) { onCreateCro(crDraft.trim()); setNewCr(false); } if (e.key === "Escape") setNewCr(false); }} className="text-sm" />
+              <button onClick={() => { if (crDraft.trim()) { onCreateCro(crDraft.trim()); setNewCr(false); } }} className="text-[11px] font-semibold text-brand-700">add</button>
+            </div>
+          ) : (
+            <Select value={study.cro_id ?? ""} onChange={(e) => onSetCro(e.target.value || null)}>
+              <option value="">— None —</option>
+              {activeCr.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

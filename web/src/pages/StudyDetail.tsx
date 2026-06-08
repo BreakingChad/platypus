@@ -33,9 +33,9 @@ import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
-import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton } from "./StudyDetail.crm";
+import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton, SponsorCroCard } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
-import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow } from "../lib/types";
+import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow, SponsorRow, CroRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -98,6 +98,8 @@ export function StudyDetail({
   const investigators = useOrgTable<InvestigatorRow>("investigators", { orderBy: "name", realtime: true });
   const siteInvestigators = useOrgTable<SiteInvestigatorRow>("site_investigators", { realtime: true });
   const wsStages = useOrgTable<WorkstreamStageRow>("workstream_stages", { realtime: true });
+  const sponsors = useOrgTable<SponsorRow>("sponsors", { orderBy: "name", realtime: true });
+  const cros = useOrgTable<CroRow>("cros", { orderBy: "name", realtime: true });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
     orderBy: "position",
     realtime: true,
@@ -496,6 +498,7 @@ export function StudyDetail({
         health={health}
         siteCount={studySites.rows.filter((r) => r.study_id === study.id).length}
         piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id).map((r) => r.pi_investigator_id ?? (r.pi_name ? r.pi_name.trim().toLowerCase() : null)).filter(Boolean)).size}
+        sponsorName={sponsors.rows.find((s) => s.id === study.sponsor_id)?.name ?? null}
       />
       {!study.closed && (
         <PathBar
@@ -553,6 +556,39 @@ export function StudyDetail({
         {shownTab === "overview" && (
           <div className="space-y-5">
             <AiSummaryCard study={study} aiEnabled={aiEnabled} />
+            <SponsorCroCard
+              study={study}
+              sponsors={sponsors.rows}
+              cros={cros.rows}
+              isAdmin={isAdmin}
+              onSetSponsor={async (id) => {
+                const name = id ? (sponsors.rows.find((s) => s.id === id)?.name ?? null) : null;
+                try { await supabase.from("studies").update({ sponsor_id: id, sponsor: name } as any).eq("id", study.id); toast.success(stamped("Sponsor updated")); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't set sponsor")); }
+              }}
+              onSetCro={async (id) => {
+                try { await supabase.from("studies").update({ cro_id: id } as any).eq("id", study.id); toast.success(stamped("CRO updated")); }
+                catch (e: any) { toast.error(friendlyError(e, "Couldn't set CRO")); }
+              }}
+              onCreateSponsor={async (name) => {
+                if (!orgId) return;
+                try {
+                  const { data, error } = await supabase.from("sponsors").insert({ org_id: orgId, name, status: "active" } as any).select("id").single();
+                  if (error) throw error;
+                  await supabase.from("studies").update({ sponsor_id: (data as any).id, sponsor: name } as any).eq("id", study.id);
+                  toast.success(stamped(`Sponsor "${name}" added`));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't add sponsor")); }
+              }}
+              onCreateCro={async (name) => {
+                if (!orgId) return;
+                try {
+                  const { data, error } = await supabase.from("cros").insert({ org_id: orgId, name, status: "active" } as any).select("id").single();
+                  if (error) throw error;
+                  await supabase.from("studies").update({ cro_id: (data as any).id } as any).eq("id", study.id);
+                  toast.success(stamped(`CRO "${name}" added`));
+                } catch (e: any) { toast.error(friendlyError(e, "Couldn't add CRO")); }
+              }}
+            />
             <div className="xl:hidden">
               <NotesCard studyId={study.id} />
             </div>
