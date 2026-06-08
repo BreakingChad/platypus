@@ -104,11 +104,11 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "my-studies",   label: "My Studies",      icon: "folder",    hash: "#/my-studies",            description: "Studies you're actively working." },
   { key: "team-tasks",   label: "Team tasks",      icon: "users",     hash: "#/team-tasks",            description: "Your team's open queue." },
   { key: "approvals",    label: "Approvals",       icon: "check",     hash: "#/approvals",             description: "Documents waiting on your signature or review." },
-  { key: "calendar",     label: "Calendar",        icon: "layers",    hash: "#/calendar",              description: "Due dates and milestones (coming)." },
-  { key: "amendments",   label: "Amendments",      icon: "file",      hash: "#/amendments",            description: "Intake for studies that already exist (coming)." },
-  { key: "analytics",    label: "Analytics",       icon: "workflow",  hash: "#/analytics",             description: "Cycle times, throughput, exports (coming)." },
-  { key: "binders",      label: "Binders",         icon: "shield",    hash: "#/binders",               description: "eReg / eISF document binders (eOY)." },
-  { key: "expirations",  label: "Expirations",     icon: "alert",     hash: "#/expirations",           description: "Dated documents approaching expiry (coming)." },
+  { key: "calendar",     label: "Calendar",        icon: "layers",    hash: "#/calendar",              description: "Due dates and milestones." },
+  { key: "amendments",   label: "Amendments",      icon: "file",      hash: "#/amendments",            description: "Intake for studies that already exist." },
+  { key: "analytics",    label: "Analytics",       icon: "workflow",  hash: "#/analytics",             description: "Cycle times, throughput, and exports." },
+  { key: "binders",      label: "Binders",         icon: "shield",    hash: "#/binders",               description: "eReg / eISF document binders." },
+  { key: "expirations",  label: "Expirations",     icon: "alert",     hash: "#/expirations",           description: "Dated documents approaching expiry." },
 ];
 
 export function navEntry(key: string): NavRegistryEntry | undefined {

@@ -138,7 +138,7 @@ export function StudyWorkstreamTab({
         {locked && (
           <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
             <Icon name="lock" size={11} className="flex-shrink-0" />
-            A study's work stream is fixed once assigned. Changing it would require an amendment-style reassignment (coming later).
+            A study's work stream is fixed once assigned. Changing it would require an amendment-style reassignment.
           </p>
         )}
       </Card>

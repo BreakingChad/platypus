@@ -50,7 +50,7 @@ function WorkTile({
         <div className="text-sm font-semibold text-slate-900">{label}</div>
         {dimmed && (
           <div className="text-[11px] font-semibold text-slate-400">
-            coming next
+            Not yet available
           </div>
         )}
       </div>

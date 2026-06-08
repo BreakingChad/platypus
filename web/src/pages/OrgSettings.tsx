@@ -12,7 +12,7 @@ import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Tip } from "../components/ui/Tip";
+import { InfoTip } from "../components/ui/Tip";
 import { aiStatus } from "../lib/ai";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -157,7 +157,8 @@ export function OrgSettings() {
 
         <Field
           label="Mode"
-          hint="Site = we run studies. Sponsor = we sponsor studies others run. Affects which features surface."
+          info="Site mode = your organization runs studies at your own sites (the common case). Sponsor mode = your organization sponsors studies that other sites run. This changes which features and document sets appear."
+          hint="Site = we run studies. Sponsor = we sponsor studies others run."
         >
           <Select
             value={(draft.sponsor_mode as string) ?? "site"}
@@ -170,21 +171,26 @@ export function OrgSettings() {
           </Select>
         </Field>
 
-        <Field
-          label="Study code prefix (advanced)"
-          hint="Auto-generated codes look like PREFIX-001. Letters and digits only, up to 8 chars."
-        >
-          <Input
-            value={(draft.project_id_prefix as string) ?? ""}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                project_id_prefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8),
-              })
-            }
-            placeholder="STU"
-          />
-        </Field>
+        <details className="rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
+          <summary className="text-xs font-semibold text-slate-600 cursor-pointer select-none">Advanced</summary>
+          <div className="mt-3">
+            <Field
+              label="Study code prefix"
+              hint="Auto-generated study codes look like PREFIX-001. Letters and digits only, up to 8 characters."
+            >
+              <Input
+                value={(draft.project_id_prefix as string) ?? ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    project_id_prefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8),
+                  })
+                }
+                placeholder="STU"
+              />
+            </Field>
+          </div>
+        </details>
 
         <Field label="Region" hint="Used for date and locale defaults.">
           <Select
@@ -255,18 +261,21 @@ function Field({
   label,
   hint,
   required,
+  info,
   children,
 }: {
   label: string;
   hint?: string;
   required?: boolean;
+  info?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-700 mb-1">
+      <label className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-red-500">*</span>}
+        {info && <InfoTip side="top" label={info} />}
       </label>
       {children}
       {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}

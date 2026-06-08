@@ -9,6 +9,7 @@ import { Icon } from "../components/ui/Icon";
 import { Pill } from "../components/ui/Pill";
 import { Select } from "../components/ui/Select";
 import { Input } from "../components/ui/Input";
+import { InfoTip } from "../components/ui/Tip";
 
 /** CRM-style study header pieces (Wave S1) — highlights strip, stage path,
  *  multi-site related list. A study runs at MANY sites at once. */
@@ -30,14 +31,19 @@ export function HighlightsStrip({
   const goal = Number((study.custom_field_values as any)?.accrualGoal ?? 0);
   // PIs and sites are per-site facts (multi-site → multi-PI), so the top-line
   // shows COUNTS, not a single name. Per-site detail lives in the Sites tab.
-  const cells: { l: string; v: React.ReactNode }[] = [
+  const cells: { l: React.ReactNode; v: React.ReactNode }[] = [
     { l: "Sponsor", v: sponsorName || study.sponsor || dash() },
     { l: "Phase", v: study.phase || dash() },
     { l: "Sites", v: siteCount > 0 ? `${siteCount}` : dash() },
     { l: piCount === 1 ? "PI" : "PIs", v: piCount > 0 ? `${piCount}` : dash() },
     { l: "Enrollment", v: goal > 0 ? `0 / ${goal}` : dash() },
     {
-      l: "Health",
+      l: (
+        <span className="inline-flex items-center gap-1">
+          Health
+          <InfoTip side="top" label="Days in the current stage vs that stage's target. Green = on track; amber/red = over the target." />
+        </span>
+      ),
       v:
         health && !study.closed && health.level !== "unknown" ? (
           <span className="inline-flex items-center gap-1.5">
@@ -53,7 +59,7 @@ export function HighlightsStrip({
     <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
       {cells.map((c, i) => (
         <div
-          key={c.l}
+          key={i}
           className={
             "px-3 py-2 " +
             (i % 6 !== 5 ? "border-r border-slate-100 " : "") +

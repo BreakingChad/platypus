@@ -380,7 +380,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <FieldRow label="Project ID prefix">
+                  <FieldRow label="Study code prefix">
                     <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="STU" />
                   </FieldRow>
                   <FieldRow label="Region (optional)">

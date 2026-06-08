@@ -29,7 +29,7 @@ export function Home({ onNavigate }: { onNavigate: (hash: string) => void }) {
         title="Welcome back."
         subtitle={
           isAdmin
-            ? "Configure how your organization runs studies. Every change writes live to Supabase and shapes what your team sees."
+            ? "Configure how your organization runs studies. Every change takes effect immediately and shapes what your team sees."
             : "Here's how your team has configured Platypus. Admins can change the operating model from the Configure section."
         }
         actions={
