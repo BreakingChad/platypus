@@ -284,6 +284,8 @@ function NewSiteModal({
 }) {
   const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [name, setName] = useState("");
+  const [siteCode, setSiteCode] = useState("");
+  const [institutionType, setInstitutionType] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [country, setCountry] = useState("");
@@ -306,6 +308,10 @@ function NewSiteModal({
           city: city.trim() || null,
           state: state.trim() || null,
           country: country.trim() || null,
+          profile: {
+            ...(siteCode.trim() ? { siteCode: siteCode.trim() } : {}),
+            ...(institutionType.trim() ? { institutionType: institutionType.trim() } : {}),
+          },
           created_by: userId,
         } as any)
         .select("id")
@@ -344,7 +350,7 @@ function NewSiteModal({
         <div className="px-5 py-4 border-b border-slate-200">
           <h2 className="text-lg font-display font-bold text-slate-900">New site</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Identity first — fill the full profile (capabilities, contacts, certifications) after.
+            The essentials now — capabilities, certifications, and investigators live in the full profile.
           </p>
         </div>
         <div className="p-5 space-y-3">
@@ -354,6 +360,16 @@ function NewSiteModal({
             </span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Banner Health — Phoenix" autoFocus />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Site code</span>
+              <Input value={siteCode} onChange={(e) => setSiteCode(e.target.value)} placeholder="e.g. BAN-PHX" />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Institution type</span>
+              <Input value={institutionType} onChange={(e) => setInstitutionType(e.target.value)} placeholder="e.g. Academic medical center" />
+            </label>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
               <span className="block text-xs font-semibold text-slate-700 mb-1">City</span>
