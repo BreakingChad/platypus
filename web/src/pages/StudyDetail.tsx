@@ -122,7 +122,7 @@ export function StudyDetail({
   const safeTabs = (visibleTabs.length > 0
     ? visibleTabs
     : registryTabs.map((t) => ({ key: t.key as Tab, label: t.label }))
-  // eReg parked until EOY (Chad, 2026-06-09): Documents tab hidden for now,
+  // eReg moved to the 2027 roadmap (Chad, 2026-06-09): Documents tab hidden,
   // overriding any role/page config. Remove this filter to bring it back.
   ).filter((t) => t.key !== "documents");
   const roleDefaultTab = (pageCfg.options?.defaultTab as Tab | undefined) ?? "overview";

@@ -109,7 +109,7 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "calendar",     label: "Calendar",        icon: "calendar",  hash: "#/calendar",              description: "Upcoming dated tasks across the portfolio — by study or by time." },
   { key: "amendments",   label: "Amendments",      icon: "file",      hash: "#/amendments",            description: "Intake for studies that already exist." },
   { key: "analytics",    label: "Analytics",       icon: "workflow",  hash: "#/analytics",             description: "Cycle times, throughput, and exports." },
-  { key: "binders",      label: "Binders",         icon: "shield",    hash: "#/binders",               description: "eReg / eISF document binders." },
+  { key: "binders",      label: "Binders",         icon: "shield",    hash: "#/binders",               description: "eReg / eISF document binders — on the 2027 roadmap." },
   { key: "expirations",  label: "Expirations",     icon: "alert",     hash: "#/expirations",           description: "Dated documents approaching expiry." },
 ];
 
@@ -159,10 +159,10 @@ export const DEFAULT_NAV: NavGroupConfig[] = [
     ],
   },
   {
-    // Hidden (Chad, 2026-06-03): eReg/binders deferred to a later date.
-    // The per-study Documents tab (upload, versions, e-sign, audit) is
-    // unaffected — this only removes the standalone Binders module from
-    // the sidebar. Re-show here or per role in the nav designer.
+    // Hidden (Chad, 2026-06-03; scope confirmed 2026-06-09): eReg/eISF
+    // binders moved to the 2027 roadmap. The per-study Documents tab is
+    // also hidden (StudyDetail hard filter). Day-to-day files live on the
+    // Startup docs tab. Re-show here or per role when eReg lands.
     group: "Documents",
     hidden: true,
     items: [
@@ -375,7 +375,10 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
       { key: "workstream", label: "Work stream" },
       { key: "activity", label: "Activity" },
       { key: "tasks", label: "Tasks" },
-      { key: "documents", label: "Documents" },
+      // eReg moved to the 2027 roadmap (Chad, 2026-06-09). The tab is
+      // hard-hidden in StudyDetail regardless of page config; the key stays
+      // registered so stored layouts reconcile cleanly when it returns.
+      { key: "documents", label: "Documents (2027)" },
     ],
     optionsSchema: [
       { key: "defaultTab", label: "Default tab", kind: "select", choices: [
