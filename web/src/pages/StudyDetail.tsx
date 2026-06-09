@@ -35,7 +35,7 @@ import { StartupDocsTab } from "./StudyDetail.startupDocs";
 import { VersionBar } from "./StudyDetail.versionBar";
 import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton, SponsorCroCard } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
-import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow, SponsorRow, CroRow } from "../lib/types";
+import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow, WorkstreamRow, SponsorRow, CroRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useDismissable } from "../lib/useDismissable";
 import { TasksTab } from "./StudyDetail.tasks";
@@ -98,6 +98,7 @@ export function StudyDetail({
   const investigators = useOrgTable<InvestigatorRow>("investigators", { orderBy: "name", realtime: true });
   const siteInvestigators = useOrgTable<SiteInvestigatorRow>("site_investigators", { realtime: true });
   const wsStages = useOrgTable<WorkstreamStageRow>("workstream_stages", { realtime: true });
+  const workstreams = useOrgTable<WorkstreamRow>("workstreams", { realtime: true });
   const sponsors = useOrgTable<SponsorRow>("sponsors", { orderBy: "name", realtime: true });
   const cros = useOrgTable<CroRow>("cros", { orderBy: "name", realtime: true });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", {
@@ -255,22 +256,25 @@ export function StudyDetail({
     [stages.rows, study?.stage_key]
   );
 
-  /** Stage order for THIS study follows its work stream's flow (0035), falling
-   *  back to the shared pipeline order before the migration / for unassigned. */
+  /** Stage order for THIS study = the universal intake stage, then the stages
+   *  of the pipeline its work stream belongs to (0040), with per-work-stream
+   *  target-day overrides applied. Falls back to all org stages for studies
+   *  with no work stream (legacy / pre-commit submissions). */
   const studyStages = useMemo<PipelineStageRow[]>(() => {
     const wsId = study?.workstream_id;
-    if (!wsId) return stages.rows;
-    const rows = wsStages.rows.filter((j) => j.workstream_id === wsId);
-    if (rows.length === 0) return stages.rows;
-    return rows
-      .slice()
+    const pipelineId = wsId ? workstreams.rows.find((w) => w.id === wsId)?.pipeline_id ?? null : null;
+    if (!pipelineId) return [...stages.rows].sort((a, b) => a.position - b.position);
+    const intake = stages.rows.filter((s) => s.pipeline_id == null).sort((a, b) => a.position - b.position);
+    const overrides = wsStages.rows.filter((j) => j.workstream_id === wsId);
+    const pipe = stages.rows
+      .filter((s) => s.pipeline_id === pipelineId)
       .sort((a, b) => a.position - b.position)
-      .map((j) => {
-        const lib = stages.rows.find((s) => s.key === j.stage_key);
-        return lib ? ({ ...lib, position: j.position, parallel_group: j.parallel_group, target_days: j.target_days, terminal: j.terminal } as PipelineStageRow) : null;
-      })
-      .filter((x): x is PipelineStageRow => x !== null);
-  }, [wsStages.rows, stages.rows, study?.workstream_id]);
+      .map((s) => {
+        const o = overrides.find((j) => j.stage_key === s.key);
+        return o ? ({ ...s, target_days: o.target_days } as PipelineStageRow) : s;
+      });
+    return [...intake, ...pipe];
+  }, [wsStages.rows, stages.rows, workstreams.rows, study?.workstream_id]);
 
   const health = useMemo(
     () => (study ? computeHealth(study, stages.rows) : null),

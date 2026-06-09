@@ -378,7 +378,7 @@ export function TasksTab({
                       {t.title}
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                      {t.kind !== "manual" && <KindPill kind={t.kind} />}
+                      {t.kind !== "manual" && t.kind !== "date" && <KindPill kind={t.kind} />}
                       {due && (
                         <span
                           className={

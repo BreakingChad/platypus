@@ -195,7 +195,21 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
     if (!orgId) return;
     setBusy("stages");
     try {
-      const rows = DEFAULT_STAGES.map((s, i) => ({ ...s, org_id: orgId, position: (i + 1) * 10 }));
+      // Ensure a default pipeline exists; non-intake stages belong to it
+      // (intake is the universal triage stage, pipeline_id null).
+      let pid: string | null = null;
+      const { data: existing } = await supabase.from("pipelines").select("id").eq("org_id", orgId).order("position").limit(1);
+      pid = (existing as any[])?.[0]?.id ?? null;
+      if (!pid) {
+        const { data: created, error: pErr } = await supabase
+          .from("pipelines").insert({ org_id: orgId, name: "Standard pipeline", position: 0 } as any).select("id").single();
+        if (pErr) throw pErr;
+        pid = (created as any).id as string;
+      }
+      const rows = DEFAULT_STAGES.map((s, i) => ({
+        ...s, org_id: orgId, position: (i + 1) * 10,
+        pipeline_id: s.key === "intake" ? null : pid,
+      }));
       const { error } = await supabase.from("pipeline_stages").insert(rows as any);
       if (error) throw error;
       toast.success(stamped(`Added ${rows.length} recommended stages`));

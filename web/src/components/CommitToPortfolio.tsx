@@ -10,7 +10,7 @@ import { confirmDialog } from "../lib/confirm";
 import { friendlyError } from "../lib/errors";
 import { useToast } from "../lib/Toast";
 import { stamped } from "../lib/stamp";
-import type { StudyRow, PipelineStageRow, WorkflowModuleRow, FieldDefinitionRow } from "../lib/types";
+import type { StudyRow, PipelineStageRow, WorkflowModuleRow, FieldDefinitionRow, WorkstreamRow } from "../lib/types";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
 import { Pill } from "../components/ui/Pill";
@@ -38,12 +38,25 @@ export function IntakeDecisionBar({
   const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position" });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", { orderBy: "position" });
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", { orderBy: "position" });
+  const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
   const [open, setOpen] = useState(false);
 
-  const commitStage = useMemo(
-    () => stages.rows.find((s) => s.key !== "intake" && !s.terminal) ?? null,
-    [stages.rows]
-  );
+  /** Commit drops the study onto the FIRST non-terminal stage of the pipeline
+   *  its work stream belongs to (0040). Falls back to the first non-intake,
+   *  non-terminal stage org-wide for studies with no work stream. */
+  const commitStage = useMemo(() => {
+    const pipelineId = study.workstream_id
+      ? workstreams.rows.find((w) => w.id === study.workstream_id)?.pipeline_id ?? null
+      : null;
+    if (pipelineId) {
+      return (
+        stages.rows
+          .filter((s) => s.pipeline_id === pipelineId && !s.terminal)
+          .sort((a, b) => a.position - b.position)[0] ?? null
+      );
+    }
+    return stages.rows.find((s) => s.key !== "intake" && !s.terminal) ?? null;
+  }, [stages.rows, workstreams.rows, study.workstream_id]);
   const studyFields = fields.rows.filter((f) => f.entity_type === "study" && f.enabled);
   const comp = completeness(study, studyFields);
 

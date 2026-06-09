@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/Toast";
 import { friendlyError } from "../lib/errors";
@@ -7,7 +7,7 @@ import { writeAuditEvent } from "../lib/auditLog";
 import { useModalA11y } from "../lib/useModalA11y";
 import { missingRequired, type FormFieldSnapshot } from "../lib/forms";
 import { nextStudyCode, buildStudyInsert } from "../lib/submissions";
-import type { FieldDefinitionRow, IntakeFormRow, StudyRow, WorkstreamRow } from "../lib/types";
+import type { FieldDefinitionRow, IntakeFormRow, StudyRow, WorkstreamRow, PipelineRow } from "../lib/types";
 import { useOrgTable } from "../lib/useOrgTable";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -47,9 +47,24 @@ export function InternalIntakeModal({
     return seen;
   }, [fields]);
   const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
-  const activeWs = workstreams.rows.filter((w) => w.status === "active");
-  const defaultWs = activeWs.find((w) => w.is_default) ?? activeWs[0] ?? null;
+  const pipelines = useOrgTable<PipelineRow>("pipelines", { orderBy: "position" });
+  const activeWs = useMemo(() => workstreams.rows.filter((w) => w.status === "active"), [workstreams.rows]);
+  /** Work streams grouped by their pipeline, for an optgroup picker. */
+  const wsByPipeline = useMemo(() => {
+    const groups = pipelines.rows
+      .filter((p) => p.status === "active")
+      .map((p) => ({ pipeline: p, items: activeWs.filter((w) => w.pipeline_id === p.id) }))
+      .filter((g) => g.items.length > 0);
+    const orphan = activeWs.filter((w) => !pipelines.rows.some((p) => p.id === w.pipeline_id));
+    if (orphan.length > 0) groups.push({ pipeline: { id: "", name: "Other" } as PipelineRow, items: orphan });
+    return groups;
+  }, [pipelines.rows, activeWs]);
   const [workstreamId, setWorkstreamId] = useState<string>("");
+  // Auto-select when there's exactly one work stream; otherwise force a choice.
+  useEffect(() => {
+    if (workstreamId && activeWs.some((w) => w.id === workstreamId)) return;
+    setWorkstreamId(activeWs.length === 1 ? activeWs[0].id : "");
+  }, [activeWs, workstreamId]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -57,6 +72,7 @@ export function InternalIntakeModal({
   const submit = async () => {
     if (busy) return;
     const missing = missingRequired(fields, values);
+    if (activeWs.length > 0 && !workstreamId) missing.push("Work stream");
     setProblems(missing);
     if (missing.length > 0) return;
     setBusy(true);
@@ -66,7 +82,7 @@ export function InternalIntakeModal({
         orgId, code, stageKey: "intake", values, studyFields,
         fallbackTitle: form.title,
       });
-      const wsId = workstreamId || defaultWs?.id || null;
+      const wsId = workstreamId || null;
       const { data, error } = await supabase.from("studies").insert({ ...insert, workstream_id: wsId } as any).select("id, code").single();
       if (error) throw error;
       const id = (data as any).id as string;
@@ -107,14 +123,20 @@ export function InternalIntakeModal({
         <div className="p-5 overflow-y-auto space-y-4">
           {activeWs.length > 0 && (
             <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">Work stream</span>
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Work stream <span className="text-brand-600 font-bold">*</span></span>
               <select
-                value={workstreamId || defaultWs?.id || ""}
+                value={workstreamId}
                 onChange={(e) => setWorkstreamId(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
               >
-                {activeWs.map((w) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? " (default)" : ""}</option>)}
+                <option value="">— Select a work stream —</option>
+                {wsByPipeline.map((g) => (
+                  <optgroup key={g.pipeline.id || "other"} label={g.pipeline.name}>
+                    {g.items.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </optgroup>
+                ))}
               </select>
+              <span className="block text-[11px] text-slate-400 mt-1">Sets the pipeline this study runs on.</span>
             </label>
           )}
           {fields.length === 0 && (

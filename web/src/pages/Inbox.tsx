@@ -196,6 +196,9 @@ export function Inbox({
     // Kind filter ("action" = document send-for-action tasks)
     if (kindFilter === "action") {
       xs = xs.filter((t) => t.action_type != null);
+    } else if (kindFilter === "manual") {
+      // "Tasks" covers plain manual + legacy date milestones (identical at runtime)
+      xs = xs.filter((t) => (t.kind === "manual" || t.kind === "date") && t.action_type == null);
     } else if (kindFilter !== "all") {
       xs = xs.filter((t) => t.kind === kindFilter && t.action_type == null);
     }
@@ -415,8 +418,7 @@ export function Inbox({
             <option value="action">Sign-offs & reviews ({tasks.rows.filter((t) => t.action_type != null).length})</option>
             <option value="handoff">Handoffs ({tasks.rows.filter((t) => t.kind === "handoff" && t.action_type == null).length})</option>
             <option value="escalation">Escalations ({tasks.rows.filter((t) => t.kind === "escalation" && t.action_type == null).length})</option>
-            <option value="date">Date milestones ({tasks.rows.filter((t) => t.kind === "date" && t.action_type == null).length})</option>
-            <option value="manual">Manual ({tasks.rows.filter((t) => t.kind === "manual" && t.action_type == null).length})</option>
+            <option value="manual">Tasks ({tasks.rows.filter((t) => (t.kind === "manual" || t.kind === "date") && t.action_type == null).length})</option>
           </Select>
         </div>
         <div className="w-44">

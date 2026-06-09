@@ -32,9 +32,23 @@ export type FieldDefinitionRow = {
   updated_at: string;
 };
 
+export type PipelineRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  status: string;       // active | archived
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PipelineStageRow = {
   id: string;
   org_id: string;
+  /** Which pipeline this stage belongs to. NULL = the universal intake stage,
+   *  shared by every pipeline (studies start there before they're committed). */
+  pipeline_id: string | null;
   key: string;
   label: string;
   icon_key: string;
@@ -195,6 +209,9 @@ export type OrgInviteRow = {
 export type WorkstreamRow = {
   id: string;
   org_id: string;
+  /** The pipeline this work stream belongs to (0040). A work stream inherits
+   *  its pipeline's stages and adds the tasks + teams for each. */
+  pipeline_id: string | null;
   name: string;
   description: string | null;
   status: string;       // active | archived
@@ -470,6 +487,7 @@ export type Database = {
       profiles:          { Row: ProfileRow;          Insert: Partial<ProfileRow>;          Update: Partial<ProfileRow>;          Relationships: [] };
       org_members:       { Row: OrgMemberRow;        Insert: Partial<OrgMemberRow>;        Update: Partial<OrgMemberRow>;        Relationships: [] };
       field_definitions: { Row: FieldDefinitionRow;  Insert: Partial<FieldDefinitionRow>;  Update: Partial<FieldDefinitionRow>;  Relationships: [] };
+      pipelines:         { Row: PipelineRow;           Insert: Partial<PipelineRow>;         Update: Partial<PipelineRow>;         Relationships: [] };
       pipeline_stages:   { Row: PipelineStageRow;    Insert: Partial<PipelineStageRow>;    Update: Partial<PipelineStageRow>;    Relationships: [] };
       studies:           { Row: StudyRow;            Insert: Partial<StudyRow>;            Update: Partial<StudyRow>;            Relationships: [] };
       teams:             { Row: TeamRow;             Insert: Partial<TeamRow>;             Update: Partial<TeamRow>;             Relationships: [] };

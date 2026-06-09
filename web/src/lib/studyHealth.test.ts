@@ -7,6 +7,7 @@ function mkStage(over: Partial<PipelineStageRow> = {}): PipelineStageRow {
   return {
     id: "stage-1",
     org_id: "org-1",
+    pipeline_id: null,
     key: "intake",
     label: "Intake",
     icon_key: "inbox",
