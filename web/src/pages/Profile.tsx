@@ -1,8 +1,10 @@
 import { friendlyError } from "../lib/errors";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
 import { useToast } from "../lib/Toast";
+import { notifyProfileUpdated } from "../lib/useMyProfile";
+import { displayName } from "../lib/types";
 import type { ProfileRow, OrgMemberRow } from "../lib/types";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { writeAuditEvent } from "../lib/auditLog";
@@ -144,7 +146,8 @@ export function Profile() {
   const dirty = (() => {
     if (!profile) return false;
     return (
-      (draft.full_name ?? "") !== (profile.full_name ?? "") ||
+      (draft.first_name ?? "") !== (profile.first_name ?? "") ||
+      (draft.last_name ?? "") !== (profile.last_name ?? "") ||
       (draft.title ?? "") !== (profile.title ?? "") ||
       (draft.phone ?? "") !== (profile.phone ?? "")
     );
@@ -154,8 +157,10 @@ export function Profile() {
     if (!userId || !profile) return;
     setSaving(true);
     try {
+      // full_name is recomputed server-side by the 0042 sync trigger.
       const patch: Partial<ProfileRow> = {
-        full_name: (draft.full_name ?? "").toString().trim() || null,
+        first_name: (draft.first_name ?? "").toString().trim() || null,
+        last_name: (draft.last_name ?? "").toString().trim() || null,
         title: (draft.title ?? "").toString().trim() || null,
         phone: (draft.phone ?? "").toString().trim() || null,
       };
@@ -168,11 +173,101 @@ export function Profile() {
       if (error) throw error;
       setProfile(data as ProfileRow);
       setDraft(data as Partial<ProfileRow>);
+      notifyProfileUpdated();
       toast.success(stamped("Profile saved"));
     } catch (e: any) {
-      toast.error(friendlyError(e, "Save failed"));
+      toast.error(friendlyError(e, "Save failed — has migration 0042 been applied?"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ---- Profile photo ----
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  const onAvatarFile = async (file: File) => {
+    if (!userId) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file (PNG or JPEG).");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image is too large — 8 MB max.");
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      // Center-crop square + downscale to 256px — avatars render small.
+      const img = await createImageBitmap(file);
+      const side = Math.min(img.width, img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const cx = canvas.getContext("2d");
+      if (!cx) throw new Error("Couldn't process the image in this browser.");
+      cx.drawImage(
+        img,
+        (img.width - side) / 2,
+        (img.height - side) / 2,
+        side,
+        side,
+        0,
+        0,
+        256,
+        256
+      );
+      const blob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob(
+          (b) => (b ? res(b) : rej(new Error("Couldn't process the image."))),
+          "image/jpeg",
+          0.9
+        )
+      );
+      const path = `${userId}/avatar-${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: pub.publicUrl } as any)
+        .eq("id", userId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      setProfile(data as ProfileRow);
+      setDraft(data as Partial<ProfileRow>);
+      notifyProfileUpdated();
+      toast.success(stamped("Photo updated"));
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Photo upload failed — has migration 0042 been applied?"));
+    } finally {
+      setAvatarBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const onAvatarRemove = async () => {
+    if (!userId || !profile?.avatar_url) return;
+    setAvatarBusy(true);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null } as any)
+        .eq("id", userId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      setProfile(data as ProfileRow);
+      setDraft(data as Partial<ProfileRow>);
+      notifyProfileUpdated();
+      toast.success(stamped("Photo removed"));
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't remove the photo"));
+    } finally {
+      setAvatarBusy(false);
     }
   };
 
@@ -194,13 +289,68 @@ export function Profile() {
       />
 
       <Card className="mt-6 space-y-4">
-        <Field label="Full name" hint="Shown next to your avatar and in role assignments.">
-          <Input
-            value={(draft.full_name as string) ?? ""}
-            onChange={(e) => setDraft({ ...draft, full_name: e.target.value })}
-            placeholder="e.g. Avery Chen"
-          />
-        </Field>
+        {/* Photo */}
+        <div className="flex items-center gap-4 pb-1">
+          {profile.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={displayName(profile)}
+              className="w-16 h-16 rounded-full object-cover border border-slate-200"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xl font-bold">
+              {(displayName(profile)[0] ?? "?").toUpperCase()}
+            </div>
+          )}
+          <div>
+            <div className="text-sm font-semibold text-slate-700">Profile photo</div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Shown in the header and next to your work. Square crop, resized automatically.
+            </p>
+            <div className="flex gap-2 mt-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={avatarBusy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {avatarBusy ? "Working…" : profile.avatar_url ? "Change photo" : "Upload photo"}
+              </Button>
+              {profile.avatar_url && (
+                <Button size="sm" variant="ghost" disabled={avatarBusy} onClick={onAvatarRemove}>
+                  Remove
+                </Button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onAvatarFile(f);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="First name" hint="Shown with your last name across the app.">
+            <Input
+              value={(draft.first_name as string) ?? ""}
+              onChange={(e) => setDraft({ ...draft, first_name: e.target.value })}
+              placeholder="e.g. Avery"
+            />
+          </Field>
+          <Field label="Last name" hint="Together they appear on tasks, signatures, and audit.">
+            <Input
+              value={(draft.last_name as string) ?? ""}
+              onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
+              placeholder="e.g. Chen"
+            />
+          </Field>
+        </div>
 
         <Field label="Title" hint="e.g. Startup Coordinator, Director of Operations.">
           <Input

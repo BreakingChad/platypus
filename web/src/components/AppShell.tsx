@@ -3,8 +3,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
+import { useMyProfile } from "../lib/useMyProfile";
+import { displayName } from "../lib/types";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
+import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { BrandMark } from "./ui/BrandMark";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
@@ -42,7 +45,8 @@ export function AppShell({
 }) {
   const auth = useAuth();
   const { orgId } = useCurrentOrg();
-  const { isAdmin, tier } = useCurrentMember();
+  const { isAdmin, tier, isDeveloper } = useCurrentMember();
+  const myProfile = useMyProfile();
   const [orgName, setOrgName] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -257,20 +261,29 @@ export function AppShell({
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-                <Avatar email={userEmail} />
+                <Avatar
+                  email={userEmail}
+                  name={displayName(myProfile) || null}
+                  src={myProfile?.avatar_url ?? null}
+                />
                 <span className="hidden sm:inline text-sm font-medium text-slate-700 max-w-[160px] truncate">
-                  {userEmail}
+                  {displayName(myProfile) || userEmail}
                 </span>
                 <Icon name="chevron-down" size={14} className="text-slate-400" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-60 rounded-xl border border-slate-200 bg-white shadow-lg py-1.5 z-30">
-                  <div className="px-3 py-2 border-b border-slate-100">
-                    <div className="text-[11px] font-semibold text-slate-400">
-                      Signed in
-                    </div>
-                    <div className="text-sm font-medium text-slate-900 truncate">
-                      {userEmail}
+                <div className="absolute right-0 top-full mt-1 w-72 rounded-xl border border-slate-200 bg-white shadow-lg py-1.5 z-30">
+                  <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2.5">
+                    <Avatar
+                      email={userEmail}
+                      name={displayName(myProfile) || null}
+                      src={myProfile?.avatar_url ?? null}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">
+                        {displayName(myProfile) || userEmail}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">{userEmail}</div>
                     </div>
                   </div>
                   <button
@@ -293,6 +306,7 @@ export function AppShell({
                     <Icon name="log-out" size={14} className="text-slate-400" />
                     Sign out
                   </button>
+                  {isDeveloper && <DevRoleSwitcher />}
                 </div>
               )}
             </div>
@@ -460,11 +474,35 @@ function SidebarBody({
 
 /* ---------- small bits ---------- */
 
-function Avatar({ email }: { email: string }) {
-  const ch = (email[0] ?? "?").toUpperCase();
+function Avatar({
+  email,
+  name,
+  src,
+}: {
+  email: string;
+  name?: string | null;
+  src?: string | null;
+}) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name || email}
+        className="w-7 h-7 rounded-full object-cover shrink-0"
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  // Initials: first letters of the first two name words, else email[0].
+  const initials = (name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || (email[0] ?? "?").toUpperCase();
   return (
-    <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold">
-      {ch}
+    <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0">
+      {initials}
     </div>
   );
 }

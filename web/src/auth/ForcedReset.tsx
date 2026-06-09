@@ -8,7 +8,8 @@ import { supabase } from "../lib/supabase";
  *  the app open. (Wave M2)
  */
 export function ForcedReset({ user }: { user: User }) {
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
   const [pw1, setPw1] = useState("");
@@ -22,13 +23,17 @@ export function ForcedReset({ user }: { user: User }) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, title, phone")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
       if (cancelled || !data) return;
-      setFullName((data as any).full_name ?? "");
-      setTitle((data as any).title ?? "");
-      setPhone((data as any).phone ?? "");
+      const d = data as any;
+      // Pre-0042 rows may only carry full_name — split for the inputs.
+      const [legacyFirst, ...legacyRest] = ((d.full_name as string) ?? "").trim().split(/\s+/);
+      setFirstName(d.first_name ?? legacyFirst ?? "");
+      setLastName(d.last_name ?? legacyRest.join(" "));
+      setTitle(d.title ?? "");
+      setPhone(d.phone ?? "");
     })();
     return () => {
       cancelled = true;
@@ -38,7 +43,7 @@ export function ForcedReset({ user }: { user: User }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!fullName.trim()) return setError("Tell us your name — tasks and signatures carry it.");
+    if (!firstName.trim()) return setError("Tell us your first name — tasks and signatures carry it.");
     if (pw1.length < 8) return setError("Password needs at least 8 characters.");
     if (pw1 !== pw2) return setError("Passwords don't match.");
     if (/^platypus-/i.test(pw1)) return setError("Pick your own password — not the temporary one.");
@@ -46,7 +51,12 @@ export function ForcedReset({ user }: { user: User }) {
     try {
       const { error: pErr } = await supabase
         .from("profiles")
-        .update({ full_name: fullName.trim(), title: title.trim() || null, phone: phone.trim() || null } as any)
+        .update({
+          first_name: firstName.trim(),
+          last_name: lastName.trim() || null,
+          title: title.trim() || null,
+          phone: phone.trim() || null,
+        } as any)
         .eq("id", user.id);
       if (pErr) throw pErr;
       const { error: uErr } = await supabase.auth.updateUser({
@@ -84,10 +94,16 @@ export function ForcedReset({ user }: { user: User }) {
             <span className="block text-xs font-semibold text-slate-700 mb-1">Email</span>
             <input value={user.email ?? ""} disabled className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500" />
           </label>
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">Full name</span>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="reset-input" placeholder="Dr. Jane Rivera" autoFocus />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">First name</span>
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="reset-input" placeholder="Jane" autoFocus />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Last name</span>
+              <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="reset-input" placeholder="Rivera" />
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="block text-xs font-semibold text-slate-700 mb-1">Title (optional)</span>

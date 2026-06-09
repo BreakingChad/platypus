@@ -477,7 +477,18 @@ export type OrgRow = {
 export type ProfileRow = {
   id: string; email: string; full_name: string | null; title: string | null;
   phone: string | null; default_org_id: string | null; created_at: string;
+  /** 0042 — split identity + photo. Optional so pre-migration DBs still type-check. */
+  first_name?: string | null; last_name?: string | null; avatar_url?: string | null;
 };
+
+/** Preferred display name: "First Last" → legacy full_name → email. */
+export function displayName(
+  p: Pick<ProfileRow, "email" | "full_name" | "first_name" | "last_name"> | null | undefined
+): string {
+  if (!p) return "";
+  const fl = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+  return fl || p.full_name || p.email || "";
+}
 
 export type OrgMemberRow = {
   id: string; org_id: string; user_id: string;
