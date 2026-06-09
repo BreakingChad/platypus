@@ -21,18 +21,22 @@ export function HighlightsStrip({
   piCount,
   sponsorName,
   versionNode,
+  stageNode,
 }: {
   study: StudyRow;
   siteCount: number;
   piCount: number;
   sponsorName?: string | null;
-  /** Version/amendment tile rendered as the leading cell of the info row. */
+  /** Version/amendment tile with its actions menu. */
   versionNode?: React.ReactNode;
+  /** Stage control — leads the row (Chad, 2026-06-09: "stage in the first column"). */
+  stageNode?: React.ReactNode;
 }) {
   const goal = Number((study.custom_field_values as any)?.accrualGoal ?? 0);
   // PIs and sites are per-site facts (multi-site → multi-PI), so the top-line
   // shows COUNTS, not a single name. Per-site detail lives in the Sites tab.
   const cells: { l: React.ReactNode; v: React.ReactNode }[] = [
+    ...(stageNode ? [{ l: "Stage", v: stageNode }] : []),
     ...(versionNode ? [{ l: "Version", v: versionNode }] : []),
     { l: "Sponsor", v: sponsorName || study.sponsor || dash() },
     { l: "Phase", v: study.phase || dash() },
@@ -40,15 +44,23 @@ export function HighlightsStrip({
     { l: piCount === 1 ? "PI" : "PIs", v: piCount > 0 ? `${piCount}` : dash() },
     { l: "Enrollment", v: goal > 0 ? `0 / ${goal}` : dash() },
   ];
+  const n = cells.length;
+  // NOTE: no overflow-hidden — the stage/version cells host dropdown menus
+  // that must escape the container.
   return (
-    <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div
+      className={
+        "mt-4 grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-200 bg-white " +
+        (n >= 7 ? "xl:grid-cols-7" : "xl:grid-cols-6")
+      }
+    >
       {cells.map((c, i) => (
         <div
           key={i}
           className={
-            "px-3 py-2 " +
-            (i % 6 !== 5 ? "border-r border-slate-100 " : "") +
-            "border-b border-slate-100 sm:border-b-0"
+            "px-3 py-2 min-w-0 " +
+            (i < n - 1 ? "border-r border-slate-100 " : "") +
+            "border-b border-slate-100 xl:border-b-0"
           }
         >
           <div className="text-[10px] uppercase tracking-wider text-slate-400">{c.l}</div>

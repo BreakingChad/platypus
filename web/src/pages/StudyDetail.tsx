@@ -32,8 +32,8 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
-import { VersionCell } from "./StudyDetail.versionBar";
-import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton, SponsorCroCard } from "./StudyDetail.crm";
+import { VersionCell, AmendButton } from "./StudyDetail.versionBar";
+import { HighlightsStrip, StudySitesCard, SmartActionButton, SponsorCroCard } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
 import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow, WorkstreamRow, SponsorRow, CroRow } from "../lib/types";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -472,6 +472,9 @@ export function StudyDetail({
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {study.closed && <Pill tone="neutral">closed</Pill>}
             {isAdmin && (
+              <AmendButton study={study} onNavigate={(h) => { window.location.hash = h; }} />
+            )}
+            {isAdmin && (
               <SmartActionButton
                 study={study}
                 stages={studyStages}
@@ -491,16 +494,18 @@ export function StudyDetail({
         piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id).map((r) => r.pi_investigator_id ?? (r.pi_name ? r.pi_name.trim().toLowerCase() : null)).filter(Boolean)).size}
         sponsorName={sponsors.rows.find((s) => s.id === study.sponsor_id)?.name ?? null}
         versionNode={<VersionCell study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />}
+        stageNode={
+          studyStages.some((s) => s.key === study.stage_key) ? (
+            <StageMenu
+              stage={studyStages.find((s) => s.key === study.stage_key) ?? null}
+              stages={studyStages}
+              isAdmin={isAdmin && !study.closed}
+              advancing={advancing}
+              onAdvance={(k) => void advanceStage(k)}
+            />
+          ) : undefined
+        }
       />
-      {!study.closed && (
-        <PathBar
-          stages={studyStages}
-          currentKey={study.stage_key}
-          isAdmin={isAdmin}
-          advancing={advancing}
-          onAdvance={(k) => void advanceStage(k)}
-        />
-      )}
 
       {/* SPLIT (≥ xl): record column + docked work pane */}
       <div className="mt-2 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5 xl:items-start">

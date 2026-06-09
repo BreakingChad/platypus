@@ -235,8 +235,15 @@ export function VersionCell({
       {needsPurpose && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" title="Amendment needs a purpose" />}
       {hasActions && (
         <span className="relative">
-          <button onClick={() => setMenuOpen((o) => !o)} className="text-slate-300 hover:text-slate-600 -my-1 p-0.5" aria-label="Version actions" title="Version actions">
-            <Icon name="settings" size={12} />
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:text-brand-700 hover:border-brand-300 transition -my-0.5"
+            aria-label="Version history & actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title="Version history & actions"
+          >
+            history <Icon name="chevron-down" size={9} aria-hidden="true" />
           </button>
           {menuOpen && (
             <>
@@ -276,6 +283,36 @@ export function VersionCell({
         <AmendmentModal original={study} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); onNavigate(`#/studies/${id}`); }} />
       )}
     </span>
+  );
+}
+
+/** AmendButton — the explicit, top-of-page amendment action ("actions live
+ *  at the top"). Renders nothing on closed/historical records. */
+export function AmendButton({
+  study,
+  onNavigate,
+}: {
+  study: StudyRow;
+  onNavigate: (h: string) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  if (study.closed || isHistorical(study)) return null;
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setCreating(true)}>
+        <Icon name="copy" size={12} /> Amend
+      </Button>
+      {creating && (
+        <AmendmentModal
+          original={study}
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            onNavigate(`#/studies/${id}`);
+          }}
+        />
+      )}
+    </>
   );
 }
 
