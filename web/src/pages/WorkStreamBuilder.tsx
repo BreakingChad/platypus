@@ -67,6 +67,17 @@ import { EmptyState } from "../components/ui/EmptyState";
 /** One option per task type. "Task" persists as 'manual'; legacy 'date' rows
  *  display as Task too (they behave identically at runtime). Handoff and
  *  Escalation actually change behavior, so they stay distinct. */
+type HandoffTplLite = {
+  module_id: string;
+  kind: string;
+  title: string;
+  handoff_to_team_id: string | null;
+  handoff_to_stage_key: string | null;
+};
+
+/** A handoff that lands in a stage with NO module for the receiving team yet. */
+type ReceiptGhost = { title: string; teamId: string; teamName: string; fromModule: string };
+
 const TASK_KIND_OPTIONS: { value: TaskKind; label: string }[] = [
   { value: "manual", label: "Task" },
   { value: "handoff", label: "Handoff" },
@@ -118,18 +129,27 @@ export function WorkStreamBuilder() {
   const selectedWs = pipelineWorkstreams.find((w) => w.id === selectedWsId) ?? null;
   const selectedWsModuleCount = modules.rows.filter((m) => m.workstream_id === selectedWsId).length;
 
-  /** Task-template counts per module, shown on the flow chips. */
+  /** Task-template counts per module (flow chips) + handoff targets, so the
+   *  canvas can show where batons LAND, not just where they're thrown. */
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
+  const [handoffTpls, setHandoffTpls] = useState<HandoffTplLite[]>([]);
   const [countsNonce, setCountsNonce] = useState(0);
   useEffect(() => {
     if (!orgId) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("workflow_task_templates").select("module_id");
+      const { data } = await supabase
+        .from("workflow_task_templates")
+        .select("module_id, kind, title, handoff_to_team_id, handoff_to_stage_key");
       if (cancelled || !data) return;
       const counts: Record<string, number> = {};
-      for (const r of data as { module_id: string }[]) counts[r.module_id] = (counts[r.module_id] ?? 0) + 1;
+      for (const r of data as HandoffTplLite[]) counts[r.module_id] = (counts[r.module_id] ?? 0) + 1;
       setTaskCounts(counts);
+      setHandoffTpls(
+        (data as HandoffTplLite[]).filter(
+          (r) => r.kind === "handoff" && r.handoff_to_team_id && r.handoff_to_stage_key
+        )
+      );
     })();
     return () => { cancelled = true; };
   }, [orgId, countsNonce, modules.rows.length]);
@@ -158,6 +178,32 @@ export function WorkStreamBuilder() {
       if (data) setEditorModuleId((data as any).id as string);
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't add module")); }
   };
+  /** A handoff names a receiving (stage, team) — make sure that team has a
+   *  module THERE to receive it, so the baton lands somewhere visible and
+   *  configurable. Created once; renaming/deleting it afterwards is respected. */
+  const ensureReceiverModule = async (stageKey: string, teamId: string, fromTitle: string) => {
+    if (!orgId || !selectedWsId) return;
+    const exists = modules.rows.some(
+      (m) => m.workstream_id === selectedWsId && m.stage_key === stageKey && m.owner_team_id === teamId
+    );
+    if (exists) return;
+    const teamName = teams.rows.find((t) => t.id === teamId)?.name ?? "receiving team";
+    const pos = modules.rows.filter((m) => m.stage_key === stageKey && m.workstream_id === selectedWsId)
+      .reduce((m, x) => Math.max(m, x.position), 0) + 10;
+    try {
+      const { error } = await supabase.from("workflow_modules").insert({
+        org_id: orgId, stage_key: stageKey, workstream_id: selectedWsId,
+        name: `Receives: ${fromTitle.trim() || "handoff"}`,
+        owner_team_id: teamId, enabled: true, position: pos,
+        description: `Auto-created to receive the "${fromTitle.trim()}" handoff — rename and add ${teamName}'s tasks.`,
+      } as any);
+      if (error) throw error;
+      toast.success(stamped(`Receiving module created in ${stageLabel(stageKey)} for ${teamName} — open it to name & configure`));
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't create the receiving module"));
+    }
+  };
+
   const updateModule = async (id: string, patch: Partial<WorkflowModuleRow>) => {
     try {
       const { error } = await supabase.from("workflow_modules").update(patch as any).eq("id", id);
@@ -379,6 +425,33 @@ export function WorkStreamBuilder() {
             modules={modules.rows.filter((m) => m.workstream_id === selectedWsId)}
             teams={teams.rows}
             taskCounts={taskCounts}
+            {...(() => {
+              // Where do this flow's handoffs LAND? Badge matching modules;
+              // ghost-card the targets that have no receiving module yet.
+              const wsMods = modules.rows.filter((m) => m.workstream_id === selectedWsId);
+              const wsModIds = new Set(wsMods.map((m) => m.id));
+              const receiptsByModule: Record<string, string[]> = {};
+              const ghostsByStage: Record<string, ReceiptGhost[]> = {};
+              for (const t of handoffTpls) {
+                if (!wsModIds.has(t.module_id) || !t.handoff_to_stage_key || !t.handoff_to_team_id) continue;
+                const src = wsMods.find((m) => m.id === t.module_id)!;
+                const receiver = wsMods.find(
+                  (m) => m.stage_key === t.handoff_to_stage_key && m.owner_team_id === t.handoff_to_team_id
+                );
+                if (receiver) {
+                  (receiptsByModule[receiver.id] ??= []).push(`“${t.title}” from ${src.name}`);
+                } else {
+                  (ghostsByStage[t.handoff_to_stage_key] ??= []).push({
+                    title: t.title,
+                    teamId: t.handoff_to_team_id,
+                    teamName: teams.rows.find((x) => x.id === t.handoff_to_team_id)?.name ?? "team",
+                    fromModule: src.name,
+                  });
+                }
+              }
+              return { receiptsByModule, ghostsByStage };
+            })()}
+            onCreateReceiver={(stageKey, teamId, title) => void ensureReceiverModule(stageKey, teamId, title)}
             onAddModule={(key, name) => void addModuleTo(key, name)}
             onOpenModule={(id) => setEditorModuleId(id)}
             onCopyFrom={(src, dest) => void copyFromStage(src, dest)}
@@ -405,6 +478,7 @@ export function WorkStreamBuilder() {
           onDuplicate={() => void duplicateModule(editorModule)}
           onRemove={() => void removeModule(editorModule.id, editorModule.name)}
           onTemplatesChanged={() => setCountsNonce((n) => n + 1)}
+          onEnsureReceiver={(sk, tid, title) => void ensureReceiverModule(sk, tid, title)}
         />
       )}
     </div>
@@ -487,12 +561,15 @@ function WorkstreamManager({
  * ========================================================================== */
 
 function FlowCanvas({
-  stages, modules, teams, taskCounts, onAddModule, onOpenModule, onCopyFrom,
+  stages, modules, teams, taskCounts, receiptsByModule, ghostsByStage, onCreateReceiver, onAddModule, onOpenModule, onCopyFrom,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
+  receiptsByModule: Record<string, string[]>;
+  ghostsByStage: Record<string, ReceiptGhost[]>;
+  onCreateReceiver: (stageKey: string, teamId: string, title: string) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onOpenModule: (id: string) => void;
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
@@ -517,6 +594,9 @@ function FlowCanvas({
                   key={s.id} s={s}
                   mods={modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position)}
                   allStages={stages} modules={modules} teams={teams} taskCounts={taskCounts}
+                  receiptsByModule={receiptsByModule}
+                  ghosts={ghostsByStage[s.key] ?? []}
+                  onCreateReceiver={onCreateReceiver}
                   onAddModule={onAddModule} onOpenModule={onOpenModule} onCopyFrom={onCopyFrom}
                 />
               ))}
@@ -538,7 +618,7 @@ function FlowCanvas({
  * ========================================================================== */
 
 function StageColumn({
-  s, mods, allStages, modules, teams, taskCounts, onAddModule, onOpenModule, onCopyFrom,
+  s, mods, allStages, modules, teams, taskCounts, receiptsByModule, ghosts, onCreateReceiver, onAddModule, onOpenModule, onCopyFrom,
 }: {
   s: PipelineStageRow;
   mods: WorkflowModuleRow[];
@@ -546,6 +626,9 @@ function StageColumn({
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
+  receiptsByModule: Record<string, string[]>;
+  ghosts: ReceiptGhost[];
+  onCreateReceiver: (stageKey: string, teamId: string, title: string) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onOpenModule: (id: string) => void;
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
@@ -594,9 +677,27 @@ function StageColumn({
             <p className="text-[11px] text-slate-400 italic px-1 py-3 text-center">{isOver ? "Drop module here" : "No modules — add one below"}</p>
           )}
           {mods.map((m) => (
-            <ModuleChip key={m.id} m={m} teams={teams} taskCount={taskCounts[m.id] ?? 0} onOpen={() => onOpenModule(m.id)} />
+            <ModuleChip key={m.id} m={m} teams={teams} taskCount={taskCounts[m.id] ?? 0} receives={receiptsByModule[m.id]} onOpen={() => onOpenModule(m.id)} />
           ))}
         </SortableContext>
+
+        {/* Handoffs that land here but have no receiving module yet */}
+        {ghosts.map((g, i) => (
+          <div key={`ghost-${i}`} className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 px-2 py-1.5">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
+              <Icon name="arrow-right" size={10} /> Handoff lands here
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5 truncate" title={`“${g.title}” from ${g.fromModule} → ${g.teamName}`}>
+              “{g.title}” → {g.teamName}
+            </div>
+            <button
+              onClick={() => onCreateReceiver(s.key, g.teamId, g.title)}
+              className="mt-1 text-[10px] font-bold text-emerald-700 hover:underline"
+            >
+              + Create receiving module to name &amp; configure
+            </button>
+          </div>
+        ))}
 
         {addingMod ? (
           <div className="flex items-center gap-1">
@@ -619,10 +720,12 @@ function StageColumn({
  * Module chip — sortable; grip drags, body opens the editor drawer
  * ========================================================================== */
 
-function ModuleChip({ m, teams, taskCount, onOpen }: {
+function ModuleChip({ m, teams, taskCount, receives, onOpen }: {
   m: WorkflowModuleRow;
   teams: TeamRow[];
   taskCount: number;
+  /** Incoming handoffs that land on this module ("title from module"). */
+  receives?: string[];
   onOpen: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -647,6 +750,15 @@ function ModuleChip({ m, teams, taskCount, onOpen }: {
             <span>·</span>
             <span className={taskCount > 0 ? "text-brand-600 font-semibold" : ""}>{taskCount} task{taskCount === 1 ? "" : "s"}</span>
           </div>
+          {receives && receives.length > 0 && (
+            <div
+              className="flex items-center gap-1 mt-0.5 pl-3 text-[10px] font-semibold text-emerald-600"
+              title={receives.join("\n")}
+            >
+              <Icon name="arrow-right" size={9} />
+              receives {receives.length} handoff{receives.length === 1 ? "" : "s"}
+            </div>
+          )}
         </button>
         <Icon name="chevron-right" size={13} className="text-slate-300 group-hover:text-brand-500 flex-shrink-0" />
       </div>
@@ -659,7 +771,7 @@ function ModuleChip({ m, teams, taskCount, onOpen }: {
  * ========================================================================== */
 
 function ModuleDrawer({
-  module: mod, stageLabel, stageColor, teams, roles, stages, onClose, onUpdate, onDuplicate, onRemove, onTemplatesChanged,
+  module: mod, stageLabel, stageColor, teams, roles, stages, onClose, onUpdate, onDuplicate, onRemove, onTemplatesChanged, onEnsureReceiver,
 }: {
   module: WorkflowModuleRow;
   stageLabel: string;
@@ -672,6 +784,8 @@ function ModuleDrawer({
   onDuplicate: () => void;
   onRemove: () => void;
   onTemplatesChanged: () => void;
+  /** Fires when a handoff template gains a complete (stage, team) target. */
+  onEnsureReceiver?: (stageKey: string, teamId: string, title: string) => void;
 }) {
   const dialogRef = useModalA11y<HTMLDivElement>(onClose);
   const [renaming, setRenaming] = useState(false);
@@ -753,7 +867,7 @@ function ModuleDrawer({
               <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
             </div>
             <p className="text-[11px] text-slate-500 mb-2">These fire as tasks when a study reaches <span className="font-semibold">{stageLabel}</span>. Drag to reorder.</p>
-            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} />
+            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} />
           </div>
         </div>
 
@@ -773,7 +887,7 @@ function ModuleDrawer({
  * ========================================================================== */
 
 function TemplatesList({
-  moduleId, templates, setTemplates, availableRoles, allRoles, teams, stages, onChanged,
+  moduleId, templates, setTemplates, availableRoles, allRoles, teams, stages, onChanged, onHandoffTarget,
 }: {
   moduleId: string;
   templates: WorkflowTaskTemplateRow[] | null;
@@ -783,6 +897,7 @@ function TemplatesList({
   teams: TeamRow[];
   stages: PipelineStageRow[];
   onChanged?: () => void;
+  onHandoffTarget?: (stageKey: string, teamId: string, title: string) => void;
 }) {
   const toast = useToast();
   const sensors = useSensors(
@@ -808,6 +923,18 @@ function TemplatesList({
     try {
       const { error } = await supabase.from("workflow_task_templates").update(patch as any).eq("id", id);
       if (error) throw error;
+      // Handoff target just became complete → materialize the receiving module
+      // so the baton visibly lands somewhere (named + configured by the admin).
+      if ("handoff_to_stage_key" in patch || "handoff_to_team_id" in patch) {
+        const base = prev.find((t) => t.id === id);
+        const merged = base ? { ...base, ...patch } : null;
+        if (
+          merged && merged.kind === "handoff" &&
+          merged.handoff_to_stage_key && merged.handoff_to_team_id
+        ) {
+          onHandoffTarget?.(merged.handoff_to_stage_key, merged.handoff_to_team_id, merged.title);
+        }
+      }
     } catch (e: any) {
       setTemplates(prev); // roll back the optimistic edit so the UI matches the DB
       toast.error(e?.message ? `Couldn't save task: ${e.message}` : friendlyError(e, "Update failed"));
