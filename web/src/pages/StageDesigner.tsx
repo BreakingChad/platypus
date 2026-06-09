@@ -167,7 +167,6 @@ export function StageDesigner() {
     stagesTbl.update(id, patch as any).catch((e: any) => toast.error(friendlyError(e, "Update failed")));
 
   const removeStage = async (s: PipelineStageRow) => {
-    if (s.is_core) { toast.error("Core stages can't be removed — relabel them instead"); return; }
     if (!(await confirmDialog({
       title: "Remove stage",
       message: `Remove "${s.label}"? Studies already in it keep the value, but no new study will enter it — and every work stream on this pipeline loses the modules built on it.`,
@@ -313,7 +312,7 @@ export function StageDesigner() {
       )}
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
-        <strong>Core stages</strong> can be relabelled and recoloured but not removed — other parts of the app reference them. Custom stages are fully editable. A study's stage shown across the app comes from the pipeline its work stream belongs to.
+        Stages tagged <strong>Default</strong> are the starter set we load for a new pipeline — rename, recolour, reorder, or remove them like any other. A study's stage shown across the app comes from the pipeline its work stream belongs to.
       </p>
     </div>
   );
@@ -446,7 +445,7 @@ function StageRow({
         ) : (
           <button onClick={() => setRenaming(true)} className="text-sm font-semibold text-slate-900 truncate text-left hover:text-brand-700" title="Rename">{s.label}</button>
         )}
-        {s.is_core && <Pill tone="neutral">core</Pill>}
+        {s.is_core && <Pill tone="neutral">Default</Pill>}
       </div>
 
       {/* target days */}
@@ -474,10 +473,7 @@ function StageRow({
               ) : (
                 <div className="px-3 py-1.5 text-slate-400">Add a step above to run in parallel</div>
               )}
-              {!s.is_core && (
-                <button onClick={() => { onRemove(); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-600 border-t border-slate-100">Remove stage</button>
-              )}
-              {s.is_core && <div className="px-3 py-1.5 text-slate-400 flex items-center gap-1 border-t border-slate-100"><Icon name="lock" size={11} /> Core stage</div>}
+              <button onClick={() => { onRemove(); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-600 border-t border-slate-100">Remove stage</button>
             </div>
           </>
         )}
