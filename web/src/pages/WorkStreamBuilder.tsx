@@ -70,10 +70,11 @@ import { EmptyState } from "../components/ui/EmptyState";
 const TASK_KIND_OPTIONS: { value: TaskKind; label: string }[] = [
   { value: "manual", label: "Task" },
   { value: "handoff", label: "Handoff" },
-  { value: "external_handoff", label: "External handoff" },
   { value: "escalation", label: "Escalation" },
 ];
-const displayKind = (k: TaskKind): TaskKind => (k === "date" ? "manual" : k);
+// Legacy rows: date → Task, external_handoff → Handoff (no longer offered).
+const displayKind = (k: TaskKind): TaskKind =>
+  k === "date" ? "manual" : k === "external_handoff" ? "handoff" : k;
 
 type DragMeta = { type: "module"; stageKey?: string };
 
