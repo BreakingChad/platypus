@@ -8,13 +8,14 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -38,19 +39,17 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 
 /** Pipelines — the org's stage backbones. Each pipeline is the spine a family
- *  of studies runs on: the stages they move through (top to bottom), which run
- *  in parallel, the target days each should take, and which are terminal. An
- *  org can run several (e.g. Industry-sponsored, Investigator-initiated); work
- *  streams (Settings → Work streams) hang tasks + teams off a pipeline's stages
- *  but can't change the stages themselves — that keeps cross-study timing
- *  comparable.
+ *  of studies runs on: the stages (top to bottom), which run in parallel, the
+ *  target days each should take, and which are terminal. An org can run several
+ *  (e.g. Industry-sponsored, Investigator-initiated); work streams hang tasks +
+ *  teams off these stages but can't change the stages — that keeps cross-study
+ *  timing comparable.
  *
  *  "Intake" is a single universal triage stage shared by every pipeline, so it
- *  isn't edited here; studies sit in intake until they're committed.
- *
- *  Drag a row by its grip to reorder; use a row's menu to run it in parallel
- *  with the step above or split it back out. Persists to public.pipelines +
- *  public.pipeline_stages. RLS gates writes to admins.
+ *  isn't edited here. Drag a row by its grip to reorder; drop one row ONTO
+ *  another to run them in parallel (the target highlights as a forming group),
+ *  or drop in a gap to set the sequence. The "Run parallel" / "Split" control
+ *  on each row does the same explicitly.
  */
 
 const SWATCHES = [
@@ -58,8 +57,6 @@ const SWATCHES = [
   "#10B981", "#F59E0B", "#EF4444", "#64748B", "#EC4899",
 ];
 
-/** Seed a brand-new pipeline with a sensible, fully-editable starter backbone
- *  (intake is universal, so it isn't included). */
 const PIPELINE_TEMPLATE: { label: string; color: string; target_days: number; terminal: boolean }[] = [
   { label: "Feasibility", color: "#7C3AED", target_days: 14, terminal: false },
   { label: "Site selection", color: "#3B82F6", target_days: 10, terminal: false },
@@ -71,6 +68,14 @@ const PIPELINE_TEMPLATE: { label: string; color: string; target_days: number; te
 
 const safeKey = (label: string) =>
   `stage_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 20)}`;
+
+/** Faint tint from a stage's hex colour, for per-row background variation. */
+function tint(hex: string, alpha: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return "transparent";
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export function StageDesigner() {
   const { orgId } = useCurrentOrg();
@@ -95,6 +100,7 @@ export function StageDesigner() {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+  const [activeDrag, setActiveDrag] = useState<string | null>(null);
 
   /* ---------- pipeline mutators ---------- */
 
@@ -176,26 +182,6 @@ export function StageDesigner() {
     catch (e: any) { toast.error(friendlyError(e, "Remove failed")); }
   };
 
-  /** Renumber positions, and drop any parallel_group that no longer sits next
-   *  to a same-group neighbor (keeps the data in step with what's shown). */
-  const reorderStages = async (orderedIds: string[]) => {
-    const ordered = orderedIds
-      .map((id) => stages.find((s) => s.id === id))
-      .filter((x): x is PipelineStageRow => !!x);
-    try {
-      await Promise.all(ordered.map((s, i) => {
-        const prev = ordered[i - 1];
-        const next = ordered[i + 1];
-        const g = s.parallel_group ?? null;
-        const keepsGroup = g != null && ((prev && (prev.parallel_group ?? null) === g) || (next && (next.parallel_group ?? null) === g));
-        const patch: any = { position: (i + 1) * 10 };
-        if (g != null && !keepsGroup) patch.parallel_group = null;
-        return supabase.from("pipeline_stages").update(patch).eq("id", s.id);
-      }));
-      await stagesTbl.refresh();
-    } catch (e: any) { toast.error(friendlyError(e, "Reorder failed")); }
-  };
-
   const setStageParallel = async (patches: { id: string; parallel_group: number | null }[]) => {
     try {
       await Promise.all(patches.map((p) =>
@@ -204,13 +190,52 @@ export function StageDesigner() {
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't change the lane")); }
   };
 
+  /** Drop one row onto another → they run in parallel; the dragged row joins
+   *  the target's lane and sits right after it. */
+  const parallelizeStages = async (draggedId: string, targetId: string) => {
+    const dragged = stages.find((s) => s.id === draggedId);
+    const target = stages.find((s) => s.id === targetId);
+    if (!dragged || !target || draggedId === targetId) return;
+    const group = target.parallel_group ?? target.position;
+    const order = stages.filter((s) => s.id !== draggedId);
+    const idx = order.findIndex((s) => s.id === targetId);
+    order.splice(idx + 1, 0, dragged);
+    try {
+      await Promise.all([
+        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", target.id),
+        supabase.from("pipeline_stages").update({ parallel_group: group } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+      ]);
+      await stagesTbl.refresh();
+      toast.success(stamped(`${dragged.label} now runs in parallel with ${target.label}`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't parallelize")); }
+  };
+
+  /** Drop in a gap → move to that sequential position, out of any lane. */
+  const reorderStageSequential = async (draggedId: string, afterStageId: string | null) => {
+    const dragged = stages.find((s) => s.id === draggedId);
+    if (!dragged) return;
+    const order = stages.filter((s) => s.id !== draggedId);
+    const insertAt = afterStageId ? order.findIndex((s) => s.id === afterStageId) + 1 : 0;
+    order.splice(insertAt, 0, dragged);
+    try {
+      await Promise.all([
+        supabase.from("pipeline_stages").update({ parallel_group: null } as any).eq("id", dragged.id),
+        ...order.map((s, i) => supabase.from("pipeline_stages").update({ position: (i + 1) * 10 } as any).eq("id", s.id)),
+      ]);
+      await stagesTbl.refresh();
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't move the stage")); }
+  };
+
+  const onDragStart = (e: DragStartEvent) => setActiveDrag(String(e.active.id));
   const onDragEnd = (e: DragEndEvent) => {
+    setActiveDrag(null);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const from = stages.findIndex((s) => s.id === active.id);
-    const to = stages.findIndex((s) => s.id === over.id);
-    if (from < 0 || to < 0) return;
-    void reorderStages(arrayMove(stages, from, to).map((s) => s.id));
+    const d = over.data.current as { type?: string; afterStageId?: string | null; stageId?: string } | undefined;
+    if (d?.type === "gap") { void reorderStageSequential(String(active.id), d.afterStageId ?? null); return; }
+    const targetId = d?.type === "prow" ? d.stageId : String(over.id);
+    if (targetId) void parallelizeStages(String(active.id), targetId);
   };
 
   /* ---------- gating ---------- */
@@ -231,6 +256,22 @@ export function StageDesigner() {
 
   const selected = activePipelines.find((p) => p.id === selectedId) ?? null;
   const cols = flowColumns(stages);
+  const totalDays = cols.reduce((sum, col) =>
+    sum + (col.stages.length > 1
+      ? Math.max(...col.stages.map((s) => s.target_days || 0))
+      : (col.stages[0].target_days || 0)), 0);
+
+  const rowProps = (s: PipelineStageRow, inLane: boolean) => ({
+    s, inLane, dragging: !!activeDrag, isDragged: activeDrag === s.id,
+    canMerge: canMergeWithPrevious(stages, s.id),
+    onRename: (id: string, label: string) => void patchStage(id, { label }),
+    onColor: (id: string, color: string) => void patchStage(id, { color }),
+    onTarget: (id: string, target_days: number) => void patchStage(id, { target_days }),
+    onTerminal: (id: string, terminal: boolean) => void patchStage(id, { terminal }),
+    onRemove: () => void removeStage(s),
+    onMerge: (id: string) => void setStageParallel(mergeWithPrevious(stages, id)),
+    onSplit: (id: string) => void setStageParallel([{ id, parallel_group: null }]),
+  });
 
   return (
     <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
@@ -253,7 +294,7 @@ export function StageDesigner() {
 
       <div className="mt-4 mb-3 flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
         <Icon name="info" size={13} className="text-slate-400 flex-shrink-0 mt-0.5" />
-        <span><span className="font-semibold">Intake</span> is shared by every pipeline, so it isn't shown here — studies sit in intake until they're committed. Work streams add the <span className="font-semibold">tasks and teams</span> for each stage and can lengthen a stage's target for their pathway, but can't rename, reorder, or remove stages.</span>
+        <span><span className="font-semibold">Intake</span> is shared by every pipeline, so it isn't shown here. Drag a row onto another to run them in parallel, or drop in a gap to reorder. Work streams add the <span className="font-semibold">tasks and teams</span> for each stage.</span>
       </div>
 
       {!selected ? (
@@ -268,44 +309,42 @@ export function StageDesigner() {
         </Card>
       ) : (
         <>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
-                {cols.map((col, ci) => (
-                  col.stages.length > 1 ? (
-                    <div key={ci} className="rounded-xl border border-dashed border-brand-300 bg-brand-50/40 p-2 space-y-2">
-                      <div className="flex items-center gap-1.5 px-1">
-                        <Icon name="layers" size={12} className="text-brand-500" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Parallel</span>
-                        <span className="text-[10px] text-slate-400">· these run at the same time</span>
-                      </div>
-                      {col.stages.map((s) => (
-                        <StageRow key={s.id} s={s} inLane canMerge={canMergeWithPrevious(stages, s.id)}
-                          onRename={(id, label) => void patchStage(id, { label })}
-                          onColor={(id, color) => void patchStage(id, { color })}
-                          onTarget={(id, target_days) => void patchStage(id, { target_days })}
-                          onTerminal={(id, terminal) => void patchStage(id, { terminal })}
-                          onRemove={() => void removeStage(s)}
-                          onMerge={(id) => void setStageParallel(mergeWithPrevious(stages, id))}
-                          onSplit={(id) => void setStageParallel([{ id, parallel_group: null }])} />
-                      ))}
+              <div>
+                <GapDrop afterStageId={null} active={!!activeDrag} />
+                {cols.map((col, ci) => {
+                  const last = col.stages[col.stages.length - 1];
+                  return (
+                    <div key={ci}>
+                      {col.stages.length > 1 ? (
+                        <div className="rounded-xl border border-brand-300 bg-gradient-to-br from-brand-50 to-violet-50 shadow-sm p-2 space-y-2">
+                          <div className="flex items-center gap-1.5 px-1">
+                            <Icon name="layers" size={12} className="text-brand-600" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700">Parallel</span>
+                            <span className="text-[10px] text-brand-400">· these run at the same time</span>
+                          </div>
+                          {col.stages.map((s) => <StageRow key={s.id} {...rowProps(s, true)} />)}
+                        </div>
+                      ) : (
+                        <StageRow key={col.stages[0].id} {...rowProps(col.stages[0], false)} />
+                      )}
+                      <GapDrop afterStageId={last.id} active={!!activeDrag} />
                     </div>
-                  ) : (
-                    <StageRow key={col.stages[0].id} s={col.stages[0]} inLane={false} canMerge={canMergeWithPrevious(stages, col.stages[0].id)}
-                      onRename={(id, label) => void patchStage(id, { label })}
-                      onColor={(id, color) => void patchStage(id, { color })}
-                      onTarget={(id, target_days) => void patchStage(id, { target_days })}
-                      onTerminal={(id, terminal) => void patchStage(id, { terminal })}
-                      onRemove={() => void removeStage(col.stages[0])}
-                      onMerge={(id) => void setStageParallel(mergeWithPrevious(stages, id))}
-                      onSplit={(id) => void setStageParallel([{ id, parallel_group: null }])} />
-                  )
-                ))}
+                  );
+                })}
               </div>
             </SortableContext>
           </DndContext>
+
+          <div className="mt-1 mb-2 flex items-center justify-end gap-1.5 text-xs text-slate-500">
+            <Icon name="calendar" size={13} className="text-slate-400" />
+            <span>Pipeline target: <strong className="text-slate-700">~{totalDays} days</strong></span>
+            <span className="text-[11px] text-slate-400">· parallel stages count the longest lane</span>
+          </div>
+
           <button onClick={() => void addStage()}
-            className="mt-2 w-full rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold py-3">
+            className="w-full rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold py-3">
             <Icon name="plus" size={14} /> Add stage
           </button>
         </>
@@ -314,6 +353,20 @@ export function StageDesigner() {
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
         Stages tagged <strong>Default</strong> are the starter set we load for a new pipeline — rename, recolour, reorder, or remove them like any other. A study's stage shown across the app comes from the pipeline its work stream belongs to.
       </p>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Gap drop — between rows; drop here to set the sequence (out of any lane)
+ * ========================================================================== */
+
+function GapDrop({ afterStageId, active }: { afterStageId: string | null; active: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `gap:${afterStageId ?? "head"}`, data: { type: "gap", afterStageId } });
+  return (
+    <div ref={setNodeRef} className={"transition-all " + (active ? (isOver ? "py-2" : "py-1.5") : "py-1")}
+      title={active ? "Drop here to set the sequence" : undefined}>
+      <div className={"mx-1 rounded-full transition-all " + (active ? (isOver ? "h-1.5 bg-brand-500" : "h-0.5 bg-brand-200") : "h-0")} />
     </div>
   );
 }
@@ -389,14 +442,18 @@ function PipelineSelector({
 }
 
 /* ============================================================================
- * Stage row — sortable, full-width; rename, recolor, target, terminal, parallel
+ * Stage row — sortable + a parallelize drop target; two levels:
+ *   line 1: grip · colour · name · target · terminal · trash
+ *   line 2: the parallel control (run parallel with step above / split out)
  * ========================================================================== */
 
 function StageRow({
-  s, inLane, canMerge, onRename, onColor, onTarget, onTerminal, onRemove, onMerge, onSplit,
+  s, inLane, dragging, isDragged, canMerge, onRename, onColor, onTarget, onTerminal, onRemove, onMerge, onSplit,
 }: {
   s: PipelineStageRow;
   inLane: boolean;
+  dragging: boolean;
+  isDragged: boolean;
   canMerge: boolean;
   onRename: (id: string, label: string) => void;
   onColor: (id: string, color: string) => void;
@@ -407,77 +464,91 @@ function StageRow({
   onSplit: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: s.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `prow:${s.id}`, data: { type: "prow", stageId: s.id } });
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(s.label);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+
+  // "Will group" cue: another row is being dragged and is hovering this one.
+  const groupHint = dragging && isOver && !isDragged;
+  const showParallelControl = inLane || canMerge;
+  const style: Record<string, unknown> = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  if (inLane && !groupHint) style.backgroundColor = tint(s.color, 0.07);
 
   return (
-    <div ref={setNodeRef} style={style}
-      className="rounded-xl border border-slate-200 bg-white shadow-sm flex items-center gap-2 pl-2 pr-2 py-2 group">
-      <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500" title="Drag to reorder" aria-label="Drag stage">
-        <GripIcon />
-      </button>
+    <div ref={(n) => { setNodeRef(n); setDropRef(n); }} style={style as any}
+      className={
+        "rounded-xl border shadow-sm transition " +
+        (groupHint
+          ? "border-brand-400 border-dashed ring-2 ring-brand-300 bg-brand-50"
+          : inLane ? "border-brand-200" : "border-slate-200 bg-white")
+      }
+    >
+      <div className="flex items-center gap-2 pl-2 pr-2 py-2 group">
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500" title="Drag to reorder, or drop onto another stage to run in parallel" aria-label="Drag stage">
+          <GripIcon />
+        </button>
 
-      {/* color swatch + palette */}
-      <div className="relative">
-        <button onClick={() => setPaletteOpen((v) => !v)} className="w-4 h-4 rounded-full flex-shrink-0 border border-white shadow-sm hover:scale-110 transition" style={{ backgroundColor: s.color }} title="Change colour" aria-label="Change colour" />
-        {paletteOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setPaletteOpen(false)} />
-            <div className="absolute left-0 top-6 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1">
-              {SWATCHES.map((c) => (
-                <button key={c} onClick={() => { onColor(s.id, c); setPaletteOpen(false); }} className="w-6 h-6 rounded-md border-2 border-white hover:border-slate-200 transition" style={{ backgroundColor: c }} aria-label={"Use " + c} />
-              ))}
-            </div>
-          </>
-        )}
+        {/* colour swatch + palette */}
+        <div className="relative">
+          <button onClick={() => setPaletteOpen((v) => !v)} className="w-4 h-4 rounded-full flex-shrink-0 border border-white shadow-sm hover:scale-110 transition" style={{ backgroundColor: s.color }} title="Change colour" aria-label="Change colour" />
+          {paletteOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setPaletteOpen(false)} />
+              <div className="absolute left-0 top-6 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1">
+                {SWATCHES.map((c) => (
+                  <button key={c} onClick={() => { onColor(s.id, c); setPaletteOpen(false); }} className="w-6 h-6 rounded-md border-2 border-white hover:border-slate-200 transition" style={{ backgroundColor: c }} aria-label={"Use " + c} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* name */}
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          {renaming ? (
+            <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => { const t = draft.trim(); if (t && t !== s.label) onRename(s.id, t); setRenaming(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setDraft(s.label); setRenaming(false); } }}
+              className="text-sm font-semibold text-slate-900 border border-brand-200 rounded px-1.5 py-0.5 outline-none flex-1 min-w-0" />
+          ) : (
+            <button onClick={() => setRenaming(true)} className="text-sm font-semibold text-slate-900 truncate text-left hover:text-brand-700" title="Rename">{s.label}</button>
+          )}
+          {s.is_core && <Pill tone="neutral">Default</Pill>}
+          {groupHint && <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 flex items-center gap-0.5"><Icon name="layers" size={10} /> will run parallel</span>}
+        </div>
+
+        {/* target days */}
+        <label className="flex items-center gap-1 text-[11px] text-slate-400 flex-shrink-0" title="How long a study should spend in this stage. Powers the Health signal.">
+          target
+          <input type="number" min={0} value={s.target_days} onChange={(e) => onTarget(s.id, Number(e.target.value) || 0)} className="w-14 text-xs font-mono border border-slate-200 rounded px-1.5 py-0.5 text-center" />d
+        </label>
+
+        {/* terminal */}
+        <label className="flex items-center gap-1 text-[11px] text-slate-400 cursor-pointer flex-shrink-0">
+          <input type="checkbox" checked={s.terminal} onChange={(e) => onTerminal(s.id, e.target.checked)} className="accent-brand-500 w-3.5 h-3.5" />terminal
+        </label>
+
+        {/* trash */}
+        <button onClick={onRemove} className="text-slate-300 hover:text-red-600 transition p-1 flex-shrink-0" title="Remove stage" aria-label="Remove stage">
+          <Icon name="trash" size={14} />
+        </button>
       </div>
 
-      {/* name */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        {renaming ? (
-          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => { const t = draft.trim(); if (t && t !== s.label) onRename(s.id, t); setRenaming(false); }}
-            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setDraft(s.label); setRenaming(false); } }}
-            className="text-sm font-semibold text-slate-900 border border-brand-200 rounded px-1.5 py-0.5 outline-none flex-1 min-w-0" />
-        ) : (
-          <button onClick={() => setRenaming(true)} className="text-sm font-semibold text-slate-900 truncate text-left hover:text-brand-700" title="Rename">{s.label}</button>
-        )}
-        {s.is_core && <Pill tone="neutral">Default</Pill>}
-      </div>
-
-      {/* target days */}
-      <label className="flex items-center gap-1 text-[11px] text-slate-400 flex-shrink-0" title="How long a study should spend in this stage. Powers the Health signal.">
-        target
-        <input type="number" min={0} value={s.target_days} onChange={(e) => onTarget(s.id, Number(e.target.value) || 0)} className="w-14 text-xs font-mono border border-slate-200 rounded px-1.5 py-0.5 text-center" />d
-      </label>
-
-      {/* terminal */}
-      <label className="flex items-center gap-1 text-[11px] text-slate-400 cursor-pointer flex-shrink-0">
-        <input type="checkbox" checked={s.terminal} onChange={(e) => onTerminal(s.id, e.target.checked)} className="accent-brand-500 w-3.5 h-3.5" />terminal
-      </label>
-
-      {/* menu */}
-      <div className="relative flex-shrink-0">
-        <button onClick={() => setMenuOpen((v) => !v)} className="text-slate-300 hover:text-slate-600 px-0.5" aria-label="Stage options" title="Stage options"><Icon name="settings" size={14} /></button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-7 z-20 w-56 rounded-lg border border-slate-200 bg-white shadow-lg py-1 text-xs">
-              {inLane ? (
-                <button onClick={() => { onSplit(s.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50">Split out of parallel lane</button>
-              ) : canMerge ? (
-                <button onClick={() => { onMerge(s.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50">∥ Run parallel with the step above</button>
-              ) : (
-                <div className="px-3 py-1.5 text-slate-400">Add a step above to run in parallel</div>
-              )}
-              <button onClick={() => { onRemove(); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-600 border-t border-slate-100">Remove stage</button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* line 2 — parallel control on its own level */}
+      {showParallelControl && (
+        <div className="px-2 pb-1.5 -mt-0.5 pl-9">
+          {inLane ? (
+            <button onClick={() => onSplit(s.id)} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+              <Icon name="x" size={10} /> Split out of parallel lane
+            </button>
+          ) : (
+            <button onClick={() => onMerge(s.id)} className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 inline-flex items-center gap-1">
+              <Icon name="layers" size={11} /> Run parallel with the step above
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
