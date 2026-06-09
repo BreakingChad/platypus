@@ -29,6 +29,7 @@ const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({
 const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
 const SponsorsCros         = lazy(() => import("./pages/SponsorsCros").then(m => ({ default: m.SponsorsCros })));
 const SiteSetup            = lazy(() => import("./pages/SiteSetup").then(m => ({ default: m.SiteSetup })));
+const CalendarPage         = lazy(() => import("./pages/CalendarPage").then(m => ({ default: m.CalendarPage })));
 const TherapeuticAreas     = lazy(() => import("./pages/TherapeuticAreas").then(m => ({ default: m.TherapeuticAreas })));
 const GuidedSetup          = lazy(() => import("./pages/GuidedSetup").then(m => ({ default: m.GuidedSetup })));
 const SettingsHub          = lazy(() => import("./pages/SettingsHub").then(m => ({ default: m.SettingsHub })));
@@ -71,7 +72,7 @@ function renderRoute(
   if (hash === "#/team-tasks") return { node: <TeamTasks onNavigate={navigate} /> };
   if (hash === "#/approvals") return { node: <Approvals onNavigate={navigate} /> };
   if (hash === "#/calendar")
-    return { node: <ComingSoon kicker="Workspace" title="Calendar" iconName="layers" description="Task due dates and study milestones on one calendar — month and week views." onBackToHome={() => navigate("#/")} /> };
+    return { node: <CalendarPage onNavigate={navigate} /> };
   if (hash === "#/amendments")
     return { node: <IntakeTriage onNavigate={navigate} initialTab="amendments" /> };
   if (hash === "#/analytics")
