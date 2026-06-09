@@ -40,6 +40,8 @@ type Member = {
   user_id: string;
   tier: MemberTier;
   access_role_id: string | null;
+  site_ids: string[];
+  therapeutic_areas: string[];
   created_at: string;
   email: string;
   full_name: string | null;
@@ -58,6 +60,9 @@ export function Members() {
   const [error, setError] = useState<string | null>(null);
   const [orgOwnerId, setOrgOwnerId] = useState<string | null>(null);
   const [accessRoles, setAccessRoles] = useState<{ id: string; name: string }[]>([]);
+  const [orgSites, setOrgSites] = useState<{ id: string; name: string }[]>([]);
+  const [taSuggestions, setTaSuggestions] = useState<string[]>([]);
+  const [scopeOpenId, setScopeOpenId] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteTier, setInviteTier] = useState<"member" | "admin">("member");
   const [pendingInvites, setPendingInvites] = useState<OrgInviteRow[]>([]);
@@ -83,7 +88,7 @@ export function Members() {
     setError(null);
     const { data: mems, error: e1 } = await supabase
       .from("org_members")
-      .select("id, user_id, tier, access_role_id, created_at")
+      .select("id, user_id, tier, access_role_id, site_ids, therapeutic_areas, created_at")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
     if (e1) {
@@ -106,6 +111,8 @@ export function Members() {
       user_id: m.user_id,
       tier: m.tier,
       access_role_id: m.access_role_id ?? null,
+      site_ids: (m.site_ids ?? []) as string[],
+      therapeutic_areas: (m.therapeutic_areas ?? []) as string[],
       created_at: m.created_at,
       email: byId[m.user_id]?.email ?? "(unknown)",
       full_name: byId[m.user_id]?.full_name ?? null,
@@ -128,6 +135,41 @@ export function Members() {
       .eq("org_id", orgId)
       .order("name", { ascending: true });
     setAccessRoles((roles ?? []) as any);
+
+    // sites + distinct therapeutic areas for the per-member scope editor
+    const { data: siteRows } = await supabase
+      .from("sites")
+      .select("id, name")
+      .eq("org_id", orgId)
+      .eq("status", "active")
+      .order("name", { ascending: true });
+    setOrgSites((siteRows ?? []) as any);
+    const { data: taRows } = await supabase
+      .from("studies")
+      .select("therapeutic_area")
+      .eq("org_id", orgId);
+    const tas = Array.from(
+      new Set((taRows ?? []).map((r: any) => (r.therapeutic_area ?? "").trim()).filter(Boolean))
+    ).sort();
+    setTaSuggestions(tas as string[]);
+  };
+
+  const saveScope = async (m: Member, patch: { site_ids?: string[]; therapeutic_areas?: string[] }) => {
+    try {
+      const { error } = await supabase.from("org_members").update(patch as any).eq("id", m.id);
+      if (error) throw error;
+      if (orgId && currentUserId) {
+        void writeAuditEvent({
+          orgId, actorId: currentUserId, actorEmail: currentUserEmail,
+          entityType: "member", entityId: m.id, action: "scope_changed",
+          payload: { target_email: m.email, ...patch },
+        });
+      }
+      toast.success(stamped(`${m.email}: scope updated`));
+      load();
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't update scope"));
+    }
   };
 
   useEffect(() => {
@@ -422,10 +464,8 @@ export function Members() {
               const isThisOwner = m.user_id === orgOwnerId;
               const isMe = m.user_id === currentUserId;
               return (
-                <div
-                  key={m.id}
-                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center"
-                >
+                <div key={m.id} className="border-b border-slate-100 last:border-b-0">
+                  <div className="px-4 py-3 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
@@ -447,6 +487,16 @@ export function Members() {
                         )}
                       </div>
                     </div>
+                    <button
+                      onClick={() => setScopeOpenId(scopeOpenId === m.id ? null : m.id)}
+                      className="mt-1.5 ml-9 text-[11px] text-slate-500 hover:text-brand-700 inline-flex items-center gap-1"
+                      title="Set which sites and therapeutic areas this member is scoped to"
+                    >
+                      <Icon name={scopeOpenId === m.id ? "chevron-down" : "chevron-right"} size={11} />
+                      Scope: {(m.site_ids.length === 0 && m.therapeutic_areas.length === 0)
+                        ? "all sites · all areas"
+                        : `${m.site_ids.length || "all"} site${m.site_ids.length === 1 ? "" : "s"} · ${m.therapeutic_areas.length || "all"} area${m.therapeutic_areas.length === 1 ? "" : "s"}`}
+                    </button>
                   </div>
                   <div className="text-xs text-slate-700 truncate">
                     {m.title || <span className="italic text-slate-400">—</span>}
@@ -523,6 +573,16 @@ export function Members() {
                       </button>
                     )}
                   </div>
+                  </div>
+                  {scopeOpenId === m.id && (
+                    <MemberScopePanel
+                      m={m}
+                      sites={orgSites}
+                      taSuggestions={taSuggestions}
+                      onSaveSites={(ids) => void saveScope(m, { site_ids: ids })}
+                      onSaveTAs={(tas) => void saveScope(m, { therapeutic_areas: tas })}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -573,6 +633,84 @@ export function Members() {
           </span>
         )}
       </p>
+    </div>
+  );
+}
+
+/* ---------- per-member scope editor (sites + therapeutic areas) ---------- */
+function MemberScopePanel({
+  m, sites, taSuggestions, onSaveSites, onSaveTAs,
+}: {
+  m: Member;
+  sites: { id: string; name: string }[];
+  taSuggestions: string[];
+  onSaveSites: (ids: string[]) => void;
+  onSaveTAs: (tas: string[]) => void;
+}) {
+  const [taInput, setTaInput] = useState("");
+  const toggleSite = (id: string) =>
+    onSaveSites(m.site_ids.includes(id) ? m.site_ids.filter((x) => x !== id) : [...m.site_ids, id]);
+  const addTA = (t: string) => {
+    const v = t.trim();
+    if (!v || m.therapeutic_areas.includes(v)) return;
+    onSaveTAs([...m.therapeutic_areas, v]);
+    setTaInput("");
+  };
+  const removeTA = (t: string) => onSaveTAs(m.therapeutic_areas.filter((x) => x !== t));
+  const remaining = taSuggestions.filter((t) => !m.therapeutic_areas.includes(t));
+  return (
+    <div className="px-4 pb-4 pt-1 bg-slate-50/60 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100">
+      <div>
+        <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
+          Sites <span className="font-normal text-slate-400">— none selected = all sites</span>
+        </div>
+        {sites.length === 0 ? (
+          <p className="text-[11px] text-slate-400 italic">No sites yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {sites.map((s) => {
+              const on = m.site_ids.includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => toggleSite(s.id)}
+                  className={"text-[11px] rounded-full border px-2.5 py-1 transition " + (on ? "border-brand-400 bg-brand-50 text-brand-800 font-semibold" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")}
+                >
+                  {on ? "✓ " : ""}{s.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
+          Therapeutic areas <span className="font-normal text-slate-400">— none = all areas</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {m.therapeutic_areas.length === 0 && <span className="text-[11px] text-slate-400 italic">All areas</span>}
+          {m.therapeutic_areas.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-[11px] px-2 py-0.5">
+              {t}
+              <button onClick={() => removeTA(t)} className="hover:text-red-600" aria-label={`Remove ${t}`}>×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            list={`ta-${m.id}`}
+            value={taInput}
+            onChange={(e) => setTaInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addTA(taInput); }}
+            placeholder="Add area…"
+            className="text-xs border border-slate-200 rounded px-2 py-1 w-44 outline-none focus:border-brand-300"
+          />
+          <datalist id={`ta-${m.id}`}>
+            {remaining.map((t) => <option key={t} value={t} />)}
+          </datalist>
+          <button onClick={() => addTA(taInput)} disabled={!taInput.trim()} className="text-[11px] font-semibold text-brand-700 disabled:text-slate-300">add</button>
+        </div>
+      </div>
     </div>
   );
 }
