@@ -457,8 +457,7 @@ export function NavDesigner() {
             </div>
             <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
               Toggle <strong>Admin</strong> / <strong>Member</strong> to preview how this role
-              renders for different tiers. Admin-only items hide for non-admins regardless of
-              this config.
+              looks for each tier. Admin-only items always hide for non-admins, whatever you set here.
             </p>
           </div>
         </div>
@@ -565,11 +564,11 @@ function SortableGroup({
 
         <button
           onClick={onToggleGroupHidden}
-          className="text-[10px] font-mono text-slate-500 hover:text-slate-900 transition px-1.5 py-0.5 rounded hover:bg-slate-100"
+          className="text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition px-1.5 py-0.5 rounded hover:bg-slate-100"
           title={group.hidden ? "Show group" : "Hide group"}
           aria-label={group.hidden ? "Show this group in the sidebar" : "Hide this group from the sidebar"}
         >
-          {group.hidden ? "show" : "hide"}
+          {group.hidden ? "Show" : "Hide"}
         </button>
         <button
           onClick={onRemoveGroup}
