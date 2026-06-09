@@ -41,7 +41,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 /** Pipelines — the org's stage backbones. Each pipeline is the spine a family
  *  of studies runs on: the stages (top to bottom), which run in parallel, the
  *  target days each should take, and which are terminal. An org can run several
- *  (e.g. Industry-sponsored, Investigator-initiated); work streams hang tasks +
+ *  (e.g. Industry-sponsored, Investigator-initiated); task flows hang tasks +
  *  teams off these stages but can't change the stages — that keeps cross-study
  *  timing comparable.
  *
@@ -148,7 +148,7 @@ export function StageDesigner() {
 
   const archivePipeline = async (src: PipelineRow) => {
     if (activePipelines.length <= 1) { toast.error("Keep at least one active pipeline"); return; }
-    if (!(await confirmDialog({ title: "Archive pipeline", message: `Archive "${src.name}"? Studies and work streams on it keep it, but it won't be offered for new ones.`, confirmLabel: "Archive" }))) return;
+    if (!(await confirmDialog({ title: "Archive pipeline", message: `Archive "${src.name}"? Studies and task flows on it keep it, but it won't be offered for new ones.`, confirmLabel: "Archive" }))) return;
     try { await pipelines.update(src.id, { status: "archived" } as any); toast.success(stamped(`Archived "${src.name}"`)); }
     catch (e: any) { toast.error(friendlyError(e, "Couldn't archive")); }
   };
@@ -175,7 +175,7 @@ export function StageDesigner() {
   const removeStage = async (s: PipelineStageRow) => {
     if (!(await confirmDialog({
       title: "Remove stage",
-      message: `Remove "${s.label}"? Studies already in it keep the value, but no new study will enter it — and every work stream on this pipeline loses the modules built on it.`,
+      message: `Remove "${s.label}"? Studies already in it keep the value, but no new study will enter it — and every task flow on this pipeline loses the modules built on it.`,
       confirmLabel: "Remove", danger: true,
     }))) return;
     try { await stagesTbl.remove(s.id); toast.success(stamped(`Removed "${s.label}"`)); }
@@ -246,9 +246,9 @@ export function StageDesigner() {
   if (!isAdmin) {
     return (
       <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
-        <PageHeader kicker="Configure" title="Pipelines" subtitle="The stage backbones every study moves through." />
+        <PageHeader kicker="Configure" title="Stage pipelines" subtitle="The stage backbones every study moves through." />
         <Card className="mt-6">
-          <EmptyState iconName="lock" title="Admin-only surface" sub="Only org admins reshape pipelines. Once they change the stages, every study and work stream on that pipeline reflects the new backbone." />
+          <EmptyState iconName="lock" title="Admin-only surface" sub="Only org admins reshape pipelines. Once they change the stages, every study and task flow on that pipeline reflects the new backbone." />
         </Card>
       </div>
     );
@@ -277,8 +277,8 @@ export function StageDesigner() {
     <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
-        title="Pipelines"
-        subtitle="Each pipeline is a stage backbone a family of studies runs on — the stages, their order, which run in parallel, and the target days each should take. Work streams add the tasks and teams for these stages."
+        title="Stage pipelines"
+        subtitle="Each pipeline is a stage backbone a family of studies runs on — the stages, their order, which run in parallel, and the target days each should take. Task flows add the tasks and teams for these stages."
       />
       <AutoSaveNote />
 
@@ -294,7 +294,7 @@ export function StageDesigner() {
 
       <div className="mt-4 mb-3 flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
         <Icon name="info" size={13} className="text-slate-400 flex-shrink-0 mt-0.5" />
-        <span><span className="font-semibold">Intake</span> is shared by every pipeline, so it isn't shown here. Drag a row onto another to run them in parallel, or drop in a gap to reorder. Work streams add the <span className="font-semibold">tasks and teams</span> for each stage.</span>
+        <span><span className="font-semibold">Intake</span> is shared by every pipeline, so it isn't shown here. Drag a row onto another to run them in parallel, or drop in a gap to reorder. Task flows add the <span className="font-semibold">tasks and teams</span> for each stage.</span>
       </div>
 
       {!selected ? (
@@ -351,7 +351,7 @@ export function StageDesigner() {
       )}
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
-        Stages tagged <strong>Default</strong> are the starter set we load for a new pipeline — rename, recolour, reorder, or remove them like any other. A study's stage shown across the app comes from the pipeline its work stream belongs to.
+        Stages tagged <strong>Default</strong> are the starter set we load for a new pipeline — rename, recolour, reorder, or remove them like any other. A study's stage shown across the app comes from the pipeline its task flow belongs to.
       </p>
     </div>
   );
@@ -394,7 +394,7 @@ function PipelineSelector({
     <div className="mt-5 rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex items-center gap-2 mb-3">
         <Icon name="workflow" size={14} className="text-slate-400" />
-        <span className="text-xs font-semibold text-slate-700">Pipelines</span>
+        <span className="text-xs font-semibold text-slate-700">Stage pipelines</span>
         <span className="text-[11px] text-slate-400">— pick one to lay out its stages</span>
         <div className="flex-1" />
         {adding ? (

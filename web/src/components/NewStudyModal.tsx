@@ -284,9 +284,9 @@ export function NewStudyModal({
             </p>
           </div>
 
-          {/* Work stream picker — assigned at creation */}
+          {/* Task flow picker — assigned at creation */}
           <div className="mb-5">
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Work stream</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Task flow</label>
             <Select value={wsValue} onChange={(e) => setWorkstreamId(e.target.value)}>
               {activeWs.length === 0 && <option value="">— None configured —</option>}
               {activeWs.map((w) => (

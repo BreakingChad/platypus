@@ -18,14 +18,14 @@ import { useAuth } from "../auth/useAuth";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
 
-/** WorkStreamPanel — read-only visualization of the work stream modules
+/** WorkStreamPanel — read-only visualization of the task flow modules
  *  configured for a study's current stage. Lists each module + its task
  *  templates so non-admin coordinators can see what will (or did) fire
  *  when the study entered this stage.
  *
  *  Admin-only fields are still hidden behind the same RLS the rest of the
  *  app uses; this component just renders what the user can already SELECT.
- *  An "Edit work streams" button surfaces for admins so they can jump to
+ *  An "Edit task flows" button surfaces for admins so they can jump to
  *  the builder pre-filtered to this stage.
  */
 export function WorkStreamPanel({
@@ -35,11 +35,11 @@ export function WorkStreamPanel({
   workstreamId,
   onNavigate,
 }: {
-  /** Optional — when provided + admin, enables the 'Run work stream' button
+  /** Optional — when provided + admin, enables the 'Run task flow' button
    *  that fires spawnTasksForStageEntry for THIS study at the current stage. */
   studyId?: string;
   stageKey: string | null;
-  /** The study's work stream — modules are scoped to it. */
+  /** The study's task flow — modules are scoped to it. */
   workstreamId?: string | null;
   stage: PipelineStageRow | null;
   onNavigate?: (h: string) => void;
@@ -166,7 +166,7 @@ export function WorkStreamPanel({
   if (modules === null) {
     return (
       <Card className="mt-6">
-        <div className="text-sm text-slate-500">Loading work stream…</div>
+        <div className="text-sm text-slate-500">Loading task flow…</div>
       </Card>
     );
   }
@@ -203,7 +203,7 @@ export function WorkStreamPanel({
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div>
           <div className="text-xs font-semibold text-slate-500">
-            Work stream for{" "}
+            Task flow for{" "}
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ml-1"
               style={{ backgroundColor: stage.color }}
@@ -224,7 +224,7 @@ export function WorkStreamPanel({
               disabled={running}
               title="Fire the engine now — spawn any task templates that aren't already open"
             >
-              <Icon name="check" size={12} /> {running ? "Running…" : "Run work stream"}
+              <Icon name="check" size={12} /> {running ? "Running…" : "Run task flow"}
             </Button>
           )}
           {isAdmin && onNavigate && (
@@ -232,9 +232,9 @@ export function WorkStreamPanel({
               variant="ghost"
               size="sm"
               onClick={() => onNavigate("#/settings/work-streams")}
-              title="Open Work streams"
+              title="Open Task flows"
             >
-              <Icon name="workflow" size={12} /> Edit work streams
+              <Icon name="workflow" size={12} /> Edit task flows
             </Button>
           )}
         </div>

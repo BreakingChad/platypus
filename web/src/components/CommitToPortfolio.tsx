@@ -42,8 +42,8 @@ export function IntakeDecisionBar({
   const [open, setOpen] = useState(false);
 
   /** Commit drops the study onto the FIRST non-terminal stage of the pipeline
-   *  its work stream belongs to (0040). Falls back to the first non-intake,
-   *  non-terminal stage org-wide for studies with no work stream. */
+   *  its task flow belongs to (0040). Falls back to the first non-intake,
+   *  non-terminal stage org-wide for studies with no task flow. */
   const commitStage = useMemo(() => {
     const pipelineId = study.workstream_id
       ? workstreams.rows.find((w) => w.id === study.workstream_id)?.pipeline_id ?? null
@@ -188,7 +188,7 @@ function CommitModal({
           <h2 className="text-lg font-display font-bold text-slate-900">Commit to portfolio</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Moves to <strong>{commitStage.label}</strong>, stamps the commit date, and fires the
-            stage's work stream.
+            stage's task flow.
           </p>
         </div>
         <div className="p-5 space-y-4">
@@ -202,11 +202,11 @@ function CommitModal({
           )}
           <div>
             <div className="text-xs font-semibold text-slate-500 mb-2">
-              Work stream that fires on entry
+              Task flow that fires on entry
             </div>
             {modules.length === 0 ? (
               <div className="text-sm text-slate-500">
-                No work stream modules configured for {commitStage.label} — no tasks auto-spawn.
+                No task flow modules configured for {commitStage.label} — no tasks auto-spawn.
                 Configure them in Work Streams.
               </div>
             ) : (

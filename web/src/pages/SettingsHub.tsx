@@ -39,11 +39,11 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     ],
   },
   {
-    title: "Pipeline & work",
-    sub: "The stages studies move through and what fires at each.",
+    title: "Workstreams",
+    sub: "The stages studies move through and the work that fires at each.",
     tools: [
-      { href: "#/settings/stages", icon: "workflow", name: "Pipelines", what: "Your stage backbones — each pipeline's stages, order, parallel lanes and target days. Run several (e.g. Industry-sponsored, Investigator-initiated).", touch: "Once, then tuned" },
-      { href: "#/settings/work-streams", icon: "layers", name: "Work streams", what: "Add the modules, tasks and teams for a pipeline's stages. Multiple work streams per pipeline (e.g. Oncology, Ortho) — a study is put on one at intake.", touch: "Per study type" },
+      { href: "#/settings/stages", icon: "workflow", name: "Stage pipelines", what: "Your stage backbones — each pipeline's stages, order, parallel lanes and target days. Run several (e.g. Industry-sponsored, Investigator-initiated).", touch: "Once, then tuned" },
+      { href: "#/settings/work-streams", icon: "layers", name: "Task flows", what: "Add the modules, tasks and teams for a pipeline's stages. Multiple task flows per pipeline (e.g. Oncology, Ortho) — a study is put on one at intake.", touch: "Per study type" },
       { href: "#/settings/forms", icon: "mail", name: "Intake forms", what: "External study-intake forms — build from your field schema, activate, share one link. Versions freeze at activation.", touch: "Per intake channel" },
     ],
   },

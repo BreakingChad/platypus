@@ -499,11 +499,11 @@ const CRUMBS: Record<string, { kicker: string; title: string }> = {
   "#/settings/nav": { kicker: "Configure", title: "Nav designer" },
   "#/settings/pages": { kicker: "Configure", title: "Page designer" },
   "#/settings/fields": { kicker: "Configure", title: "Study fields" },
-  "#/settings/stages": { kicker: "Configure", title: "Pipeline stages" },
+  "#/settings/stages": { kicker: "Configure", title: "Stage pipelines" },
   "#/settings/teams": { kicker: "Configure", title: "Teams & roles" },
   "#/settings/access": { kicker: "Configure", title: "Access roles" },
   "#/audit": { kicker: "Audit", title: "Audit feed" },
-  "#/settings/work-streams": { kicker: "Configure", title: "Pipeline & work streams" },
+  "#/settings/work-streams": { kicker: "Configure", title: "Workstreams" },
   "#/settings/forms": { kicker: "Configure", title: "Intake forms" },
   "#/setup": { kicker: "Get started", title: "Guided setup" },
   "#/profile": { kicker: "You", title: "Profile" },
@@ -630,18 +630,18 @@ function ConfigGearMenu({
   if (path.startsWith("#/studies/")) {
     add("#/settings/pages?page=study-detail", "Study record layout", "Tabs, default tab, blocks — per role", "layout");
     add("#/settings/fields", "Study fields", "Sections, order, required fields", "file");
-    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage", "workflow");
+    add("#/settings/work-streams", "Task flows", "Tasks that auto-spawn per stage", "workflow");
   } else if (path === "#/studies") {
     add("#/settings/pages?page=studies", "This page's layout", "Blocks, columns, default filters — per role", "layout");
     add("#/settings/fields", "Study fields", "Sections, order, required fields", "file");
   } else if (path === "#/pipeline") {
     add("#/settings/pages?page=pipeline", "This page's layout", "Blocks, default board view — per role", "layout");
-    add("#/settings/stages", "Pipeline stages", "Names, colors, target days (Health)", "layers");
-    add("#/settings/work-streams", "Work streams", "Tasks that auto-spawn per stage", "workflow");
+    add("#/settings/stages", "Stage pipelines", "Names, colors, target days (Health)", "layers");
+    add("#/settings/work-streams", "Task flows", "Tasks that auto-spawn per stage", "workflow");
   } else if (path === "#/intake") {
     add("#/settings/pages?page=intake", "This page's layout", "Blocks around the triage queue — per role", "layout");
     add("#/settings/fields", "Study fields", "Drives the completeness score", "file");
-    add("#/settings/work-streams", "Work streams", "What fires at commit", "workflow");
+    add("#/settings/work-streams", "Task flows", "What fires at commit", "workflow");
   } else if (path === "#/sites") {
     add("#/settings/pages?page=sites", "This page's layout", "Blocks around the site list — per role", "layout");
     add("#/settings/fields", "Site fields", "The site profile schema", "hospital");

@@ -232,7 +232,7 @@ export function TeamBuilder() {
               Add a team
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              Teams own one or more process modules in Work streams.
+              Teams own one or more process modules in Task flows.
             </div>
           </div>
         </div>

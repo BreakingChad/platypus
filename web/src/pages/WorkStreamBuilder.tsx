@@ -53,10 +53,10 @@ import { EmptyState } from "../components/ui/EmptyState";
 
 /** WorkStreamBuilder — build the tasks and teams for a pipeline's stages.
  *
- *  Pick a pipeline up top, then a work stream within it. The pipeline's stages
+ *  Pick a pipeline up top, then a task flow within it. The pipeline's stages
  *  render as read-only columns (their structure is owned by Settings →
  *  Pipelines); here you add modules, and inside each module the task templates
- *  that fire when a study reaches that stage. A work stream may also lengthen a
+ *  that fire when a study reaches that stage. A task flow may also lengthen a
  *  stage's target days for its own pathway — everything else about the stage is
  *  inherited from the pipeline.
  *
@@ -105,7 +105,7 @@ export function WorkStreamBuilder() {
     [stagesTbl.rows, selectedPipelineId]
   );
 
-  /* ---------- work stream selection (within the pipeline) ---------- */
+  /* ---------- task flow selection (within the pipeline) ---------- */
   const [editorModuleId, setEditorModuleId] = useState<string | null>(null);
   const editorModule = modules.rows.find((m) => m.id === editorModuleId) ?? null;
 
@@ -146,7 +146,7 @@ export function WorkStreamBuilder() {
 
   const addModuleTo = async (stageKey: string, name: string) => {
     if (!orgId || !name.trim()) return;
-    if (!selectedWsId) { toast.error("Pick or create a work stream first"); return; }
+    if (!selectedWsId) { toast.error("Pick or create a task flow first"); return; }
     const pos = modules.rows.filter((m) => m.stage_key === stageKey && m.workstream_id === selectedWsId).reduce((m, x) => Math.max(m, x.position), 0) + 10;
     try {
       const { data, error } = await supabase
@@ -241,13 +241,13 @@ export function WorkStreamBuilder() {
     } catch (e: any) { toast.error(friendlyError(e, "Copy failed part-way — review the modules below")); }
   };
 
-  /* ---------- work stream mutators ---------- */
+  /* ---------- task flow mutators ---------- */
   const createWorkstream = async (name: string) => {
     if (!orgId || !name.trim() || !selectedPipelineId) { toast.error("Pick a pipeline first"); return; }
     try {
       await workstreams.insert({ name: name.trim(), status: "active", pipeline_id: selectedPipelineId, is_default: false } as any);
-      toast.success(stamped(`Work stream "${name.trim()}" added`));
-    } catch (e: any) { toast.error(friendlyError(e, "Couldn't save the work stream")); }
+      toast.success(stamped(`Task flow "${name.trim()}" added`));
+    } catch (e: any) { toast.error(friendlyError(e, "Couldn't save the task flow")); }
   };
   const renameWorkstream = (id: string, name: string) =>
     workstreams.update(id, { name }).catch((e: any) => toast.error(friendlyError(e, "Rename failed")));
@@ -264,7 +264,7 @@ export function WorkStreamBuilder() {
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't copy")); }
   };
   const archiveWorkstream = async (src: WorkstreamRow) => {
-    if (!(await confirmDialog({ title: "Archive work stream", message: `Archive "${src.name}"? Studies already on it keep it; it won't appear when creating new studies.`, confirmLabel: "Archive" }))) return;
+    if (!(await confirmDialog({ title: "Archive task flow", message: `Archive "${src.name}"? Studies already on it keep it; it won't appear when creating new studies.`, confirmLabel: "Archive" }))) return;
     try { await workstreams.update(src.id, { status: "archived" }); toast.success(stamped(`Archived "${src.name}"`)); }
     catch (e: any) { toast.error(friendlyError(e, "Couldn't archive")); }
   };
@@ -304,8 +304,8 @@ export function WorkStreamBuilder() {
   if (!isAdmin) {
     return (
       <div className="max-w-page-narrow mx-auto px-4 md:px-6 2xl:px-12 py-8">
-        <PageHeader kicker="Configure" title="Work streams" />
-        <Card className="mt-6"><EmptyState iconName="lock" title="Admin-only surface" sub="Only org admins design work streams." /></Card>
+        <PageHeader kicker="Configure" title="Task flows" />
+        <Card className="mt-6"><EmptyState iconName="lock" title="Admin-only surface" sub="Only org admins design task flows." /></Card>
       </div>
     );
   }
@@ -314,8 +314,8 @@ export function WorkStreamBuilder() {
     <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
       <PageHeader
         kicker="Configure"
-        title="Work streams"
-        subtitle="Build the tasks and teams for a pipeline's stages. Pick a pipeline, then a work stream within it; the pipeline's stages are read-only here — add the modules and tasks that run on them."
+        title="Task flows"
+        subtitle="Build the tasks and teams for a pipeline's stages. Pick a pipeline, then a task flow within it; the pipeline's stages are read-only here — add the modules and tasks that run on them."
         actions={
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 text-emerald-700 px-2.5 py-1.5 text-xs font-semibold" title="There's no save button — every change is written instantly">
             <Icon name="check" size={13} /> Auto-saved
@@ -328,15 +328,15 @@ export function WorkStreamBuilder() {
         <Icon name="workflow" size={14} className="text-slate-400" />
         <span className="text-xs font-semibold text-slate-700">Pipeline</span>
         {activePipelines.length === 0 ? (
-          <span className="text-[11px] text-slate-400 italic">No pipelines yet — create one in Settings → Pipelines.</span>
+          <span className="text-[11px] text-slate-400 italic">No pipelines yet — create one in Workstreams → Stage pipelines.</span>
         ) : (
           <Select value={selectedPipelineId ?? ""} onChange={(e) => setSelectedPipelineId(e.target.value || null)} className="text-sm w-64">
             {activePipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         )}
-        <span className="text-[11px] text-slate-400">— its work streams are below</span>
+        <span className="text-[11px] text-slate-400">— its task flows are below</span>
         <div className="flex-1" />
-        <span className="text-[11px] text-slate-400">Edit stages in <span className="font-semibold">Settings → Pipelines</span></span>
+        <span className="text-[11px] text-slate-400">Edit stages in <span className="font-semibold">Workstreams → Stage pipelines</span></span>
       </div>
 
       {/* WORK STREAM SELECTOR */}
@@ -352,11 +352,11 @@ export function WorkStreamBuilder() {
       />
 
       {!selectedPipeline ? (
-        <Card className="mt-6"><EmptyState iconName="workflow" title="No pipeline selected" sub="Create a pipeline in Settings → Pipelines, then build its work streams here." /></Card>
+        <Card className="mt-6"><EmptyState iconName="workflow" title="No pipeline selected" sub="Create a pipeline in Workstreams → Stage pipelines, then build its task flows here." /></Card>
       ) : pipelineStages.length === 0 ? (
-        <Card className="mt-6"><EmptyState iconName="workflow" title="This pipeline has no stages" sub="Add stages to this pipeline in Settings → Pipelines, then build work streams on them." /></Card>
+        <Card className="mt-6"><EmptyState iconName="workflow" title="This pipeline has no stages" sub="Add stages to this pipeline in Workstreams → Stage pipelines, then build task flows on them." /></Card>
       ) : !selectedWs ? (
-        <Card className="mt-6"><EmptyState iconName="workflow" title="No work stream selected" sub="Create a work stream above to start adding modules and tasks to this pipeline's stages." /></Card>
+        <Card className="mt-6"><EmptyState iconName="workflow" title="No task flow selected" sub="Create a task flow above to start adding modules and tasks to this pipeline's stages." /></Card>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div className="mt-6 mb-1 flex items-center gap-2 flex-wrap">
@@ -366,7 +366,7 @@ export function WorkStreamBuilder() {
           </div>
           <div className="mb-3 flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
             <Icon name="info" size={13} className="text-slate-400 flex-shrink-0 mt-0.5" />
-            <span>Stages come from the <span className="font-semibold">{selectedPipeline.name}</span> pipeline and are read-only here. Add <span className="font-semibold">modules and tasks</span> per stage; you can also lengthen a stage's target for this work stream.</span>
+            <span>Stages come from the <span className="font-semibold">{selectedPipeline.name}</span> pipeline and are read-only here. Add <span className="font-semibold">modules and tasks</span> per stage; you can also lengthen a stage's target for this task flow.</span>
           </div>
           {selectedWsModuleCount === 0 && (
             <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-xs text-slate-600 flex items-center gap-2">
@@ -412,7 +412,7 @@ export function WorkStreamBuilder() {
 }
 
 /* ============================================================================
- * Work stream selector — pathways within the selected pipeline
+ * Task flow selector — pathways within the selected pipeline
  * ========================================================================== */
 
 function WorkstreamManager({
@@ -435,7 +435,7 @@ function WorkstreamManager({
     <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex items-center gap-2 mb-3">
         <Icon name="layers" size={14} className="text-slate-400" />
-        <span className="text-xs font-semibold text-slate-700">Work streams</span>
+        <span className="text-xs font-semibold text-slate-700">Task flows</span>
         <span className="text-[11px] text-slate-400">— click one to edit; a study is assigned one at intake</span>
         <div className="flex-1" />
         {adding ? (
@@ -446,11 +446,11 @@ function WorkstreamManager({
             <Button size="sm" variant="primary" onClick={() => { if (name.trim()) { onCreate(name); setName(""); setAdding(false); } }} disabled={!name.trim()}>Save</Button>
           </div>
         ) : (
-          <Button size="sm" variant="primary" disabled={disabled} onClick={() => setAdding(true)}><Icon name="plus" size={12} /> New work stream</Button>
+          <Button size="sm" variant="primary" disabled={disabled} onClick={() => setAdding(true)}><Icon name="plus" size={12} /> New task flow</Button>
         )}
       </div>
       {workstreams.length === 0 ? (
-        <p className="text-[11px] text-slate-400 italic">None yet — create your first work stream for this pipeline above.</p>
+        <p className="text-[11px] text-slate-400 italic">None yet — create your first task flow for this pipeline above.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {workstreams.map((ws) => {

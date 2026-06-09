@@ -49,7 +49,7 @@ export function InternalIntakeModal({
   const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
   const pipelines = useOrgTable<PipelineRow>("pipelines", { orderBy: "position" });
   const activeWs = useMemo(() => workstreams.rows.filter((w) => w.status === "active"), [workstreams.rows]);
-  /** Work streams grouped by their pipeline, for an optgroup picker. */
+  /** Task flows grouped by their pipeline, for an optgroup picker. */
   const wsByPipeline = useMemo(() => {
     const groups = pipelines.rows
       .filter((p) => p.status === "active")
@@ -60,7 +60,7 @@ export function InternalIntakeModal({
     return groups;
   }, [pipelines.rows, activeWs]);
   const [workstreamId, setWorkstreamId] = useState<string>("");
-  // Auto-select when there's exactly one work stream; otherwise force a choice.
+  // Auto-select when there's exactly one task flow; otherwise force a choice.
   useEffect(() => {
     if (workstreamId && activeWs.some((w) => w.id === workstreamId)) return;
     setWorkstreamId(activeWs.length === 1 ? activeWs[0].id : "");
@@ -72,7 +72,7 @@ export function InternalIntakeModal({
   const submit = async () => {
     if (busy) return;
     const missing = missingRequired(fields, values);
-    if (activeWs.length > 0 && !workstreamId) missing.push("Work stream");
+    if (activeWs.length > 0 && !workstreamId) missing.push("Task flow");
     setProblems(missing);
     if (missing.length > 0) return;
     setBusy(true);
@@ -123,13 +123,13 @@ export function InternalIntakeModal({
         <div className="p-5 overflow-y-auto space-y-4">
           {activeWs.length > 0 && (
             <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">Work stream <span className="text-brand-600 font-bold">*</span></span>
+              <span className="block text-xs font-semibold text-slate-700 mb-1">Task flow <span className="text-brand-600 font-bold">*</span></span>
               <select
                 value={workstreamId}
                 onChange={(e) => setWorkstreamId(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
               >
-                <option value="">— Select a work stream —</option>
+                <option value="">— Select a task flow —</option>
                 {wsByPipeline.map((g) => (
                   <optgroup key={g.pipeline.id || "other"} label={g.pipeline.name}>
                     {g.items.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}

@@ -34,7 +34,7 @@ const MODULES = [
   { key: "regulatory",   label: "Regulatory documents", desc: "Regulatory / eReg (TMF) — often a dedicated team" },
   { key: "sites",        label: "Sites directory",      desc: "The org's sites catalog and profiles" },
   { key: "approvals",    label: "Approvals",            desc: "Approval queues and e-signatures" },
-  { key: "workflows",    label: "Work streams",         desc: "Pipelines, modules, and tasks" },
+  { key: "workflows",    label: "Workstreams",          desc: "Stage pipelines, task flows, and tasks" },
   { key: "analytics",    label: "Analytics",            desc: "Reports, dashboards, audit log" },
   { key: "admin",        label: "Configuration",        desc: "All Settings — Foundation, People & roles, Governance" },
 ];
