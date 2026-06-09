@@ -19,6 +19,7 @@ import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { Input } from "../components/ui/Input";
 import { Icon } from "../components/ui/Icon";
+import { UserAvatar } from "../components/ui/UserAvatar";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -45,6 +46,7 @@ type Member = {
   created_at: string;
   email: string;
   full_name: string | null;
+  avatar_url?: string | null;
   title: string | null;
 };
 
@@ -100,7 +102,7 @@ export function Members() {
     if (ids.length > 0) {
       const { data } = await supabase
         .from("profiles")
-        .select("id, email, full_name, title")
+        .select("id, email, full_name, title, avatar_url")
         .in("id", ids);
       profs = data ?? [];
     }
@@ -117,6 +119,7 @@ export function Members() {
       email: byId[m.user_id]?.email ?? "(unknown)",
       full_name: byId[m.user_id]?.full_name ?? null,
       title: byId[m.user_id]?.title ?? null,
+      avatar_url: byId[m.user_id]?.avatar_url ?? null,
     }));
     setMembers(enriched);
 
@@ -468,9 +471,7 @@ export function Members() {
                   <div className="px-4 py-3 grid grid-cols-[2fr_1.3fr_100px_160px_140px_70px_40px] gap-3 items-center">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                        {(m.full_name || m.email)[0]?.toUpperCase() ?? "?"}
-                      </div>
+                      <UserAvatar name={m.full_name} email={m.email} src={m.avatar_url} />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold text-slate-900 truncate">
                           {m.full_name || m.email}

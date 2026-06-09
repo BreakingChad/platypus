@@ -19,7 +19,9 @@ import type { BlockContext } from "./registry";
 /** MyStudiesBlock — surfaces studies relevant to the signed-in user.
  *
  *  A study is "mine" if any of:
- *    - The study's pi_name matches my full_name (case-insensitive trim)
+ *    - The study's pi_user_id is me (0043 — real linkage)
+ *    - Legacy fallback: the study's pi_name matches my full_name
+ *      (case-insensitive trim; survives until every study is linked)
  *    - I have an open task assigned to me on this study
  *    - I hold a role assigned to an open task on this study
  *
@@ -76,7 +78,8 @@ export function MyStudiesBlock({ ctx }: { ctx: BlockContext }) {
       .filter((s) => {
         if (s.closed) return false;
         if (taskStudyIds.has(s.id)) return true;
-        if (me && (s.pi_name ?? "").trim().toLowerCase() === me) return true;
+        if (s.pi_user_id && s.pi_user_id === userId) return true; // 0043 linkage
+        if (me && (s.pi_name ?? "").trim().toLowerCase() === me) return true; // legacy fallback
         return false;
       })
       .map((s) => ({

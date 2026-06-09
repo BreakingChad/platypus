@@ -12,6 +12,7 @@ import type { StudyNoteRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
+import { UserAvatar } from "../components/ui/UserAvatar";
 
 /** NotesCard — lightweight, append-only study notes. Any org member can add
  *  one; each lands in the study's audit chain (note_added) so the record is
@@ -138,9 +139,7 @@ export function NotesCard({ studyId }: { studyId: string }) {
         <ul className="space-y-3">
           {notes.map((n) => (
             <li key={n.id} className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                {(n.author_email?.[0] ?? "?").toUpperCase()}
-              </div>
+              <UserAvatar email={n.author_email} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-slate-700">

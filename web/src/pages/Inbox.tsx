@@ -1408,6 +1408,28 @@ function AttestationModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Prefill from the signer's saved signature name (0043) — still an
+  // affirmative act: they review the name, check the attestation, and click.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("signature_name, full_name, first_name, last_name")
+        .eq("id", signerUserId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const d = data as any;
+      const preferred =
+        (d.signature_name as string | null) ??
+        ([d.first_name, d.last_name].filter(Boolean).join(" ") || d.full_name);
+      if (preferred) setName((prev) => (prev ? prev : preferred));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [signerUserId]);
+
   const submit = async () => {
     setError(null);
     if (!name.trim()) {

@@ -452,6 +452,8 @@ export type StudyRow = {
   closed: boolean;
   closed_at: string | null;
   pi_name: string | null;
+  /** 0043 — FK linkage for "I'm the PI"; pi_name stays as display fallback. */
+  pi_user_id?: string | null;
   custom_field_values: Record<string, unknown>;
   workstream_id?: string | null;
   root_study_id?: string | null;
@@ -479,6 +481,25 @@ export type ProfileRow = {
   phone: string | null; default_org_id: string | null; created_at: string;
   /** 0042 — split identity + photo. Optional so pre-migration DBs still type-check. */
   first_name?: string | null; last_name?: string | null; avatar_url?: string | null;
+  /** 0043 — preferences. working_hours: { start: "09:00", end: "17:00", days: [1..5] } (1=Mon). */
+  timezone?: string | null;
+  working_hours?: { start: string; end: string; days: number[] } | null;
+  signature_name?: string | null;
+};
+
+/** 0043 — staff licenses / training / certifications with expiry. */
+export type StaffCredentialRow = {
+  id: string;
+  org_id: string;
+  user_id: string;
+  kind: "training" | "license" | "certification" | "other";
+  label: string;
+  issuer: string | null;
+  identifier: string | null;
+  issued_on: string | null;
+  expires_on: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 /** Preferred display name: "First Last" → legacy full_name → email. */
@@ -509,6 +530,7 @@ export type Database = {
       pipelines:         { Row: PipelineRow;           Insert: Partial<PipelineRow>;         Update: Partial<PipelineRow>;         Relationships: [] };
       pipeline_stages:   { Row: PipelineStageRow;    Insert: Partial<PipelineStageRow>;    Update: Partial<PipelineStageRow>;    Relationships: [] };
       studies:           { Row: StudyRow;            Insert: Partial<StudyRow>;            Update: Partial<StudyRow>;            Relationships: [] };
+      staff_credentials: { Row: StaffCredentialRow;  Insert: Partial<StaffCredentialRow>;  Update: Partial<StaffCredentialRow>;  Relationships: [] };
       teams:             { Row: TeamRow;             Insert: Partial<TeamRow>;             Update: Partial<TeamRow>;             Relationships: [] };
       team_roles:        { Row: TeamRoleRow;         Insert: Partial<TeamRoleRow>;         Update: Partial<TeamRoleRow>;         Relationships: [] };
       team_role_holders: { Row: TeamRoleHolderRow;   Insert: Partial<TeamRoleHolderRow>;   Update: Partial<TeamRoleHolderRow>;   Relationships: [] };

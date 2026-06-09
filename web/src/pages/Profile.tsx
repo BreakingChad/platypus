@@ -15,6 +15,8 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Pill } from "../components/ui/Pill";
 import { PageHeader } from "../components/ui/PageHeader";
+import { UserAvatar } from "../components/ui/UserAvatar";
+import { ProfileExtraCards } from "./Profile.cards";
 
 /** Profile — the signed-in user's own record. Everyone has a profiles row
  *  created at signup; this surface lets them fill in display name, title,
@@ -291,17 +293,13 @@ export function Profile() {
       <Card className="mt-6 space-y-4">
         {/* Photo */}
         <div className="flex items-center gap-4 pb-1">
-          {profile.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={displayName(profile)}
-              className="w-16 h-16 rounded-full object-cover border border-slate-200"
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xl font-bold">
-              {(displayName(profile)[0] ?? "?").toUpperCase()}
-            </div>
-          )}
+          <UserAvatar
+            name={displayName(profile)}
+            email={profile.email}
+            src={profile.avatar_url}
+            size={64}
+            className="border border-slate-200"
+          />
           <div>
             <div className="text-sm font-semibold text-slate-700">Profile photo</div>
             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -433,6 +431,14 @@ export function Profile() {
           </div>
         </Card>
       )}
+
+      <ProfileExtraCards
+        profile={profile}
+        onProfileChange={(p) => {
+          setProfile(p);
+          setDraft(p);
+        }}
+      />
     </div>
   );
 }

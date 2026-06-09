@@ -6,6 +6,7 @@ import { useOrgTable } from "../lib/useOrgTable";
 import type { TaskRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
+import { UserAvatar } from "../components/ui/UserAvatar";
 import type { BlockContext } from "./registry";
 
 /** WorkloadBlock — admin-only.
@@ -18,6 +19,7 @@ import type { BlockContext } from "./registry";
 type WorkloadRow = {
   userId: string;
   email: string;
+  avatarSrc: string | null;
   open: number;
   overdue: number;
 };
@@ -27,7 +29,7 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
   const { orgId } = useCurrentOrg();
   const tasks = useOrgTable<TaskRow>("tasks", { orderBy: "due_at", realtime: true });
 
-  const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<Record<string, { label: string; src: string | null }>>({});
 
   // Pull profiles for all org members so we have names/emails to show.
   useEffect(() => {
@@ -46,12 +48,15 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
       }
       const { data } = await supabase
         .from("profiles")
-        .select("id, email, full_name")
+        .select("id, email, full_name, avatar_url")
         .in("id", ids);
       if (cancelled) return;
-      const map: Record<string, string> = {};
+      const map: Record<string, { label: string; src: string | null }> = {};
       (data ?? []).forEach((p: any) => {
-        map[p.id] = p.full_name || p.email || p.id.slice(0, 8);
+        map[p.id] = {
+          label: p.full_name || p.email || p.id.slice(0, 8),
+          src: p.avatar_url ?? null,
+        };
       });
       setProfiles(map);
     })();
@@ -72,7 +77,8 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
     }
     const arr: WorkloadRow[] = Object.entries(counts).map(([uid, c]) => ({
       userId: uid,
-      email: profiles[uid] ?? uid.slice(0, 8),
+      email: profiles[uid]?.label ?? uid.slice(0, 8),
+      avatarSrc: profiles[uid]?.src ?? null,
       open: c.open,
       overdue: c.overdue,
     }));
@@ -106,9 +112,7 @@ export function WorkloadBlock({ ctx: _ctx }: { ctx: BlockContext }) {
             return (
               <div key={r.userId}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                    {(r.email[0] ?? "?").toUpperCase()}
-                  </div>
+                  <UserAvatar name={r.email} src={r.avatarSrc} />
                   <span className="text-sm font-semibold text-slate-900 truncate min-w-0">
                     {r.email}
                   </span>

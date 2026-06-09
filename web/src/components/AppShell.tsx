@@ -9,6 +9,7 @@ import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { BrandMark } from "./ui/BrandMark";
+import { UserAvatar } from "./ui/UserAvatar";
 import { Icon } from "./ui/Icon";
 import { Pill } from "./ui/Pill";
 import { CommandPalette } from "./CommandPalette";
@@ -261,7 +262,7 @@ export function AppShell({
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-                <Avatar
+                <UserAvatar
                   email={userEmail}
                   name={displayName(myProfile) || null}
                   src={myProfile?.avatar_url ?? null}
@@ -274,7 +275,7 @@ export function AppShell({
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-72 rounded-xl border border-slate-200 bg-white shadow-lg py-1.5 z-30">
                   <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2.5">
-                    <Avatar
+                    <UserAvatar
                       email={userEmail}
                       name={displayName(myProfile) || null}
                       src={myProfile?.avatar_url ?? null}
@@ -474,38 +475,7 @@ function SidebarBody({
 
 /* ---------- small bits ---------- */
 
-function Avatar({
-  email,
-  name,
-  src,
-}: {
-  email: string;
-  name?: string | null;
-  src?: string | null;
-}) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name || email}
-        className="w-7 h-7 rounded-full object-cover shrink-0"
-        referrerPolicy="no-referrer"
-      />
-    );
-  }
-  // Initials: first letters of the first two name words, else email[0].
-  const initials = (name ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("") || (email[0] ?? "?").toUpperCase();
-  return (
-    <div className="w-7 h-7 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0">
-      {initials}
-    </div>
-  );
-}
+// Avatar circle now lives in components/ui/UserAvatar (shared everywhere).
 
 function HamburgerIcon() {
   return (
