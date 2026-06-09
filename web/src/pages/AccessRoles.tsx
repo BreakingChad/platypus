@@ -4,14 +4,13 @@ import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
-import type { TeamRoleRow, TeamRow } from "../lib/types";
+import type { TeamRoleRow, TeamRow, SiteRow, StudyRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
 import type { AccessRoleRow } from "../lib/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
-import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -47,13 +46,17 @@ const PERM_LEVELS: { key: string; label: string; tone: "neutral" | "info" | "bra
 ];
 const levelLabel = (k: string) => PERM_LEVELS.find((p) => p.key === k)?.label ?? k;
 
-const SCOPES = [
-  { key: "all",       label: "All studies",       desc: "Every study in the org" },
-  { key: "assigned",  label: "Assigned only",     desc: "Only studies they're assigned to" },
-  { key: "ta",        label: "By therapeutic area",  desc: "Studies in specified therapeutic areas" },
-  { key: "site",      label: "By site",              desc: "Studies at specified sites" },
-];
-const scopeLabel = (k: string) => SCOPES.find((s) => s.key === k)?.label ?? k;
+const scopeLabel = (k: string) => {
+  switch (k) {
+    case "all": return "All studies";
+    case "assigned": return "Assigned only";
+    case "site": return "By site";
+    case "ta": return "By area";
+    case "site_and_ta": return "By site & area";
+    case "site_or_ta": return "By site or area";
+    default: return k;
+  }
+};
 
 export function AccessRoles() {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
@@ -61,6 +64,12 @@ export function AccessRoles() {
   const roles = useOrgTable<AccessRoleRow>("access_roles", { realtime: true });
   const teamRoles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
   const teamsTbl = useOrgTable<TeamRow>("teams");
+  const sitesTbl = useOrgTable<SiteRow>("sites", { orderBy: "name" });
+  const studiesTbl = useOrgTable<StudyRow>("studies");
+  const orgSites = sitesTbl.rows.filter((s) => s.status === "active").map((s) => ({ id: s.id, name: s.name }));
+  const taSuggestions = Array.from(
+    new Set(studiesTbl.rows.map((s) => (s.therapeutic_area ?? "").trim()).filter(Boolean))
+  ).sort();
 
   const [composer, setComposer] = useState({ name: "", description: "" });
 
@@ -173,6 +182,8 @@ export function AccessRoles() {
           <RoleCard
             key={role.id}
             role={role}
+            sites={orgSites}
+            taSuggestions={taSuggestions}
             usedBy={teamRoles.rows
               .filter((tr) => tr.access_role_id === role.id)
               .map((tr) => teamsTbl.rows.find((t) => t.id === tr.team_id)?.name ?? "team")
@@ -212,11 +223,15 @@ export function AccessRoles() {
 
 function RoleCard({
   role,
+  sites,
+  taSuggestions,
   usedBy,
   onUpdate,
   onRemove,
 }: {
   role: AccessRoleRow;
+  sites: { id: string; name: string }[];
+  taSuggestions: string[];
   usedBy?: string[];
   onUpdate: (patch: Partial<AccessRoleRow>) => void;
   onRemove: () => void;
@@ -379,18 +394,115 @@ function RoleCard({
             <label className="block text-xs font-semibold text-slate-500 mb-2">
               Which studies can this role see?
             </label>
-            <Select
-              value={role.portfolio_scope}
-              onChange={(e) => onUpdate({ portfolio_scope: e.target.value })}
-              className="max-w-md"
-            >
-              {SCOPES.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label} — {s.desc}
-                </option>
-              ))}
-            </Select>
+            <ScopeEditor role={role} sites={sites} taSuggestions={taSuggestions} onUpdate={onUpdate} />
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- portfolio scope editor (All / Assigned / Limited to sites &/| areas) ---------- */
+function ScopeEditor({
+  role, sites, taSuggestions, onUpdate,
+}: {
+  role: AccessRoleRow;
+  sites: { id: string; name: string }[];
+  taSuggestions: string[];
+  onUpdate: (patch: Partial<AccessRoleRow>) => void;
+}) {
+  const base: "all" | "assigned" | "limited" =
+    role.portfolio_scope === "all" ? "all" : role.portfolio_scope === "assigned" ? "assigned" : "limited";
+  const selSites = role.site_scope ?? [];
+  const selTAs = role.ta_scope ?? [];
+  const comb: "and" | "or" = role.portfolio_scope === "site_and_ta" ? "and" : "or";
+  const [taInput, setTaInput] = useState("");
+
+  const mode = (siteIds: string[], tas: string[], c: "and" | "or") => {
+    if (siteIds.length && tas.length) return c === "and" ? "site_and_ta" : "site_or_ta";
+    if (siteIds.length) return "site";
+    if (tas.length) return "ta";
+    return "site_or_ta"; // limited, nothing chosen yet
+  };
+  const setBase = (b: string) =>
+    onUpdate({ portfolio_scope: b === "all" ? "all" : b === "assigned" ? "assigned" : mode(selSites, selTAs, comb) });
+  const toggleSite = (id: string) => {
+    const next = selSites.includes(id) ? selSites.filter((x) => x !== id) : [...selSites, id];
+    onUpdate({ site_scope: next, portfolio_scope: mode(next, selTAs, comb) });
+  };
+  const addTA = (t: string) => {
+    const v = t.trim();
+    if (!v || selTAs.includes(v)) return;
+    const next = [...selTAs, v];
+    onUpdate({ ta_scope: next, portfolio_scope: mode(selSites, next, comb) });
+    setTaInput("");
+  };
+  const removeTA = (t: string) => {
+    const next = selTAs.filter((x) => x !== t);
+    onUpdate({ ta_scope: next, portfolio_scope: mode(selSites, next, comb) });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+        {(["all", "assigned", "limited"] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => setBase(k)}
+            className={"px-3 py-1.5 text-xs font-semibold border-l border-slate-200 first:border-l-0 transition " + (base === k ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}
+          >
+            {k === "all" ? "All studies" : k === "assigned" ? "Assigned only" : "Limited to…"}
+          </button>
+        ))}
+      </div>
+
+      {base === "limited" && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 space-y-3 max-w-xl">
+          {selSites.length > 0 && selTAs.length > 0 && (
+            <div className="flex items-center gap-2 text-[11px] flex-wrap">
+              <span className="text-slate-500">Show studies that match</span>
+              <div className="inline-flex rounded border border-slate-200 overflow-hidden">
+                <button onClick={() => onUpdate({ portfolio_scope: mode(selSites, selTAs, "or") })} className={"px-2 py-0.5 font-semibold " + (comb === "or" ? "bg-brand-600 text-white" : "bg-white text-slate-600")}>ANY — site or area</button>
+                <button onClick={() => onUpdate({ portfolio_scope: mode(selSites, selTAs, "and") })} className={"px-2 py-0.5 font-semibold border-l border-slate-200 " + (comb === "and" ? "bg-brand-600 text-white" : "bg-white text-slate-600")}>ALL — site and area</button>
+              </div>
+            </div>
+          )}
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500 mb-1">Sites</div>
+            {sites.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic">No sites yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {sites.map((s) => {
+                  const on = selSites.includes(s.id);
+                  return (
+                    <button key={s.id} onClick={() => toggleSite(s.id)} className={"text-[11px] rounded-full border px-2.5 py-1 transition " + (on ? "border-brand-400 bg-brand-50 text-brand-800 font-semibold" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")}>
+                      {on ? "✓ " : ""}{s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500 mb-1">Therapeutic areas</div>
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+              {selTAs.length === 0 && <span className="text-[11px] text-slate-400 italic">None</span>}
+              {selTAs.map((t) => (
+                <span key={t} className="inline-flex items-center gap-1 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-[11px] px-2 py-0.5">
+                  {t}<button onClick={() => removeTA(t)} className="hover:text-red-600" aria-label={`Remove ${t}`}>×</button>
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input list={`scope-ta-${role.id}`} value={taInput} onChange={(e) => setTaInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addTA(taInput); }} placeholder="Add area…" className="text-xs border border-slate-200 rounded px-2 py-1 w-44 outline-none focus:border-brand-300" />
+              <datalist id={`scope-ta-${role.id}`}>{taSuggestions.filter((t) => !selTAs.includes(t)).map((t) => <option key={t} value={t} />)}</datalist>
+              <button onClick={() => addTA(taInput)} disabled={!taInput.trim()} className="text-[11px] font-semibold text-brand-700 disabled:text-slate-300">add</button>
+            </div>
+          </div>
+          {selSites.length === 0 && selTAs.length === 0 && (
+            <p className="text-[11px] text-amber-600">Pick at least one site or area — or switch to All / Assigned.</p>
+          )}
         </div>
       )}
     </div>
