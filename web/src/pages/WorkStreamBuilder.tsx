@@ -39,7 +39,6 @@ import type {
   WorkflowTaskTemplateRow,
   TaskKind,
   WorkstreamRow,
-  WorkstreamStageRow,
 } from "../lib/types";
 
 import { Card } from "../components/ui/Card";
@@ -89,7 +88,6 @@ export function WorkStreamBuilder() {
   const workstreams = useOrgTable<WorkstreamRow>("workstreams", { orderBy: "created_at", realtime: true });
   const roles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", { orderBy: "position", realtime: true });
-  const wsStages = useOrgTable<WorkstreamStageRow>("workstream_stages", { realtime: true });
 
   /* ---------- pipeline selection ---------- */
   const activePipelines = pipelines.rows.filter((p) => p.status === "active");
@@ -118,35 +116,6 @@ export function WorkStreamBuilder() {
   }, [pipelineWorkstreams, selectedWsId]);
   const selectedWs = pipelineWorkstreams.find((w) => w.id === selectedWsId) ?? null;
   const selectedWsModuleCount = modules.rows.filter((m) => m.workstream_id === selectedWsId).length;
-
-  /* ---------- per-stage target override (workstream_stages) ---------- */
-  const overrideFor = (stageKey: string) =>
-    wsStages.rows.find((j) => j.workstream_id === selectedWsId && j.stage_key === stageKey) ?? null;
-  const effectiveTarget = (s: PipelineStageRow) => overrideFor(s.key)?.target_days ?? s.target_days;
-  const isOverridden = (s: PipelineStageRow) => {
-    const o = overrideFor(s.key);
-    return o != null && o.target_days !== s.target_days;
-  };
-  const setTargetOverride = async (s: PipelineStageRow, days: number) => {
-    if (!orgId || !selectedWsId) return;
-    try {
-      const existing = overrideFor(s.key);
-      if (days === s.target_days) {
-        // back to the pipeline default → drop the override row entirely
-        if (existing) { await supabase.from("workstream_stages").delete().eq("id", existing.id); await wsStages.refresh(); }
-        return;
-      }
-      if (existing) {
-        await supabase.from("workstream_stages").update({ target_days: days } as any).eq("id", existing.id);
-      } else {
-        await supabase.from("workstream_stages").insert({
-          org_id: orgId, workstream_id: selectedWsId, stage_key: s.key,
-          position: s.position, parallel_group: s.parallel_group ?? null, target_days: days, terminal: s.terminal,
-        } as any);
-      }
-      await wsStages.refresh();
-    } catch (e: any) { toast.error(friendlyError(e, "Couldn't change the target")); }
-  };
 
   /** Task-template counts per module, shown on the flow chips. */
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
@@ -287,15 +256,6 @@ export function WorkStreamBuilder() {
       const srcMods = modules.rows.filter((m) => m.workstream_id === src.id).sort((a, b) => a.position - b.position);
       let tasks = 0;
       for (const m of srcMods) { const r = await deepCopyModule(m, m.stage_key, m.position, undefined, created.id); tasks += r.taskCount; }
-      // carry over target overrides
-      const srcOverrides = wsStages.rows.filter((j) => j.workstream_id === src.id);
-      if (srcOverrides.length > 0) {
-        await supabase.from("workstream_stages").insert(srcOverrides.map((j) => ({
-          org_id: orgId, workstream_id: created.id, stage_key: j.stage_key, position: j.position,
-          parallel_group: j.parallel_group, target_days: j.target_days, terminal: j.terminal,
-        })) as any);
-        await wsStages.refresh();
-      }
       setSelectedWsId(created.id);
       toast.success(stamped(`Copied "${src.name}" — ${srcMods.length} module${srcMods.length === 1 ? "" : "s"}, ${tasks} task${tasks === 1 ? "" : "s"}`));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't copy")); }
@@ -416,9 +376,6 @@ export function WorkStreamBuilder() {
             modules={modules.rows.filter((m) => m.workstream_id === selectedWsId)}
             teams={teams.rows}
             taskCounts={taskCounts}
-            effectiveTarget={effectiveTarget}
-            isOverridden={isOverridden}
-            onTargetOverride={(s, days) => void setTargetOverride(s, days)}
             onAddModule={(key, name) => void addModuleTo(key, name)}
             onOpenModule={(id) => setEditorModuleId(id)}
             onCopyFrom={(src, dest) => void copyFromStage(src, dest)}
@@ -526,15 +483,12 @@ function WorkstreamManager({
  * ========================================================================== */
 
 function FlowCanvas({
-  stages, modules, teams, taskCounts, effectiveTarget, isOverridden, onTargetOverride, onAddModule, onOpenModule, onCopyFrom,
+  stages, modules, teams, taskCounts, onAddModule, onOpenModule, onCopyFrom,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
-  effectiveTarget: (s: PipelineStageRow) => number;
-  isOverridden: (s: PipelineStageRow) => boolean;
-  onTargetOverride: (s: PipelineStageRow, days: number) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onOpenModule: (id: string) => void;
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
@@ -559,8 +513,6 @@ function FlowCanvas({
                   key={s.id} s={s}
                   mods={modules.filter((m) => m.stage_key === s.key).sort((a, b) => a.position - b.position)}
                   allStages={stages} modules={modules} teams={teams} taskCounts={taskCounts}
-                  effectiveTarget={effectiveTarget(s)} overridden={isOverridden(s)}
-                  onTargetOverride={(days) => onTargetOverride(s, days)}
                   onAddModule={onAddModule} onOpenModule={onOpenModule} onCopyFrom={onCopyFrom}
                 />
               ))}
@@ -582,7 +534,7 @@ function FlowCanvas({
  * ========================================================================== */
 
 function StageColumn({
-  s, mods, allStages, modules, teams, taskCounts, effectiveTarget, overridden, onTargetOverride, onAddModule, onOpenModule, onCopyFrom,
+  s, mods, allStages, modules, teams, taskCounts, onAddModule, onOpenModule, onCopyFrom,
 }: {
   s: PipelineStageRow;
   mods: WorkflowModuleRow[];
@@ -590,9 +542,6 @@ function StageColumn({
   modules: WorkflowModuleRow[];
   teams: TeamRow[];
   taskCounts: Record<string, number>;
-  effectiveTarget: number;
-  overridden: boolean;
-  onTargetOverride: (days: number) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onOpenModule: (id: string) => void;
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
@@ -601,8 +550,6 @@ function StageColumn({
   const [addingMod, setAddingMod] = useState(false);
   const [modName, setModName] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [targetDraft, setTargetDraft] = useState(String(effectiveTarget));
-  useEffect(() => { setTargetDraft(String(effectiveTarget)); }, [effectiveTarget]);
 
   const copySources = allStages
     .filter((x) => x.key !== s.key)
@@ -634,17 +581,6 @@ function StageColumn({
               )}
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-2 mt-1.5 pl-4">
-          <label className="flex items-center gap-1 text-[11px] text-slate-400" title="Target days for this stage in this work stream. Defaults to the pipeline's target; raise it for this pathway.">
-            target
-            <input type="number" min={0} value={targetDraft}
-              onChange={(e) => setTargetDraft(e.target.value)}
-              onBlur={() => onTargetOverride(Number(targetDraft) || 0)}
-              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-              className="w-12 text-[11px] font-mono border border-slate-200 rounded px-1 py-0.5" />d
-          </label>
-          {overridden && <span className="text-[10px] font-semibold text-amber-600" title="Overrides the pipeline default">overridden</span>}
         </div>
       </div>
 
