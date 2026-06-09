@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
@@ -8,33 +9,29 @@ import { confirmDialog } from "../lib/confirm";
 import { stamped } from "../lib/stamp";
 import { fmtDay } from "../lib/dates";
 import type { StartupDocumentRow, StudyRow } from "../lib/types";
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
 import { Icon } from "../components/ui/Icon";
 import { Pill } from "../components/ui/Pill";
-import { InfoTip } from "../components/ui/Tip";
 
-/** StartupDocsTab — the "BOP" / pre-binder box of papers (Wave N).
- *
- *  Early study documents land here in bulk during intake/triage, tagged into
- *  three simple buckets — Operations · Regulatory · Startup. Original-study
- *  and amendment material live in the same place but stay clearly separated
- *  by a track label. Nothing leaves until you file it: at the terminal stage
- *  every doc must be filed to a binder, filed to the site file, or archived.
+/** StartupDocsTab — drag a file into a bucket, name it, done. (Simple-mode
+ *  rebuild, Chad 2026-06-09: eReg parked, version/track/filing ceremony
+ *  removed. Three buckets, real files, click-to-rename. Anyone can do it.)
  */
 
-const BUCKETS: { key: string; label: string; tone: "info" | "warning" | "brand" }[] = [
-  { key: "operations", label: "Operations", tone: "info" },
-  { key: "regulatory", label: "Regulatory", tone: "warning" },
-  { key: "startup", label: "Startup", tone: "brand" },
+const BUCKETS: { key: string; label: string; tone: "info" | "warning" | "brand"; hint: string }[] = [
+  { key: "operations", label: "Operations", tone: "info", hint: "budgets, contracts, logistics" },
+  { key: "regulatory", label: "Regulatory", tone: "warning", hint: "IRB, 1572s, CVs, consents" },
+  { key: "startup", label: "Startup", tone: "brand", hint: "everything else from startup" },
 ];
 
-const DISPOSITION_LABEL: Record<string, string> = {
-  binder: "Filed to binder",
-  site_file: "Filed to site file",
-  archived: "Archived",
-};
+const STORAGE_BUCKET = "startup-docs";
+const MAX_FILE_MB = 50;
+
+function fmtSize(bytes?: number | null): string {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function StartupDocsTab({ study }: { study: StudyRow }) {
   const { orgId } = useCurrentOrg();
@@ -42,272 +39,306 @@ export function StartupDocsTab({ study }: { study: StudyRow }) {
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const toast = useToast();
 
-  const { rows, loading, error, insert, update } = useOrgTable<StartupDocumentRow>(
+  const { rows, loading, error, insert, update, remove } = useOrgTable<StartupDocumentRow>(
     "startup_documents",
     { orderBy: "created_at", realtime: true }
   );
-  const docs = useMemo(() => rows.filter((d) => d.study_id === study.id), [rows, study.id]);
+  const docs = useMemo(
+    () => rows.filter((d) => d.study_id === study.id && d.status !== "archived"),
+    [rows, study.id]
+  );
 
-  const isAmendment = (study as any).kind === "amendment";
-  const defaultTrack = isAmendment ? "amendment" : "original";
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
 
-  const [composer, setComposer] = useState({ title: "", bucket: "startup", track: defaultTrack });
-  const [bulk, setBulk] = useState("");
-  const [showFiled, setShowFiled] = useState(false);
+  /* ---- add files (drop or browse) ---- */
+  const addFiles = async (files: File[] | FileList, bucketKey: string) => {
+    if (!orgId) return;
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    setUploading(bucketKey);
+    let ok = 0;
+    try {
+      for (const f of list) {
+        if (f.size > MAX_FILE_MB * 1024 * 1024) {
+          toast.error(`"${f.name}" is over ${MAX_FILE_MB} MB — skipped.`);
+          continue;
+        }
+        const safeName = f.name.replace(/[^\w.\- ()]+/g, "_");
+        const path = `${orgId}/${study.id}/${crypto.randomUUID().slice(0, 8)}-${safeName}`;
+        const { error: upErr } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, f, { contentType: f.type || undefined });
+        if (upErr) throw upErr;
+        await insert({
+          study_id: study.id,
+          bucket: bucketKey,
+          title: f.name.replace(/\.[^.]+$/, ""),
+          status: "staged",
+          created_by: userId,
+          file_path: path,
+          content_type: f.type || null,
+          size_bytes: f.size,
+        } as Partial<StartupDocumentRow>);
+        ok += 1;
+      }
+      if (ok > 0) {
+        toast.success(
+          stamped(`${ok} file${ok === 1 ? "" : "s"} added to ${BUCKETS.find((b) => b.key === bucketKey)?.label}`)
+        );
+      }
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Upload failed — has migration 0045 been applied?"));
+    } finally {
+      setUploading(null);
+    }
+  };
 
-  const staged = docs.filter((d) => d.status === "staged");
-  const filedOrArchived = docs.filter((d) => d.status !== "staged");
+  /* ---- open / download via signed URL ---- */
+  const openFile = async (d: StartupDocumentRow) => {
+    if (!d.file_path) return;
+    try {
+      const { data, error: sErr } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(d.file_path, 300);
+      if (sErr || !data?.signedUrl) throw sErr ?? new Error("No URL");
+      window.open(data.signedUrl, "_blank", "noopener");
+    } catch (e: any) {
+      toast.error(friendlyError(e, "Couldn't open the file"));
+    }
+  };
 
-  const add = async (title: string, bucket: string, track: string) => {
+  /* ---- rename / move / delete ---- */
+  const rename = (d: StartupDocumentRow, title: string) => {
     const t = title.trim();
-    if (!t || !orgId) return;
+    if (!t || t === d.title) return;
+    update(d.id, { title: t }).catch((e: any) => toast.error(friendlyError(e, "Couldn't rename")));
+  };
+
+  const moveTo = (d: StartupDocumentRow, bucketKey: string) => {
+    if (d.bucket === bucketKey) return;
+    update(d.id, { bucket: bucketKey }).catch((e: any) =>
+      toast.error(friendlyError(e, "Couldn't move it"))
+    );
+  };
+
+  const removeDoc = async (d: StartupDocumentRow) => {
+    const ok = await confirmDialog({
+      title: "Delete document",
+      message: `Delete "${d.title}"${d.file_path ? " and its file" : ""}? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await insert({
-        study_id: study.id,
-        bucket,
-        track,
-        title: t,
-        status: "staged",
-        created_by: userId,
-      } as Partial<StartupDocumentRow>);
+      if (d.file_path) {
+        await supabase.storage.from(STORAGE_BUCKET).remove([d.file_path]);
+      }
+      await remove(d.id);
+      toast.success(stamped(`"${d.title}" deleted`));
     } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't add the document"));
+      toast.error(friendlyError(e, "Couldn't delete it"));
     }
   };
 
-  const addOne = async () => {
-    if (!composer.title.trim()) return;
-    await add(composer.title, composer.bucket, composer.track);
-    toast.success(stamped(`Added "${composer.title.trim()}" to ${composer.bucket}`));
-    setComposer({ ...composer, title: "" });
-  };
-
-  const addBulk = async () => {
-    const lines = bulk.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
-    for (const l of lines) await add(l, composer.bucket, composer.track);
-    toast.success(stamped(`Added ${lines.length} document${lines.length === 1 ? "" : "s"} to ${composer.bucket}`));
-    setBulk("");
-  };
-
-  const setBucket = (d: StartupDocumentRow, bucket: string) =>
-    update(d.id, { bucket }).catch((e: any) => toast.error(friendlyError(e, "Couldn't move it")));
-
-  const fileTo = async (d: StartupDocumentRow, disposition: string) => {
-    try {
-      await update(d.id, {
-        status: disposition === "archived" ? "archived" : "filed",
-        disposition,
-      } as Partial<StartupDocumentRow>);
-      toast.success(stamped(`${d.title} — ${DISPOSITION_LABEL[disposition]}`));
-    } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't file it"));
+  /* ---- drag plumbing: OS files in, cards between buckets ---- */
+  const onDrop = (e: React.DragEvent, bucketKey: string) => {
+    e.preventDefault();
+    setDragOver(null);
+    const movedId = e.dataTransfer.getData("text/startup-doc-id");
+    if (movedId) {
+      const d = docs.find((x) => x.id === movedId);
+      if (d) moveTo(d, bucketKey);
+      return;
     }
-  };
-
-  const unfile = (d: StartupDocumentRow) =>
-    update(d.id, { status: "staged", disposition: null } as Partial<StartupDocumentRow>)
-      .catch((e: any) => toast.error(friendlyError(e, "Couldn't move it back")));
-
-  const remove = async (d: StartupDocumentRow) => {
-    if (!(await confirmDialog({ title: "Remove document", message: `Remove "${d.title}" from staging?`, confirmLabel: "Remove", danger: true }))) return;
-    update(d.id, { status: "archived", disposition: "archived" } as Partial<StartupDocumentRow>)
-      .catch((e: any) => toast.error(friendlyError(e, "Couldn't remove it")));
+    if (e.dataTransfer.files?.length) void addFiles(e.dataTransfer.files, bucketKey);
   };
 
   return (
     <div className="space-y-4">
-      {/* what this is */}
-      <Card>
-        <div className="flex items-start gap-2">
-          <Icon name="folder" size={16} className="text-slate-400 mt-0.5" />
-          <div className="text-xs text-slate-500 leading-relaxed">
-            The pre-binder holding area. Drop everything that arrives during startup here, tag it
-            into a bucket, and file it when you're ready. At the terminal stage, every document
-            must be filed to a binder, filed to the site file, or archived — nothing left loose.
-          </div>
-        </div>
-      </Card>
-
-      {/* terminal-stage guard banner */}
-      {staged.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2 text-xs text-amber-800">
-          <Icon name="alert" size={14} className="flex-shrink-0" />
-          <span>
-            <strong>{staged.length}</strong> document{staged.length === 1 ? "" : "s"} still staged.
-            Each must be filed or archived before this study can reach its terminal stage.
-          </span>
-        </div>
-      )}
-
-      {/* composer */}
-      <Card primary>
-        <div className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3">Add documents</div>
-        <div className="flex flex-wrap items-end gap-2 mb-2">
-          <label className="block">
-            <span className="block text-[11px] font-semibold text-slate-500 mb-1">Bucket</span>
-            <select
-              value={composer.bucket}
-              onChange={(e) => setComposer({ ...composer, bucket: e.target.value })}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              {BUCKETS.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="block text-[11px] font-semibold text-slate-500 mb-1">Track</span>
-            <select
-              value={composer.track}
-              onChange={(e) => setComposer({ ...composer, track: e.target.value })}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="original">Original study</option>
-              <option value="amendment">Amendment</option>
-            </select>
-          </label>
-          <div className="flex-1 min-w-[200px]">
-            <span className="block text-[11px] font-semibold text-slate-500 mb-1">Document name</span>
-            <Input
-              value={composer.title}
-              onChange={(e) => setComposer({ ...composer, title: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Enter" && composer.title.trim()) void addOne(); }}
-              placeholder="e.g. Draft budget v1"
-            />
-          </div>
-          <Button variant="primary" onClick={addOne} disabled={!composer.title.trim()}>+ Add</Button>
-        </div>
-        <details className="mt-1">
-          <summary className="text-[11px] font-semibold text-brand-700 cursor-pointer hover:underline">Bulk add — one per line</summary>
-          <div className="mt-2 flex items-start gap-2">
-            <textarea
-              value={bulk}
-              onChange={(e) => setBulk(e.target.value)}
-              rows={4}
-              placeholder={"Protocol v1\nDraft budget\nCV — Dr. Hayes\n1572"}
-              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm resize-none"
-            />
-            <Button onClick={addBulk} disabled={!bulk.trim()}>Add all</Button>
-          </div>
-        </details>
-      </Card>
+      <p className="text-xs text-slate-500 leading-relaxed">
+        Drag files into a bucket — or click a bucket to browse. Click a name to rename.
+        Drag cards between buckets to reorganize. That&rsquo;s it.
+      </p>
 
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           <strong>Error:</strong> {error}
         </div>
       )}
-      {loading && docs.length === 0 && <div className="text-sm text-slate-500">Loading documents…</div>}
+      {loading && docs.length === 0 && <div className="text-sm text-slate-500">Loading…</div>}
 
-      {/* three buckets */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
         {BUCKETS.map((b) => {
-          const items = staged.filter((d) => d.bucket === b.key);
+          const items = docs.filter((d) => d.bucket === b.key);
+          const isOver = dragOver === b.key;
           return (
-            <div key={b.key} className="rounded-xl border border-slate-200 bg-slate-50/40 overflow-hidden">
+            <div
+              key={b.key}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(b.key);
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget === e.target) setDragOver(null);
+              }}
+              onDrop={(e) => onDrop(e, b.key)}
+              className={
+                "rounded-xl border-2 overflow-hidden transition " +
+                (isOver
+                  ? "border-brand-400 bg-brand-50/40 border-dashed"
+                  : "border-slate-200 bg-slate-50/40")
+              }
+            >
               <div className="px-3 py-2 border-b border-slate-200 bg-white flex items-center gap-2">
                 <Pill tone={b.tone}>{b.label}</Pill>
+                <span className="text-[10px] text-slate-400 truncate">{b.hint}</span>
                 <span className="ml-auto text-[11px] font-mono text-slate-400">{items.length}</span>
               </div>
-              <div className="p-2 space-y-2 min-h-[60px]">
-                {items.length === 0 && (
-                  <p className="text-[11px] text-slate-400 italic px-1 py-2 text-center">Nothing here yet.</p>
-                )}
+
+              <div className="p-2 space-y-2">
                 {items.map((d) => (
-                  <div key={d.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
-                    <div className="flex items-start gap-2">
-                      <span className="text-sm font-semibold text-slate-900 leading-snug flex-1 min-w-0">{d.title}</span>
-                      <span
-                        className={
-                          "text-[9px] font-bold uppercase tracking-wider rounded-full px-1.5 py-0.5 flex-shrink-0 " +
-                          (d.track === "amendment" ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-500")
-                        }
-                        title={d.track === "amendment" ? "Amendment material" : "Original study material"}
-                      >
-                        {d.track === "amendment" ? "AMD" : "ORIG"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 mt-2">
-                      <select
-                        value={d.bucket}
-                        onChange={(e) => setBucket(d, e.target.value)}
-                        className="text-[11px] rounded border border-slate-200 px-1.5 py-0.5 bg-white"
-                        aria-label="Move to bucket"
-                      >
-                        {BUCKETS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
-                      </select>
-                      <div className="flex-1" />
-                      <FileMenu onFile={(disp) => fileTo(d, disp)} onRemove={() => remove(d)} />
-                    </div>
-                  </div>
+                  <DocCard
+                    key={d.id}
+                    doc={d}
+                    onOpen={() => void openFile(d)}
+                    onRename={(t) => rename(d, t)}
+                    onDelete={() => void removeDoc(d)}
+                  />
                 ))}
+
+                <DropTarget
+                  bucketLabel={b.label}
+                  uploading={uploading === b.key}
+                  onPick={(files) => void addFiles(files, b.key)}
+                />
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* filed / archived */}
-      {filedOrArchived.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowFiled((s) => !s)}
-            className="text-xs font-semibold text-slate-500 hover:text-brand-700 transition flex items-center gap-1"
-          >
-            <Icon name={showFiled ? "chevron-down" : "chevron-right"} size={12} />
-            Filed &amp; archived · {filedOrArchived.length}
-          </button>
-          {showFiled && (
-            <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden">
-              {filedOrArchived.map((d) => (
-                <div key={d.id} className="px-3 py-2 border-b border-slate-100 last:border-b-0 flex items-center gap-2 text-xs">
-                  <span className="font-semibold text-slate-700 flex-1 truncate">{d.title}</span>
-                  <span className="text-slate-400">{BUCKETS.find((b) => b.key === d.bucket)?.label}</span>
-                  <span className={d.disposition === "archived" ? "text-slate-500" : "text-emerald-700"}>
-                    {DISPOSITION_LABEL[d.disposition ?? ""] ?? d.status}
-                  </span>
-                  <span className="font-mono text-slate-400">{fmtDay(d.updated_at)}</span>
-                  <button onClick={() => unfile(d)} className="text-[11px] font-semibold text-brand-700 hover:underline">Undo</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function FileMenu({ onFile, onRemove }: { onFile: (d: string) => void; onRemove: () => void }) {
-  const [open, setOpen] = useState(false);
+/* ---------- one document card ---------- */
+
+function DocCard({
+  doc,
+  onOpen,
+  onRename,
+  onDelete,
+}: {
+  doc: StartupDocumentRow;
+  onOpen: () => void;
+  onRename: (title: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(doc.title);
+
+  const commit = () => {
+    setEditing(false);
+    onRename(draft);
+  };
+
   return (
-    <div className="relative">
-      <Button size="sm" variant="primary" onClick={() => setOpen((o) => !o)}>File ▾</Button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1">
-            {[
-              ["binder", "File to binder"],
-              ["site_file", "File to site file"],
-              ["archived", "Archive"],
-            ].map(([v, label]) => (
-              <button
-                key={v}
-                onClick={() => { setOpen(false); onFile(v); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 transition"
-              >
-                {label}
-              </button>
-            ))}
+    <div
+      draggable={!editing}
+      onDragStart={(e) => e.dataTransfer.setData("text/startup-doc-id", doc.id)}
+      className="group rounded-lg border border-slate-200 bg-white p-2.5 cursor-grab active:cursor-grabbing hover:border-slate-300 transition"
+    >
+      <div className="flex items-center gap-2">
+        <Icon
+          name="file"
+          size={14}
+          className={doc.file_path ? "text-brand-500 flex-shrink-0" : "text-slate-300 flex-shrink-0"}
+        />
+        {editing ? (
+          <input
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") {
+                setDraft(doc.title);
+                setEditing(false);
+              }
+            }}
+            className="flex-1 min-w-0 rounded border border-brand-300 px-1.5 py-0.5 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
+          />
+        ) : (
+          <button
+            onClick={() => {
+              setDraft(doc.title);
+              setEditing(true);
+            }}
+            className="flex-1 min-w-0 text-left text-sm font-semibold text-slate-900 truncate hover:text-brand-700 transition"
+            title="Click to rename"
+          >
+            {doc.title}
+          </button>
+        )}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+          {doc.file_path && (
             <button
-              onClick={() => { setOpen(false); onRemove(); }}
-              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition border-t border-slate-100"
+              onClick={onOpen}
+              title="Open file"
+              className="p-1 rounded text-slate-400 hover:text-brand-700 hover:bg-brand-50 transition"
             >
-              Remove
+              <Icon name="external" size={13} />
             </button>
-          </div>
-        </>
-      )}
+          )}
+          <button
+            onClick={onDelete}
+            title="Delete"
+            className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+          >
+            <Icon name="trash" size={13} />
+          </button>
+        </div>
+      </div>
+      <div className="mt-1 pl-6 text-[10px] text-slate-400 font-mono">
+        {[fmtSize(doc.size_bytes), fmtDay(doc.created_at)].filter(Boolean).join(" · ")}
+        {!doc.file_path && " · name only (no file attached)"}
+      </div>
     </div>
+  );
+}
+
+/* ---------- per-bucket drop/browse target ---------- */
+
+function DropTarget({
+  bucketLabel,
+  uploading,
+  onPick,
+}: {
+  bucketLabel: string;
+  uploading: boolean;
+  onPick: (files: FileList) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full rounded-lg border border-dashed border-slate-300 bg-white/60 px-3 py-3 text-[11px] font-semibold text-slate-400 hover:text-brand-700 hover:border-brand-300 transition"
+      >
+        {uploading ? "Uploading…" : `Drop files here or click to add to ${bucketLabel}`}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) onPick(e.target.files);
+          e.currentTarget.value = "";
+        }}
+      />
+    </>
   );
 }

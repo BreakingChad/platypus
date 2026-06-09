@@ -119,9 +119,12 @@ export function StudyDetail({
       key: t.key as Tab,
       label: t.label || registryTabs.find((r) => r.key === t.key)?.label || t.key,
     }));
-  const safeTabs = visibleTabs.length > 0
+  const safeTabs = (visibleTabs.length > 0
     ? visibleTabs
-    : registryTabs.map((t) => ({ key: t.key as Tab, label: t.label }));
+    : registryTabs.map((t) => ({ key: t.key as Tab, label: t.label }))
+  // eReg parked until EOY (Chad, 2026-06-09): Documents tab hidden for now,
+  // overriding any role/page config. Remove this filter to bring it back.
+  ).filter((t) => t.key !== "documents");
   const roleDefaultTab = (pageCfg.options?.defaultTab as Tab | undefined) ?? "overview";
   const [tab, setTabRaw] = useState<Tab | null>(null);
   const effectiveTab: Tab = (() => {

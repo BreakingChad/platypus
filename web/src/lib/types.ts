@@ -256,6 +256,10 @@ export type StartupDocumentRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** 0045 — simple-mode: actual file in the 'startup-docs' storage bucket. */
+  file_path?: string | null;
+  content_type?: string | null;
+  size_bytes?: number | null;
 };
 
 export type IntakeFormRow = {
