@@ -29,12 +29,14 @@ import { EmptyState } from "../components/ui/EmptyState";
  */
 
 const MODULES = [
-  { key: "studies",      label: "Studies",       desc: "Study records and lifecycle" },
-  { key: "documents",    label: "Documents",     desc: "TMF / ISF document binders" },
-  { key: "workflows",    label: "Work streams",  desc: "Pipelines, modules, and tasks" },
-  { key: "approvals",    label: "Approvals",     desc: "Approval queues and e-signatures" },
-  { key: "analytics",    label: "Analytics",     desc: "Reports, dashboards, audit log" },
-  { key: "admin",        label: "Configuration", desc: "Org setup (Settings)" },
+  { key: "studies",      label: "Studies",              desc: "Study records and lifecycle" },
+  { key: "documents",    label: "ISF documents",        desc: "Site file (ISF) binders — site-level docs" },
+  { key: "regulatory",   label: "Regulatory documents", desc: "Regulatory / eReg (TMF) — often a dedicated team" },
+  { key: "sites",        label: "Sites directory",      desc: "The org's sites catalog and profiles" },
+  { key: "approvals",    label: "Approvals",            desc: "Approval queues and e-signatures" },
+  { key: "workflows",    label: "Work streams",         desc: "Pipelines, modules, and tasks" },
+  { key: "analytics",    label: "Analytics",            desc: "Reports, dashboards, audit log" },
+  { key: "admin",        label: "Configuration",        desc: "All Settings — Foundation, People & roles, Governance" },
 ];
 
 // Human-facing permission levels (keys stay none/read/edit/admin in the data).
