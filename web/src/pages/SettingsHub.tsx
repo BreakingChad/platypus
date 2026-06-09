@@ -23,6 +23,8 @@ const GROUPS: { title: string; sub: string; tools: Tool[] }[] = [
     sub: "Set up once at onboarding — rarely changes after.",
     tools: [
       { href: "#/settings/org", icon: "settings", name: "Organization", what: "Name, sponsor mode, study-code prefix, region.", touch: "Once" },
+      { href: "#/settings/site-setup", icon: "hospital", name: "Site setup", what: "Provision the sites you run studies at — add, set the site code, deactivate. Once added they appear in the Sites directory for your team to manage.", touch: "As sites onboard" },
+      { href: "#/settings/therapeutic-areas", icon: "layers", name: "Therapeutic areas", what: "The list of therapeutic areas your org runs. Feeds the study's Therapeutic area field — the main way studies get sliced for team access.", touch: "Rarely" },
       { href: "#/settings/fields", icon: "file", name: "Study & site fields", what: "Every field on the study record and site profiles — sections, order, what's required.", touch: "Occasionally" },
       { href: "#/settings/sponsors", icon: "building", name: "Sponsors & CROs", what: "Catalogs of the sponsors and CROs behind your studies — picked on a study, not retyped, so filtering and roll-ups stay clean.", touch: "As they sign on" },
     ],

@@ -46,7 +46,6 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
   const fields = useOrgTable<FieldDefinitionRow>("field_definitions", { orderBy: "position" });
 
   const [search, setSearch] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
   const [openSiteId, setOpenSiteId] = useState<string | null>(null);
 
   const siteFields = useMemo(
@@ -94,15 +93,7 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
       <PageHeader
         kicker="Workspace"
         title="Sites"
-        subtitle="Every site you run studies at — capabilities, contacts, and qualification data in one collection system. Site fields are configurable in the Field Designer."
-        actions={
-          isAdmin && (
-            <Button variant="primary" onClick={() => setComposerOpen(true)}>
-              <Icon name="plus" size={14} />
-              New site
-            </Button>
-          )
-        }
+        subtitle="Manage the sites you run studies at — profiles, capabilities, contacts, and investigators. Add or deactivate sites in Settings → Site setup."
       />
       <AutoSaveNote />
 
@@ -138,15 +129,8 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
             title="No sites yet"
             sub={
               isAdmin
-                ? "Add the sites you run studies at. Their profiles collect the capability and qualification data feasibility depends on."
-                : "An admin will add sites here."
-            }
-            action={
-              isAdmin && (
-                <Button variant="primary" onClick={() => setComposerOpen(true)}>
-                  <Icon name="plus" size={14} /> Add first site
-                </Button>
-              )
+                ? "Add sites in Settings → Site setup. Once added, they appear here for your team to manage."
+                : "An admin will add sites in Site setup. They'll appear here to manage."
             }
           />
         )}
@@ -211,20 +195,6 @@ export function Sites({ onNavigate }: { onNavigate: (h: string) => void }) {
 
       <PageBlocks pageKey="sites" region="bottom" navigate={onNavigate} />
 
-      {composerOpen && orgId && userId && (
-        <NewSiteModal
-          orgId={orgId}
-          userId={userId}
-          userEmail={userEmail}
-          onClose={() => setComposerOpen(false)}
-          onCreated={(id) => {
-            setComposerOpen(false);
-            setOpenSiteId(id);
-            toast.success(stamped("Site added"));
-          }}
-        />
-      )}
-
       {openSite && orgId && (
         <SiteProfilePanel
           site={openSite}
@@ -265,138 +235,6 @@ function siteFieldValue(site: SiteRow, key: string): unknown {
   const col = SITE_KEY_TO_COLUMN[key];
   if (col) return (site as any)[col] ?? null;
   return (site.profile ?? {})[key] ?? null;
-}
-
-/* ---------- New site modal ---------- */
-
-function NewSiteModal({
-  orgId,
-  userId,
-  userEmail,
-  onClose,
-  onCreated,
-}: {
-  orgId: string;
-  userId: string;
-  userEmail: string | null;
-  onClose: () => void;
-  onCreated: (id: string) => void;
-}) {
-  const dlgRef = useModalA11y<HTMLDivElement>(onClose);
-  const [name, setName] = useState("");
-  const [siteCode, setSiteCode] = useState("");
-  const [institutionType, setInstitutionType] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async () => {
-    setError(null);
-    if (!name.trim()) {
-      setError("Give the site a name.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { data, error: e } = await supabase
-        .from("sites")
-        .insert({
-          org_id: orgId,
-          name: name.trim(),
-          city: city.trim() || null,
-          state: state.trim() || null,
-          country: country.trim() || null,
-          profile: {
-            ...(siteCode.trim() ? { siteCode: siteCode.trim() } : {}),
-            ...(institutionType.trim() ? { institutionType: institutionType.trim() } : {}),
-          },
-          created_by: userId,
-        } as any)
-        .select("id")
-        .single();
-      if (e) throw e;
-      void writeAuditEvent({
-        orgId,
-        actorId: userId,
-        actorEmail: userEmail,
-        entityType: "site",
-        entityId: (data as any).id,
-        action: "created",
-        payload: { name: name.trim() },
-      });
-      onCreated((data as any).id);
-    } catch (e: any) {
-      setError(e?.message || "Couldn't add site. Has migration 0012 been applied?");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        ref={dlgRef}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="New site"
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
-      >
-        <div className="px-5 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-display font-bold text-slate-900">New site</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            The essentials now — capabilities, certifications, and investigators live in the full profile.
-          </p>
-        </div>
-        <div className="p-5 space-y-3">
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1">
-              Site name <span className="text-red-500">*</span>
-            </span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Banner Health — Phoenix" autoFocus />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">Site code</span>
-              <Input value={siteCode} onChange={(e) => setSiteCode(e.target.value)} placeholder="e.g. BAN-PHX" />
-            </label>
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">Institution type</span>
-              <Input value={institutionType} onChange={(e) => setInstitutionType(e.target.value)} placeholder="e.g. Academic medical center" />
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">City</span>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">State</span>
-              <Input value={state} onChange={(e) => setState(e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-700 mb-1">Country</span>
-              <Input value={country} onChange={(e) => setCountry(e.target.value)} />
-            </label>
-          </div>
-          {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>
-          )}
-        </div>
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" onClick={submit} disabled={busy || !name.trim()}>
-            {busy ? "Adding…" : "Add site"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ---------- Site profile panel (drawer) ---------- */
@@ -474,37 +312,6 @@ function SiteProfilePanel({
     }
   };
 
-  const archive = async () => {
-    if (!userId) return;
-    const next = site.status === "active" ? "inactive" : "active";
-    if (
-      next === "inactive" &&
-      !(await confirmDialog({
-        title: "Deactivate site",
-        message: `Deactivate ${site.name}? Studies keep their link; the site stops appearing in pickers.`,
-        confirmLabel: "Deactivate",
-        danger: true,
-      }))
-    )
-      return;
-    try {
-      const { error } = await supabase.from("sites").update({ status: next } as any).eq("id", site.id);
-      if (error) throw error;
-      void writeAuditEvent({
-        orgId,
-        actorId: userId,
-        actorEmail: userEmail,
-        entityType: "site",
-        entityId: site.id,
-        action: next === "inactive" ? "deactivated" : "reactivated",
-        payload: { name: site.name },
-      });
-      toast.success(stamped(next === "inactive" ? "Site deactivated" : "Site reactivated"));
-    } catch (e: any) {
-      toast.error(friendlyError(e, "Couldn't update site"));
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm" onClick={onClose}>
       <div
@@ -529,11 +336,6 @@ function SiteProfilePanel({
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {isAdmin && (
-              <Button size="sm" variant="ghost" onClick={archive}>
-                {site.status === "active" ? "Deactivate" : "Reactivate"}
-              </Button>
-            )}
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-900 transition"

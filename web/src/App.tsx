@@ -28,6 +28,8 @@ const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").the
 const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({ default: m.AuditFeed })));
 const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
 const SponsorsCros         = lazy(() => import("./pages/SponsorsCros").then(m => ({ default: m.SponsorsCros })));
+const SiteSetup            = lazy(() => import("./pages/SiteSetup").then(m => ({ default: m.SiteSetup })));
+const TherapeuticAreas     = lazy(() => import("./pages/TherapeuticAreas").then(m => ({ default: m.TherapeuticAreas })));
 const GuidedSetup          = lazy(() => import("./pages/GuidedSetup").then(m => ({ default: m.GuidedSetup })));
 const SettingsHub          = lazy(() => import("./pages/SettingsHub").then(m => ({ default: m.SettingsHub })));
 const MyStudies            = lazy(() => import("./pages/MyStudies").then(m => ({ default: m.MyStudies })));
@@ -142,6 +144,12 @@ function renderRoute(
   }
   if (hash === "#/settings/sponsors") {
     return { node: <SponsorsCros /> };
+  }
+  if (hash === "#/settings/site-setup") {
+    return { node: <SiteSetup /> };
+  }
+  if (hash === "#/settings/therapeutic-areas") {
+    return { node: <TherapeuticAreas /> };
   }
 
   // Configure: nav designer

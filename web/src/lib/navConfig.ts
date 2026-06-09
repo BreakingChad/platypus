@@ -88,6 +88,8 @@ export const NAV_REGISTRY: NavRegistryEntry[] = [
   { key: "sites",    label: "Sites",      icon: "hospital", hash: "#/sites",           description: "Site profiles, capabilities, and qualification data." },
 
   { key: "org",         label: "Organization",     icon: "settings",  hash: "#/settings/org",       adminOnly: true, description: "Name, mode, prefix, region." },
+  { key: "site-setup",  label: "Site setup",       icon: "hospital",  hash: "#/settings/site-setup", adminOnly: true, description: "Provision sites — add, code, deactivate. They then appear in the Sites directory to manage." },
+  { key: "therapeutic-areas", label: "Therapeutic areas", icon: "layers", hash: "#/settings/therapeutic-areas", adminOnly: true, description: "The org's therapeutic-area list — feeds the study Therapeutic area field used for team access slicing." },
   { key: "members",     label: "Members",          icon: "users",     hash: "#/settings/members",   adminOnly: true, description: "Roster + tier management." },
   { key: "fields",      label: "Study fields",     icon: "file",      hash: "#/settings/fields",    adminOnly: true, description: "Per-record field definitions." },
   { key: "stages",      label: "Pipeline stages",  icon: "workflow",  hash: "#/settings/stages",    adminOnly: true, description: "The stage backbone — names, colors, target days. The pipeline every work stream runs on." },
