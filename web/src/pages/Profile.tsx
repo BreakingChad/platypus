@@ -376,13 +376,11 @@ export function Profile() {
             user id: {profile.id.slice(0, 8)}
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setDraft(profile)}
-              disabled={!dirty || saving}
-            >
-              Reset
-            </Button>
+            {dirty && (
+              <Button variant="ghost" onClick={() => setDraft(profile)} disabled={saving}>
+                Discard changes
+              </Button>
+            )}
             <Button variant="primary" onClick={onSave} disabled={!dirty || saving}>
               {saving ? "Saving…" : "Save profile"}
             </Button>
