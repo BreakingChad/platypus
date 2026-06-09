@@ -13,6 +13,7 @@ import { Select } from "../components/ui/Select";
 import { Pill } from "../components/ui/Pill";
 import { PageHeader } from "../components/ui/PageHeader";
 import { InfoTip } from "../components/ui/Tip";
+import { Icon } from "../components/ui/Icon";
 import { aiStatus } from "../lib/ai";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -32,6 +33,7 @@ export function OrgSettings() {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Partial<OrgRow>>({});
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);  // view-by-default; click Edit to unlock
 
   useEffect(() => {
     if (!orgId) return;
@@ -92,6 +94,7 @@ export function OrgSettings() {
       if (error) throw error;
       setOrg(data as OrgRow);
       setDraft(data as Partial<OrgRow>);
+      setEditing(false);
       toast.success(stamped("Saved organization settings"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Save failed"));
@@ -143,6 +146,13 @@ export function OrgSettings() {
       />
 
       <Card className="mt-6 space-y-4">
+        {!editing && (
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+            <Icon name="lock" size={13} className="text-slate-400 flex-shrink-0" />
+            <span>Settings are locked. Click <span className="font-semibold text-slate-700">Edit</span> to make changes.</span>
+          </div>
+        )}
+        <fieldset disabled={!editing} className="space-y-4 disabled:opacity-95">
         <Field
           label="Organization name"
           hint="Shown across the app. Visible to every member."
@@ -232,23 +242,30 @@ export function OrgSettings() {
             onModel={(v) => setDraft({ ...draft, ai_model: v })}
           />
         </div>
+        </fieldset>
 
         <div className="flex items-center justify-between pt-3 border-t border-slate-200">
           <div className="text-[11px] font-mono text-slate-400">
             org id: {org.id.slice(0, 8)}
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setDraft(org)}
-              disabled={!isDirty || saving}
-            >
-              Reset
+          {!editing ? (
+            <Button variant="primary" onClick={() => setEditing(true)}>
+              <Icon name="edit" size={13} /> Edit
             </Button>
-            <Button variant="primary" onClick={onSave} disabled={!isDirty || saving}>
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => { setDraft(org); setEditing(false); }}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={onSave} disabled={!isDirty || saving}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </div>

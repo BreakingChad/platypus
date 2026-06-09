@@ -55,16 +55,18 @@ const PHASES: { phase: string; steps: { key: StepKey; label: string }[] }[] = [
   { phase: "Your organization", steps: [{ key: "org", label: "Organization" }] },
   {
     phase: "Operating model",
+    // Order mirrors the Configure column (Foundation → People → Pipeline) so the
+    // two surfaces read the same top-to-bottom.
     steps: [
-      { key: "stages", label: "Pipeline stages" },
       { key: "fields", label: "Study fields" },
       { key: "teams", label: "Teams & roles" },
       { key: "access", label: "Access roles" },
+      { key: "stages", label: "Pipeline stages" },
     ],
   },
   { phase: "Go live", steps: [{ key: "studies", label: "First study" }] },
 ];
-const STEP_ORDER: StepKey[] = ["org", "stages", "fields", "teams", "access", "studies"];
+const STEP_ORDER: StepKey[] = ["org", "fields", "teams", "access", "stages", "studies"];
 
 export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void }) {
   const auth = useAuth();
