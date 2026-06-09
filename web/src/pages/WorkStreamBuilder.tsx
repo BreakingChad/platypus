@@ -797,11 +797,15 @@ function TemplatesList({
   };
 
   const updateTemplate = async (id: string, patch: Partial<WorkflowTaskTemplateRow>) => {
-    setTemplates((templates ?? []).map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    const prev = templates ?? [];
+    setTemplates(prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     try {
       const { error } = await supabase.from("workflow_task_templates").update(patch as any).eq("id", id);
       if (error) throw error;
-    } catch (e: any) { toast.error(friendlyError(e, "Update failed")); }
+    } catch (e: any) {
+      setTemplates(prev); // roll back the optimistic edit so the UI matches the DB
+      toast.error(e?.message ? `Couldn't save task: ${e.message}` : friendlyError(e, "Update failed"));
+    }
   };
 
   const removeTemplate = async (id: string) => {

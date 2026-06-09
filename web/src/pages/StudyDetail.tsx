@@ -32,7 +32,7 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useAuth } from "../auth/useAuth";
 import { ActivityTab } from "./StudyDetail.activity";
 import { StartupDocsTab } from "./StudyDetail.startupDocs";
-import { VersionBar } from "./StudyDetail.versionBar";
+import { VersionCell } from "./StudyDetail.versionBar";
 import { HighlightsStrip, PathBar, StudySitesCard, SmartActionButton, SponsorCroCard } from "./StudyDetail.crm";
 import { StudyWorkstreamTab } from "./StudyDetail.workstreamTab";
 import type { StudySiteRow, InvestigatorRow, SiteInvestigatorRow, WorkstreamStageRow, WorkstreamRow, SponsorRow, CroRow } from "../lib/types";
@@ -43,7 +43,6 @@ import { DocumentsTab } from "./StudyDetail.documents";
 import { NotesCard } from "./StudyDetail.notes";
 import { FeasibilityTab } from "./StudyDetail.feasibility";
 import { PageBlocks } from "../blocks/PageBlocks";
-import { AiSummaryCard } from "./StudyDetail.aiSummary";
 import { IntakeDecisionBar } from "../components/CommitToPortfolio";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { pageEntry } from "../lib/navConfig";
@@ -107,20 +106,8 @@ export function StudyDetail({
   });
 
   const [study, setStudy] = useState<StudyRow | null>(null);
-  const [aiEnabled, setAiEnabled] = useState(true);
   const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Tabs are designable per role (Page designer → Study record): order,
-  // labels, hidden, and the default tab all come from the role's config.
-  useEffect(() => {
-    if (!orgId) return;
-    let c = false;
-    supabase.from("orgs").select("ai_enabled").eq("id", orgId).maybeSingle().then(({ data }) => {
-      if (!c && data) setAiEnabled((data as { ai_enabled?: boolean }).ai_enabled !== false);
-    });
-    return () => { c = true; };
-  }, [orgId]);
   const { configFor } = useResolvedConfig();
   const pageCfg = configFor("study-detail");
   const registryTabs = pageEntry("study-detail")?.tabs ?? [];
@@ -495,14 +482,12 @@ export function StudyDetail({
         }
       />
 
-      <VersionBar study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />
-
       <HighlightsStrip
         study={study}
-        health={health}
         siteCount={studySites.rows.filter((r) => r.study_id === study.id).length}
         piCount={new Set(studySites.rows.filter((r) => r.study_id === study.id).map((r) => r.pi_investigator_id ?? (r.pi_name ? r.pi_name.trim().toLowerCase() : null)).filter(Boolean)).size}
         sponsorName={sponsors.rows.find((s) => s.id === study.sponsor_id)?.name ?? null}
+        versionNode={<VersionCell study={study} isAdmin={isAdmin} onNavigate={(h) => { window.location.hash = h; }} />}
       />
       {!study.closed && (
         <PathBar
@@ -559,7 +544,6 @@ export function StudyDetail({
       <div className="mt-5">
         {shownTab === "overview" && (
           <div className="space-y-5">
-            <AiSummaryCard study={study} aiEnabled={aiEnabled} />
             <SponsorCroCard
               study={study}
               sponsors={sponsors.rows}

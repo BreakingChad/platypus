@@ -17,43 +17,28 @@ import { InfoTip } from "../components/ui/Tip";
 /* ---------- highlights strip ---------- */
 export function HighlightsStrip({
   study,
-  health,
   siteCount,
   piCount,
   sponsorName,
+  versionNode,
 }: {
   study: StudyRow;
-  health: { level: string; daysInStage: number; targetDays: number; summary: string } | null;
   siteCount: number;
   piCount: number;
   sponsorName?: string | null;
+  /** Version/amendment tile rendered as the leading cell of the info row. */
+  versionNode?: React.ReactNode;
 }) {
   const goal = Number((study.custom_field_values as any)?.accrualGoal ?? 0);
   // PIs and sites are per-site facts (multi-site → multi-PI), so the top-line
   // shows COUNTS, not a single name. Per-site detail lives in the Sites tab.
   const cells: { l: React.ReactNode; v: React.ReactNode }[] = [
+    ...(versionNode ? [{ l: "Version", v: versionNode }] : []),
     { l: "Sponsor", v: sponsorName || study.sponsor || dash() },
     { l: "Phase", v: study.phase || dash() },
     { l: "Sites", v: siteCount > 0 ? `${siteCount}` : dash() },
     { l: piCount === 1 ? "PI" : "PIs", v: piCount > 0 ? `${piCount}` : dash() },
     { l: "Enrollment", v: goal > 0 ? `0 / ${goal}` : dash() },
-    {
-      l: (
-        <span className="inline-flex items-center gap-1">
-          Health
-          <InfoTip side="top" label="Days in the current stage vs that stage's target. Green = on track; amber/red = over the target." />
-        </span>
-      ),
-      v:
-        health && !study.closed && health.level !== "unknown" ? (
-          <span className="inline-flex items-center gap-1.5">
-            <HealthDot health={health as any} variant="dot" />
-            {health.targetDays > 0 ? `${health.daysInStage}d / ${health.targetDays}d` : "—"}
-          </span>
-        ) : (
-          dash()
-        ),
-    },
   ];
   return (
     <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
