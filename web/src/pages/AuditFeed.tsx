@@ -298,9 +298,9 @@ export function AuditFeed({ onNavigate }: { onNavigate: (h: string) => void }) {
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-              Actor email contains
+              Person
             </label>
-            <Input value={actorFilter} onChange={(e) => setActorFilter(e.target.value)} placeholder="e.g. chad" />
+            <Input value={actorFilter} onChange={(e) => setActorFilter(e.target.value)} placeholder="email contains…" />
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">
