@@ -31,26 +31,29 @@ import { EmptyState } from "../components/ui/EmptyState";
 
 const MODULES = [
   { key: "studies",      label: "Studies",       desc: "Study records and lifecycle" },
-  { key: "documents",    label: "Documents",     desc: "TMF / ISF document management" },
-  { key: "workflows",    label: "Workflows",     desc: "Work streams and pipelines" },
+  { key: "documents",    label: "Documents",     desc: "TMF / ISF document binders" },
+  { key: "workflows",    label: "Work streams",  desc: "Pipelines, modules, and tasks" },
   { key: "approvals",    label: "Approvals",     desc: "Approval queues and e-signatures" },
-  { key: "analytics",    label: "Analytics",     desc: "Reports, dashboards, audit logs" },
-  { key: "admin",        label: "Admin",         desc: "Org configuration surfaces" },
+  { key: "analytics",    label: "Analytics",     desc: "Reports, dashboards, audit log" },
+  { key: "admin",        label: "Configuration", desc: "Org setup (Settings)" },
 ];
 
+// Human-facing permission levels (keys stay none/read/edit/admin in the data).
 const PERM_LEVELS: { key: string; label: string; tone: "neutral" | "info" | "brand" | "warning" }[] = [
-  { key: "none",  label: "none",  tone: "neutral" },
-  { key: "read",  label: "read",  tone: "info" },
-  { key: "edit",  label: "edit",  tone: "brand" },
-  { key: "admin", label: "admin", tone: "warning" },
+  { key: "none",  label: "No access", tone: "neutral" },
+  { key: "read",  label: "View",      tone: "info" },
+  { key: "edit",  label: "Edit",      tone: "brand" },
+  { key: "admin", label: "Full",      tone: "warning" },
 ];
+const levelLabel = (k: string) => PERM_LEVELS.find((p) => p.key === k)?.label ?? k;
 
 const SCOPES = [
-  { key: "all",       label: "All studies",       desc: "See every study in the org" },
+  { key: "all",       label: "All studies",       desc: "Every study in the org" },
   { key: "assigned",  label: "Assigned only",     desc: "Only studies they're assigned to" },
-  { key: "ta",        label: "Therapeutic area",  desc: "Studies in specified TAs" },
-  { key: "site",      label: "Site",              desc: "Studies at specified sites" },
+  { key: "ta",        label: "By therapeutic area",  desc: "Studies in specified therapeutic areas" },
+  { key: "site",      label: "By site",              desc: "Studies at specified sites" },
 ];
+const scopeLabel = (k: string) => SCOPES.find((s) => s.key === k)?.label ?? k;
 
 export function AccessRoles() {
   const { isAdmin, loading: memberLoading } = useCurrentMember();
@@ -119,7 +122,7 @@ export function AccessRoles() {
       <PageHeader
         kicker="Configure"
         title="Access roles"
-        subtitle="Who can see what in Platypus. Module-level permissions + portfolio scope. Built-in roles (Director, Coordinator, …) are starting points — clone or rename to fit your org."
+        subtitle="What each person can see and do. Everyone gets one access role. Built-in roles (Director, Coordinator, …) are starting points — rename or add your own to fit your org."
       />
       <AutoSaveNote />
 
@@ -130,7 +133,7 @@ export function AccessRoles() {
             Add an access role
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
-            Starts with read-only studies access. Configure modules below.
+            Starts with view-only access to Studies. Open it below to set what it can do and see.
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[2fr_3fr_auto] gap-2 items-center">
@@ -197,9 +200,9 @@ export function AccessRoles() {
       </div>
 
       <p className="text-xs text-slate-500 mt-6 leading-relaxed max-w-3xl">
-        <strong>Portfolio scope</strong> bounds which studies a user can see; <strong>module
-        permissions</strong> bound what they can do inside each surface. Combined, they're the
-        per-user permission envelope. (Org-level admin/owner tiers still trump access roles.)
+        A role's <strong>scope</strong> sets which studies a person sees; its <strong>permissions</strong>
+        set what they can do in each area. Together they're that person's access. (Org owner and admin
+        tiers still override access roles.)
       </p>
     </div>
   );
@@ -239,7 +242,7 @@ function RoleCard({
   // Permission summary for header
   const grants = Object.entries(role.modules || {})
     .filter(([, v]) => Boolean(v) && (v as string) !== "none")
-    .map(([k, v]) => `${MODULES.find((m) => m.key === k)?.label ?? k}: ${v}`);
+    .map(([k, v]) => `${MODULES.find((m) => m.key === k)?.label ?? k}: ${levelLabel(v as string)}`);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -293,8 +296,8 @@ function RoleCard({
           </span>
         )}
         <div className="flex-1" />
-        <span className="text-[11px] font-semibold text-slate-500">
-          scope: {role.portfolio_scope}
+        <span className="text-[11px] text-slate-500 hidden sm:inline">
+          Sees <span className="font-semibold text-slate-700">{scopeLabel(role.portfolio_scope)}</span>
         </span>
         {!role.builtin && (
           <button
@@ -323,9 +326,12 @@ function RoleCard({
 
           {/* Modules grid */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-2">
-              Module permissions
-            </label>
+            <div className="flex items-baseline justify-between mb-2 gap-2 flex-wrap">
+              <label className="block text-xs font-semibold text-slate-500">
+                What can this role do?
+              </label>
+              <span className="text-[10px] text-slate-400">View = read-only · Edit = create &amp; change · Full = manage &amp; configure</span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {MODULES.map((m) => {
                 const level = moduleLevel(m.key);
@@ -340,22 +346,22 @@ function RoleCard({
                       </div>
                       <div className="text-[11px] text-slate-500 truncate">{m.desc}</div>
                     </div>
-                    <div className="flex gap-0.5">
+                    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden flex-shrink-0">
                       {PERM_LEVELS.map((p) => (
                         <button
                           key={p.key}
                           onClick={() => updateModule(m.key, p.key)}
                           className={
-                            "px-2 py-0.5 rounded text-[11px] font-semibold transition " +
+                            "px-2.5 py-1 text-[11px] font-semibold transition border-l border-slate-200 first:border-l-0 " +
                             (level === p.key
                               ? p.tone === "neutral"
-                                ? "bg-slate-300 text-slate-900"
+                                ? "bg-slate-200 text-slate-800"
                                 : p.tone === "info"
                                 ? "bg-sky-500 text-white"
                                 : p.tone === "brand"
                                 ? "bg-brand-600 text-white"
                                 : "bg-amber-500 text-white"
-                              : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300")
+                              : "bg-white text-slate-500 hover:bg-slate-50")
                           }
                         >
                           {p.label}
@@ -371,7 +377,7 @@ function RoleCard({
           {/* Portfolio scope */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-2">
-              Portfolio scope
+              Which studies can this role see?
             </label>
             <Select
               value={role.portfolio_scope}
