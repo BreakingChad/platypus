@@ -290,7 +290,7 @@ export const PAGE_REGISTRY: PageRegistryEntry[] = [
     key: "intake",
     label: "Intake",
     description: "The triage queue. Add context blocks above or below it.",
-    coreLabel: "Intake triage queue (completeness, commit, decline)",
+    coreLabel: "Intake triage queue (commit, decline)",
     allowedBlocks: ALL_BLOCK_KEYS,
     defaultLayout: [],
   },

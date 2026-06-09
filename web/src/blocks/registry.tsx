@@ -160,7 +160,7 @@ export const BLOCK_REGISTRY: Record<string, BlockRegistryEntry> = {
   "intake-queue": {
     key: "intake-queue",
     label: "Intake queue",
-    description: "Studies awaiting triage with their data-completeness. Hides when the queue is clear.",
+    description: "Studies awaiting triage. Hides when the queue is clear.",
     icon: "inbox",
     component: IntakeQueueBlock,
   },

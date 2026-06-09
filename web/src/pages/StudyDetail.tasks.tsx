@@ -189,7 +189,7 @@ export function TasksTab({
       }
       if (status === "done" && orgId && userId) {
         const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
-        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`));
+        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toTeamName ?? handoff.toRoleTitle ?? "the receiving team"}`));
       }
     } catch (e: any) {
       toast.error(friendlyError(e, "Update failed"));

@@ -1,6 +1,5 @@
 import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
-import { InfoTip } from "../components/ui/Tip";
 import { useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -36,11 +35,12 @@ import { SubmissionsQueue } from "../components/SubmissionsQueue";
  *  "This is the foundation. How many studies become financial or logistical
  *  workflow nightmares because of incomplete or missing startup data?"
  *
- *  Every intake study shows a data-completeness score computed from the
- *  org's enabled study fields (required fields weigh double). Triage is
- *  per-study and intentional: open the record to fill gaps, COMMIT to the
- *  portfolio (with a preview of the work stream tasks that will fire), or
- *  DECLINE (audited, study closes).
+ *  Triage is per-study and intentional: open the record to fill gaps,
+ *  COMMIT to the portfolio (with a preview of the work stream tasks that
+ *  will fire), or DECLINE (audited, study closes).
+ *
+ *  The data-completeness score (completeness() below) is hidden from the
+ *  queue for now — it still backs the missing-required warning at commit.
  */
 export function IntakeTriage({
   onNavigate,
@@ -165,21 +165,16 @@ export function IntakeTriage({
         )}
         {intakeStudies.length > 0 && (
           <>
-            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[110px_1fr_190px_200px] gap-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+            <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 grid grid-cols-[110px_1fr_200px] gap-3 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
               <span>Code</span>
               <span>Study</span>
-              <span className="flex items-center gap-1">
-                Data completeness
-                <InfoTip side="bottom" label="How much of the org's study schema is filled, with required fields weighted double. Studies missing startup data become tonight's nightmares — commit with eyes open." />
-              </span>
               <span className="text-right">Triage</span>
             </div>
             {intakeStudies.map((s) => {
-              const comp = completeness(s, studyFields);
               return (
                 <div
                   key={s.id}
-                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[110px_1fr_190px_200px] gap-3 items-center group hover:bg-brand-50/20 transition"
+                  className="px-4 py-3 border-b border-slate-100 last:border-b-0 grid grid-cols-[110px_1fr_200px] gap-3 items-center group hover:bg-brand-50/20 transition"
                 >
                   <button
                     onClick={() => onNavigate(`#/studies/${s.id}`)}
@@ -198,26 +193,6 @@ export function IntakeTriage({
                       {[s.sponsor, s.nct, s.phase].filter(Boolean).join(" · ") || "—"}
                     </div>
                   </button>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden max-w-[110px]">
-                        <div
-                          className={
-                            "h-full rounded-full transition-all " +
-                            (comp.pct >= 85 ? "bg-emerald-500" : comp.pct >= 50 ? "bg-amber-500" : "bg-red-400")
-                          }
-                          style={{ width: `${comp.pct}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-500">{comp.pct}%</span>
-                    </div>
-                    {comp.missingRequired.length > 0 && (
-                      <div className="text-[10px] text-red-600 mt-0.5 truncate" title={comp.missingRequired.join(", ")}>
-                        missing required: {comp.missingRequired.slice(0, 2).join(", ")}
-                        {comp.missingRequired.length > 2 && ` +${comp.missingRequired.length - 2}`}
-                      </div>
-                    )}
-                  </div>
                   <div className="flex items-center gap-1.5 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => onNavigate(`#/studies/${s.id}`)}>
                       Open →

@@ -204,7 +204,9 @@ export function WorkStreamBuilder() {
         (tpls as any[]).map((t) => ({
           module_id: newId, kind: t.kind, title: t.title, description: t.description,
           due_offset_days: t.due_offset_days, assigned_to_role_id: t.assigned_to_role_id,
-          handoff_to_role_id: t.handoff_to_role_id ?? null, position: t.position,
+          handoff_to_role_id: t.handoff_to_role_id ?? null,
+          handoff_to_team_id: t.handoff_to_team_id ?? null, handoff_to_stage_key: t.handoff_to_stage_key ?? null,
+          position: t.position,
         })) as any
       );
       if (insErr) throw insErr;
@@ -397,6 +399,7 @@ export function WorkStreamBuilder() {
           stageColor={pipelineStages.find((s) => s.key === editorModule.stage_key)?.color ?? "#64748b"}
           teams={teams.rows}
           roles={roles.rows}
+          stages={pipelineStages}
           onClose={() => { setEditorModuleId(null); setCountsNonce((n) => n + 1); }}
           onUpdate={(patch) => updateModule(editorModule.id, patch)}
           onDuplicate={() => void duplicateModule(editorModule)}
@@ -656,13 +659,14 @@ function ModuleChip({ m, teams, taskCount, onOpen }: {
  * ========================================================================== */
 
 function ModuleDrawer({
-  module: mod, stageLabel, stageColor, teams, roles, onClose, onUpdate, onDuplicate, onRemove, onTemplatesChanged,
+  module: mod, stageLabel, stageColor, teams, roles, stages, onClose, onUpdate, onDuplicate, onRemove, onTemplatesChanged,
 }: {
   module: WorkflowModuleRow;
   stageLabel: string;
   stageColor: string;
   teams: TeamRow[];
   roles: TeamRoleRow[];
+  stages: PipelineStageRow[];
   onClose: () => void;
   onUpdate: (patch: Partial<WorkflowModuleRow>) => Promise<void>;
   onDuplicate: () => void;
@@ -749,7 +753,7 @@ function ModuleDrawer({
               <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
             </div>
             <p className="text-[11px] text-slate-500 mb-2">These fire as tasks when a study reaches <span className="font-semibold">{stageLabel}</span>. Drag to reorder.</p>
-            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} onChanged={onTemplatesChanged} />
+            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} />
           </div>
         </div>
 
@@ -769,13 +773,15 @@ function ModuleDrawer({
  * ========================================================================== */
 
 function TemplatesList({
-  moduleId, templates, setTemplates, availableRoles, allRoles, onChanged,
+  moduleId, templates, setTemplates, availableRoles, allRoles, teams, stages, onChanged,
 }: {
   moduleId: string;
   templates: WorkflowTaskTemplateRow[] | null;
   setTemplates: (rows: WorkflowTaskTemplateRow[]) => void;
   availableRoles: TeamRoleRow[];
   allRoles: TeamRoleRow[];
+  teams: TeamRow[];
+  stages: PipelineStageRow[];
   onChanged?: () => void;
 }) {
   const toast = useToast();
@@ -841,7 +847,7 @@ function TemplatesList({
           <SortableContext items={templates.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
               {templates.map((t) => (
-                <TemplateRow key={t.id} template={t} availableRoles={availableRoles} allRoles={allRoles}
+                <TemplateRow key={t.id} template={t} availableRoles={availableRoles} allRoles={allRoles} teams={teams} stages={stages}
                   onUpdate={(patch) => updateTemplate(t.id, patch)} onRemove={() => removeTemplate(t.id)} />
               ))}
             </div>
@@ -856,11 +862,13 @@ function TemplatesList({
 }
 
 function TemplateRow({
-  template, availableRoles, allRoles, onUpdate, onRemove,
+  template, availableRoles, allRoles, teams, stages, onUpdate, onRemove,
 }: {
   template: WorkflowTaskTemplateRow;
   availableRoles: TeamRoleRow[];
   allRoles: TeamRoleRow[];
+  teams: TeamRow[];
+  stages: PipelineStageRow[];
   onUpdate: (patch: Partial<WorkflowTaskTemplateRow>) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
@@ -908,14 +916,21 @@ function TemplateRow({
       {template.kind === "handoff" && (
         <div className="mt-1.5 ml-7 flex items-center gap-2 text-[11px] text-slate-600 flex-wrap">
           <Icon name="arrow-right" size={11} className="text-slate-400 flex-shrink-0" />
-          <span className="font-semibold whitespace-nowrap">Hands off to</span>
-          <InfoTip side="top" label="When the sending role completes this task, a receipt task is created for the role picked here — the handoff is measurable on both sides." />
-          <Select value={template.handoff_to_role_id ?? ""} onChange={(e) => void onUpdate({ handoff_to_role_id: e.target.value || null })}
-            className="text-xs py-0.5 px-2 w-44" aria-label="Role that receives this handoff">
-            <option value="">— Pick the receiving role —</option>
-            {allRoles.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+          <span className="font-semibold whitespace-nowrap">Hand off to</span>
+          <InfoTip side="top" label="When this task completes, a receipt task opens at the chosen stage in the receiving team's shared queue — any member can pick it up. The handoff is measurable on both sides." />
+          <Select value={template.handoff_to_stage_key ?? ""} onChange={(e) => void onUpdate({ handoff_to_stage_key: e.target.value || null })}
+            className="text-xs py-0.5 px-2 w-36" aria-label="Stage the handoff lands at">
+            <option value="">— Stage —</option>
+            {stages.map((s) => <option key={s.id} value={s.key}>{s.label}</option>)}
           </Select>
-          {!template.handoff_to_role_id && <span className="text-amber-600 font-semibold">pick a role so the receipt task can fire</span>}
+          <Select value={template.handoff_to_team_id ?? ""} onChange={(e) => void onUpdate({ handoff_to_team_id: e.target.value || null })}
+            className="text-xs py-0.5 px-2 w-40" aria-label="Team that receives this handoff">
+            <option value="">— Team —</option>
+            {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+          {(!template.handoff_to_team_id || !template.handoff_to_stage_key) && (
+            <span className="text-amber-600 font-semibold">pick a stage and team so the receipt can fire</span>
+          )}
         </div>
       )}
     </div>

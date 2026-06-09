@@ -152,9 +152,14 @@ export type TaskRow = {
   due_at: string | null;
   assigned_to_user_id: string | null;
   assigned_to_role_id: string | null;
+  /** Team-queue routing (0041): a task any member of this team can pick up. */
+  assigned_to_team_id?: string | null;
   site_id?: string | null;
   /** Handoff tasks: the role that receives the work (0021). */
   handoff_to_role_id: string | null;
+  /** Team handoffs (0041): the team + stage the work hands off to. */
+  handoff_to_team_id?: string | null;
+  handoff_to_stage_key?: string | null;
   completed_at: string | null;
   completed_by: string | null;
   created_by: string | null;
@@ -187,6 +192,9 @@ export type WorkflowTaskTemplateRow = {
   assigned_to_role_id: string | null;
   /** Handoff templates: the role that receives the work (0021). */
   handoff_to_role_id: string | null;
+  /** Team handoffs (0041): the team + stage the work hands off to. */
+  handoff_to_team_id?: string | null;
+  handoff_to_stage_key?: string | null;
   position: number;
   created_at: string;
 };

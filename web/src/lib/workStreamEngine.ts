@@ -134,6 +134,8 @@ export async function spawnTasksForStageEntry(opts: {
     assigned_to_user_id: string | null;
     assigned_to_role_id: string | null;
     handoff_to_role_id: string | null;
+    handoff_to_team_id: string | null;
+    handoff_to_stage_key: string | null;
     created_by: string;
     position: number;
   };
@@ -170,6 +172,8 @@ export async function spawnTasksForStageEntry(opts: {
       assigned_to_user_id: assignedUser,
       assigned_to_role_id: tpl.assigned_to_role_id ?? null,
       handoff_to_role_id: tpl.handoff_to_role_id ?? null,
+      handoff_to_team_id: tpl.handoff_to_team_id ?? null,
+      handoff_to_stage_key: tpl.handoff_to_stage_key ?? null,
       created_by: opts.actorUserId,
       description: coveredFor && !tpl.description
         ? "Covering while the assigned holder is out of office."

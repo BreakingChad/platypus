@@ -23,34 +23,44 @@ export type HandoffReceiptInsert = {
   status: "open";
   due_at: string;
   assigned_to_user_id: string | null;
-  assigned_to_role_id: string;
+  assigned_to_role_id: string | null;
+  assigned_to_team_id: string | null;
   created_by: string;
   position: number;
 };
 
 /** Pure: build the receipt task for a completed handoff (null when the task
- *  isn't a targeted handoff). Single holder -> auto-assign; multiple -> the
- *  role queue, same rule the spawn engine uses. Exported for tests. */
+ *  isn't a targeted handoff). Team handoff -> shared team queue at the target
+ *  stage. Role handoff -> single holder auto-assigns, multiple stay on the role
+ *  queue (same rule the spawn engine uses). Exported for tests. */
 export function buildHandoffReceipt(
   task: Pick<
     TaskRow,
-    "org_id" | "study_id" | "stage_key" | "kind" | "title" | "position" | "handoff_to_role_id"
+    "org_id" | "study_id" | "stage_key" | "kind" | "title" | "position"
+      | "handoff_to_role_id" | "handoff_to_team_id" | "handoff_to_stage_key"
   >,
   opts: { holderIds: string[]; actorUserId: string; now?: Date }
 ): HandoffReceiptInsert | null {
-  if (task.kind !== "handoff" || !task.handoff_to_role_id) return null;
+  if (task.kind !== "handoff") return null;
+  const toTeam = task.handoff_to_team_id ?? null;
+  const toRole = task.handoff_to_role_id ?? null;
+  if (!toTeam && !toRole) return null;
   const now = opts.now ?? new Date();
   return {
     org_id: task.org_id,
     study_id: task.study_id,
-    stage_key: task.stage_key,
+    // Team handoffs land at the chosen stage; role handoffs stay on the task's stage.
+    stage_key: toTeam ? (task.handoff_to_stage_key ?? task.stage_key) : task.stage_key,
     kind: "manual",
     title: `${HANDOFF_RECEIPT_PREFIX}${task.title}`,
-    description: "Created automatically when the sending role completed its handoff.",
+    description: toTeam
+      ? "Created automatically when the sending team completed its handoff — open to the receiving team."
+      : "Created automatically when the sending role completed its handoff.",
     status: "open",
     due_at: new Date(now.getTime() + 2 * 86400000).toISOString(),
-    assigned_to_user_id: opts.holderIds.length === 1 ? opts.holderIds[0] : null,
-    assigned_to_role_id: task.handoff_to_role_id,
+    assigned_to_user_id: toTeam ? null : (opts.holderIds.length === 1 ? opts.holderIds[0] : null),
+    assigned_to_role_id: toTeam ? null : toRole,
+    assigned_to_team_id: toTeam,
     created_by: opts.actorUserId,
     position: task.position ?? 0,
   };
@@ -63,10 +73,12 @@ export async function maybeSpawnHandoffReceipt(opts: {
   orgId: string;
   actorUserId: string;
   actorEmail: string | null;
-}): Promise<{ spawned: boolean; toRoleTitle: string | null }> {
+}): Promise<{ spawned: boolean; toRoleTitle: string | null; toTeamName: string | null }> {
   const t = opts.task;
-  if (t.kind !== "handoff" || !t.handoff_to_role_id) {
-    return { spawned: false, toRoleTitle: null };
+  const toTeam = t.handoff_to_team_id ?? null;
+  const toRole = t.handoff_to_role_id ?? null;
+  if (t.kind !== "handoff" || (!toTeam && !toRole)) {
+    return { spawned: false, toRoleTitle: null, toTeamName: null };
   }
 
   // Duplicate guard — an open receipt for this handoff already exists.
@@ -80,18 +92,26 @@ export async function maybeSpawnHandoffReceipt(opts: {
     .limit(1);
   dupQuery = t.study_id ? dupQuery.eq("study_id", t.study_id) : dupQuery.is("study_id", null);
   const { data: existing } = await dupQuery;
-  if (existing && existing.length > 0) return { spawned: false, toRoleTitle: null };
+  if (existing && existing.length > 0) return { spawned: false, toRoleTitle: null, toTeamName: null };
 
-  const [{ data: holders }, { data: role }] = await Promise.all([
-    supabase.from("team_role_holders").select("user_id").eq("team_role_id", t.handoff_to_role_id),
-    supabase.from("team_roles").select("title").eq("id", t.handoff_to_role_id).single(),
-  ]);
+  // Resolve who receives: a team queue, or a role's holders.
+  let holderIds: string[] = [];
+  let roleTitle: string | null = null;
+  let teamName: string | null = null;
+  if (toTeam) {
+    const { data: team } = await supabase.from("teams").select("name").eq("id", toTeam).single();
+    teamName = (team as any)?.name ?? null;
+  } else if (toRole) {
+    const [{ data: holders }, { data: role }] = await Promise.all([
+      supabase.from("team_role_holders").select("user_id").eq("team_role_id", toRole),
+      supabase.from("team_roles").select("title").eq("id", toRole).single(),
+    ]);
+    holderIds = ((holders ?? []) as { user_id: string }[]).map((h) => h.user_id);
+    roleTitle = (role as any)?.title ?? null;
+  }
 
-  const receipt = buildHandoffReceipt(t, {
-    holderIds: ((holders ?? []) as { user_id: string }[]).map((h) => h.user_id),
-    actorUserId: opts.actorUserId,
-  });
-  if (!receipt) return { spawned: false, toRoleTitle: null };
+  const receipt = buildHandoffReceipt(t, { holderIds, actorUserId: opts.actorUserId });
+  if (!receipt) return { spawned: false, toRoleTitle: null, toTeamName: null };
 
   const { data: created, error } = await supabase
     .from("tasks")
@@ -110,10 +130,11 @@ export async function maybeSpawnHandoffReceipt(opts: {
     payload: {
       title: t.title,
       study_id: t.study_id,
-      to_role: (role as any)?.title ?? null,
+      to_role: roleTitle,
+      to_team: teamName,
       receipt_task_id: (created as any)?.id ?? null,
     },
   });
 
-  return { spawned: true, toRoleTitle: (role as any)?.title ?? null };
+  return { spawned: true, toRoleTitle: roleTitle, toTeamName: teamName };
 }

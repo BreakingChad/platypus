@@ -153,6 +153,12 @@ export function Inbox({
     return new Set(holders.rows.filter((h) => h.user_id === userId).map((h) => h.team_role_id));
   }, [holders.rows, userId]);
 
+  // Teams I belong to (via the roles I hold) — for team-queue handoffs (0041).
+  const myTeamIds = useMemo(() => {
+    if (!userId) return new Set<string>();
+    return new Set(roles.rows.filter((r) => myRoleIds.has(r.id)).map((r) => r.team_id));
+  }, [roles.rows, myRoleIds, userId]);
+
   const studyById = useMemo(() => {
     const m: Record<string, StudyRow> = {};
     for (const s of studies.rows) m[s.id] = s;
@@ -184,7 +190,9 @@ export function Inbox({
       xs = xs.filter((t) => t.assigned_to_user_id === userId);
     } else if (tab === "team") {
       xs = xs.filter(
-        (t) => t.assigned_to_role_id != null && myRoleIds.has(t.assigned_to_role_id)
+        (t) =>
+          (t.assigned_to_role_id != null && myRoleIds.has(t.assigned_to_role_id)) ||
+          (t.assigned_to_team_id != null && myTeamIds.has(t.assigned_to_team_id))
       );
     }
     // Status filter
@@ -245,7 +253,7 @@ export function Inbox({
       }
       return (b.created_at ?? "").localeCompare(a.created_at ?? "");
     });
-  }, [tasks.rows, tab, statusFilter, userId, myRoleIds, kindFilter, overdueOnly, q, sortMode, studyById]);
+  }, [tasks.rows, tab, statusFilter, userId, myRoleIds, myTeamIds, kindFilter, overdueOnly, q, sortMode, studyById]);
 
   // Outlook-style due-date grouping — only in the default sort, only for
   // open work (a Done list grouped by due date reads as noise).
@@ -306,7 +314,7 @@ export function Inbox({
       toast.success(stamped(`Completed: ${t.title}`));
       if (orgId && userId) {
         const handoff = await maybeSpawnHandoffReceipt({ task: t, orgId, actorUserId: userId, actorEmail: userEmail ?? null });
-        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toRoleTitle ?? "the receiving role"}`));
+        if (handoff.spawned) toast.success(stamped(`Handoff sent to ${handoff.toTeamName ?? handoff.toRoleTitle ?? "the receiving team"}`));
       }
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't complete task"));
@@ -918,7 +926,7 @@ export function TaskDetail({
             <div className="grid grid-cols-[72px_1fr] gap-2 text-xs">
               <dt className="text-slate-500 font-semibold">To</dt>
               <dd className="text-slate-900">
-                {who(t.assigned_to_user_id) ?? (role ? `${role.title} (role queue)` : <span className="text-slate-400 italic">unassigned</span>)}
+                {who(t.assigned_to_user_id) ?? (role ? `${role.title} (role queue)` : t.assigned_to_team_id ? "Team queue" : <span className="text-slate-400 italic">unassigned</span>)}
                 {t.assigned_to_user_id && role ? <span className="text-slate-400"> · via {role.title}</span> : null}
               </dd>
             </div>
