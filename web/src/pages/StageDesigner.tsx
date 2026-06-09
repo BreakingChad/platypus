@@ -539,11 +539,17 @@ function StageRow({
       {showParallelControl && (
         <div className="px-2 pb-1.5 -mt-0.5 pl-9">
           {inLane ? (
-            <button onClick={() => onSplit(s.id)} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+            <button
+              onClick={() => onSplit(s.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm hover:border-slate-400 hover:text-slate-900 hover:bg-slate-50 active:translate-y-px transition"
+            >
               <Icon name="x" size={10} /> Split out of parallel lane
             </button>
           ) : (
-            <button onClick={() => onMerge(s.id)} className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 inline-flex items-center gap-1">
+            <button
+              onClick={() => onMerge(s.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-sm hover:border-brand-400 hover:bg-brand-100 active:translate-y-px transition"
+            >
               <Icon name="layers" size={11} /> Run parallel with the step above
             </button>
           )}
