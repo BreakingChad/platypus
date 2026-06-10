@@ -106,6 +106,66 @@ export type SeedResult = {
   total: number;
 };
 
+/** The seed's task flow: find the org's default (or first active) workstream,
+ *  creating "Standard startup" on the first active pipeline if none exists.
+ *  Seeded studies and modules both hang off it — without this, seeded data
+ *  predates the pipeline/workstream model and the engine never fires. */
+async function ensureDemoWorkstream(orgId: string): Promise<string | null> {
+  const { data: existing } = await supabase
+    .from("workstreams")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("status", "active")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (existing && existing.length > 0) return (existing[0] as any).id as string;
+
+  const { data: pls } = await supabase
+    .from("pipelines")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("status", "active")
+    .order("position", { ascending: true })
+    .limit(1);
+  const pipelineId = (pls?.[0] as any)?.id ?? null;
+  if (!pipelineId) return null;
+
+  const { data: created, error } = await supabase
+    .from("workstreams")
+    .insert({
+      org_id: orgId,
+      pipeline_id: pipelineId,
+      name: "Standard startup",
+      description: "Seeded demo task flow — rename or replace in Workstreams → Task flows.",
+      status: "active",
+      is_default: true,
+    } as any)
+    .select("id")
+    .single();
+  return error ? null : ((created as any).id as string);
+}
+
+/** Find-or-create sponsor rows for the demo sponsor names → name-to-id map. */
+async function ensureDemoSponsors(orgId: string, names: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const { data: existing } = await supabase
+    .from("sponsors")
+    .select("id, name")
+    .eq("org_id", orgId);
+  for (const r of (existing ?? []) as any[]) map.set(r.name, r.id);
+  for (const name of names) {
+    if (map.has(name)) continue;
+    const { data, error } = await supabase
+      .from("sponsors")
+      .insert({ org_id: orgId, name, status: "active" } as any)
+      .select("id")
+      .single();
+    if (!error && data) map.set(name, (data as any).id);
+  }
+  return map;
+}
+
 /** Seed demo studies into an org. Skips any whose NCT already exists.
  *  Generates fresh codes from the org's project_id_prefix.
  */
@@ -141,6 +201,13 @@ export async function seedDemoStudies(
     }
   }
 
+  // Wire seeded studies into the current model: a real task flow + sponsor FKs.
+  const wsId = await ensureDemoWorkstream(orgId);
+  const sponsorIds = await ensureDemoSponsors(
+    orgId,
+    [...new Set(DEMO_STUDIES.map((d) => d.sponsor))]
+  );
+
   // Build the candidate rows
   const stageByKey = new Map<string, PipelineStageRow>(stages.map((s) => [s.key, s]));
   const firstStage = stages[0]?.key ?? null;
@@ -167,6 +234,8 @@ export async function seedDemoStudies(
       code,
       title: d.title,
       sponsor: d.sponsor,
+      sponsor_id: sponsorIds.get(d.sponsor) ?? null,
+      workstream_id: wsId,
       therapeutic_area: d.therapeutic_area,
       phase: d.phase,
       pi_name: d.pi_name,
@@ -284,6 +353,10 @@ export async function seedDemoWorkStreams(orgId: string): Promise<WorkStreamSeed
     return { modules: 0, templates: 0, skipped: true };
   }
 
+  // Modules belong to a task flow (0034) — without this they're invisible in
+  // the builder and the engine never matches them.
+  const wsId = await ensureDemoWorkstream(orgId);
+
   let modulesInserted = 0;
   let templatesInserted = 0;
 
@@ -298,6 +371,7 @@ export async function seedDemoWorkStreams(orgId: string): Promise<WorkStreamSeed
         description: m.description,
         enabled: true,
         position: (i + 1) * 10,
+        workstream_id: wsId,
       } as any)
       .select("id")
       .single();
@@ -464,6 +538,20 @@ export async function seedDemoStory(orgId: string): Promise<StorySeedResult> {
 
   const me = (await supabase.auth.getUser()).data.user;
   const meId = me?.id ?? null;
+
+  // Make the demo driver the PI of the hero study — the 0044 name-link
+  // trigger picks it up, so "you're PI" chips and My Studies light up.
+  if (meId) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", meId)
+      .maybeSingle();
+    const myName = (prof as any)?.full_name ?? null;
+    if (myName) {
+      await supabase.from("studies").update({ pi_name: myName } as any).eq("id", hero.id);
+    }
+  }
 
   // ---- Notes (append-only; dedupe on body prefix) ----
   const { data: existingNotes } = await supabase

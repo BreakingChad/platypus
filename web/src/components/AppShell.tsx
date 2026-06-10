@@ -8,6 +8,7 @@ import { displayName } from "../lib/types";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
 import { AUDIT_WRITE_FAILED_EVENT } from "../lib/auditLog";
+import { sweepEscalations } from "../lib/escalations";
 import { useToast } from "../lib/Toast";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { BrandMark } from "./ui/BrandMark";
@@ -38,6 +39,40 @@ function AuditFailureWatcher() {
     window.addEventListener(AUDIT_WRITE_FAILED_EVENT, onFail);
     return () => window.removeEventListener(AUDIT_WRITE_FAILED_EVENT, onFail);
   }, [toast]);
+  return null;
+}
+
+/** Escalation sweep (v1): once per session, an admin's app load escalates
+ *  tasks overdue past the grace window one level up the team hierarchy.
+ *  Client-side by design — no cron infra; the next admin in runs the sweep. */
+function EscalationSweeper() {
+  const auth = useAuth();
+  const { orgId } = useCurrentOrg();
+  const { isAdmin } = useCurrentMember();
+  const toast = useToast();
+  useEffect(() => {
+    const userId = auth.status === "signedIn" ? auth.user.id : null;
+    const email = auth.status === "signedIn" ? auth.user.email ?? null : null;
+    if (!orgId || !userId || !isAdmin) return;
+    const key = `platypus/escalations-swept/${orgId}`;
+    try {
+      if (sessionStorage.getItem(key) === "1") return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      return;
+    }
+    void sweepEscalations({ orgId, actorUserId: userId, actorEmail: email })
+      .then((r) => {
+        if (r.spawned > 0) {
+          toast.info(
+            `${r.spawned} overdue task${r.spawned === 1 ? "" : "s"} escalated up the team hierarchy — check the escalation queue`
+          );
+        }
+      })
+      .catch(() => {
+        /* sweep is best-effort */
+      });
+  }, [orgId, auth.status, isAdmin, toast, auth]);
   return null;
 }
 
@@ -181,6 +216,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
       <AuditFailureWatcher />
+      <EscalationSweeper />
       {/* Skip link for keyboard / screen-reader users */}
       <a
         href="#platypus-main"

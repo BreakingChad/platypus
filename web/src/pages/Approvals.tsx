@@ -65,7 +65,7 @@ export function Approvals({ onNavigate }: { onNavigate: (h: string) => void }) {
             <EmptyState
               iconName="check"
               title="Nothing waiting on you"
-              sub="When someone sends you a document to sign, review, or acknowledge, it lands here (and in your Inbox)."
+              sub="Sign, review, and acknowledgment requests land here (and in your Inbox). New send-for-action requests return with the eReg binder module (2027 roadmap) — anything already sent still completes here."
             />
           </Card>
         ) : (

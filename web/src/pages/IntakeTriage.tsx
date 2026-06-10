@@ -1,6 +1,6 @@
 import { friendlyError } from "../lib/errors";
 import { PageBlocks } from "../blocks/PageBlocks";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentOrg } from "../lib/OrgContext";
@@ -91,6 +91,36 @@ export function IntakeTriage({
       toast.success(stamped(`${s.code} permanently deleted`));
     } catch (e: any) { toast.error(friendlyError(e, "Couldn't delete")); }
   };
+
+  // The "30-day window" promise, made real without a cron: whenever an admin
+  // views intake, declined studies past the window are purged — audited.
+  useEffect(() => {
+    if (!isAdmin || !orgId || !userId) return;
+    const cutoff = Date.now() - 30 * 86400000;
+    const stale = declinedStudies.filter(
+      (s) => s.closed_at && new Date(s.closed_at).getTime() < cutoff
+    );
+    if (stale.length === 0) return;
+    void (async () => {
+      let purged = 0;
+      for (const s of stale) {
+        const { error } = await supabase.from("studies").delete().eq("id", s.id);
+        if (!error) {
+          purged += 1;
+          void writeAuditEvent({
+            orgId, actorId: userId, actorEmail: userEmail,
+            entityType: "study", entityId: s.id,
+            action: "intake_purged_auto",
+            payload: { code: s.code, declined_at: s.closed_at },
+          });
+        }
+      }
+      if (purged > 0) {
+        toast.info(`${purged} declined stud${purged === 1 ? "y" : "ies"} past the 30-day window permanently deleted`);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [declinedStudies.length, isAdmin, orgId, userId]);
 
   if (memberLoading) {
     return <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8"><Loader label="Checking permissions…" /></div>;
