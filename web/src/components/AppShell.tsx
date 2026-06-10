@@ -9,6 +9,7 @@ import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
 import { AUDIT_WRITE_FAILED_EVENT } from "../lib/auditLog";
 import { sweepEscalations } from "../lib/escalations";
+import { useStickyState } from "../lib/useStickyState";
 import { useToast } from "../lib/Toast";
 import { useOrgTable } from "../lib/useOrgTable";
 import { NewTaskModal } from "../pages/Inbox";
@@ -165,6 +166,8 @@ export function AppShell({
   const [orgName, setOrgName] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Collapsible rail (sticky): icon-only sidebar for people who know the map.
+  const [navCollapsed, setNavCollapsed] = useStickyState<boolean>("shell/navCollapsed", false);
   const [fromSetup, setFromSetup] = useState(false);
   const previewRole = usePreviewRole();
 
@@ -333,7 +336,12 @@ export function AppShell({
       </a>
 
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
+      <aside
+        className={
+          "hidden md:flex shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 " +
+          (navCollapsed ? "w-16" : "w-60")
+        }
+      >
         <SidebarBody
           groups={navGroups}
           currentHash={currentHash}
@@ -342,6 +350,8 @@ export function AppShell({
           tier={tier}
           isAdmin={isAdmin}
           counts={navCounts}
+          collapsed={navCollapsed}
+          onToggleCollapse={() => setNavCollapsed(!navCollapsed)}
         />
       </aside>
 
@@ -548,6 +558,8 @@ function SidebarBody({
   tier,
   isAdmin,
   counts,
+  collapsed = false,
+  onToggleCollapse,
   onCloseMobile,
 }: {
   groups: ResolvedNavGroup[];
@@ -558,12 +570,16 @@ function SidebarBody({
   isAdmin: boolean;
   /** Per-nav-key triage counts (e.g. inbox/approvals open items). */
   counts?: Record<string, number>;
+  /** Icon-only rail mode (desktop) — labels become tooltips. */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   onCloseMobile?: () => void;
 }) {
   return (
     <>
-      <div className="px-4 pt-5 pb-4 flex items-center gap-2.5">
-        <BrandMark size={36} />
+      <div className={"pt-5 pb-4 flex items-center gap-2.5 " + (collapsed ? "px-0 justify-center" : "px-4")}>
+        <BrandMark size={collapsed ? 30 : 36} />
+        {!collapsed && (
         <div className="flex flex-col leading-tight">
           <span className="text-lg font-display font-extrabold tracking-tight text-slate-900">
             Platypus
@@ -572,6 +588,7 @@ function SidebarBody({
             clinical ops
           </span>
         </div>
+        )}
         {onCloseMobile && (
           <button
             onClick={onCloseMobile}
@@ -586,10 +603,14 @@ function SidebarBody({
 
       <nav className="flex-1 px-2 pb-4 overflow-y-auto" aria-label="Primary navigation">
         {groups.map((group) => (
-          <div key={group.group} className="mb-5">
-            <div className="px-3 pb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              {group.group}
-            </div>
+          <div key={group.group} className={collapsed ? "mb-2" : "mb-5"}>
+            {collapsed ? (
+              <div className="mx-2 my-2 border-t border-slate-100" aria-hidden="true" />
+            ) : (
+              <div className="px-3 pb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                {group.group}
+              </div>
+            )}
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const active =
@@ -599,20 +620,33 @@ function SidebarBody({
                   <li key={item.key}>
                     <button
                       onClick={() => onNavigate(item.hash)}
+                      title={collapsed ? item.label : undefined}
+                      aria-label={item.label}
                       className={
-                        "w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition " +
+                        "w-full flex items-center rounded-lg text-sm font-medium transition " +
+                        (collapsed ? "justify-center px-0 py-2.5 " : "text-left gap-2.5 px-3 py-2 ") +
                         (active
                           ? "bg-brand-50 text-brand-700"
                           : "text-slate-700 hover:bg-slate-50 hover:text-slate-900")
                       }
                     >
-                      <Icon
-                        name={item.icon}
-                        size={16}
-                        className={active ? "text-brand-600" : "text-slate-400"}
-                      />
-                      <span className="flex-1">{item.label}</span>
-                      {(counts?.[item.key] ?? 0) > 0 && (
+                      <span className="relative inline-flex">
+                        <Icon
+                          name={item.icon}
+                          size={collapsed ? 18 : 16}
+                          className={active ? "text-brand-600" : "text-slate-400"}
+                        />
+                        {collapsed && (counts?.[item.key] ?? 0) > 0 && (
+                          <span
+                            className="absolute -top-1.5 -right-2 text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center bg-brand-500 text-white"
+                            aria-label={`${counts![item.key]} open`}
+                          >
+                            {counts![item.key] > 99 ? "99" : counts![item.key]}
+                          </span>
+                        )}
+                      </span>
+                      {!collapsed && <span className="flex-1">{item.label}</span>}
+                      {!collapsed && (counts?.[item.key] ?? 0) > 0 && (
                         <span
                           className={
                             "text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center " +
@@ -632,23 +666,46 @@ function SidebarBody({
         ))}
       </nav>
 
-      <div className="border-t border-slate-200 p-3">
-        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-          <div className="text-[11px] font-semibold text-slate-400 mb-0.5">
-            Organization
-          </div>
-          <div className="text-sm font-semibold text-slate-900 truncate">
-            {orgName ?? "Loading…"}
-          </div>
-          {tier && (
-            <div className="mt-1.5">
-              <Pill tone={tier === "developer" ? "dev" : isAdmin ? "brand" : "neutral"}>
-                {tier}
-              </Pill>
+      {!collapsed && (
+        <div className="border-t border-slate-200 p-3">
+          <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+            <div className="text-[11px] font-semibold text-slate-400 mb-0.5">
+              Organization
             </div>
-          )}
+            <div className="text-sm font-semibold text-slate-900 truncate">
+              {orgName ?? "Loading…"}
+            </div>
+            {tier && (
+              <div className="mt-1.5">
+                <Pill tone={tier === "developer" ? "dev" : isAdmin ? "brand" : "neutral"}>
+                  {tier}
+                </Pill>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {onToggleCollapse && (
+        <div className="border-t border-slate-200 p-2">
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={
+              "w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition " +
+              (collapsed ? "justify-center px-0" : "")
+            }
+          >
+            <Icon
+              name="chevron-right"
+              size={14}
+              className={"transition-transform " + (collapsed ? "" : "rotate-180")}
+            />
+            {!collapsed && "Collapse"}
+          </button>
+        </div>
+      )}
     </>
   );
 }
