@@ -77,7 +77,17 @@ function tint(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function StageDesigner() {
+export function StageDesigner({
+  pipelineId,
+  onPipelineChange,
+  embedded = false,
+}: {
+  /** Controlled pipeline selection (Workstreams page lifts it across tabs). */
+  pipelineId?: string | null;
+  onPipelineChange?: (id: string | null) => void;
+  /** Embedded in the Workstreams page — its header/frame is provided there. */
+  embedded?: boolean;
+} = {}) {
   const { orgId } = useCurrentOrg();
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
@@ -85,10 +95,17 @@ export function StageDesigner() {
   const stagesTbl = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position", realtime: true });
 
   const activePipelines = pipelines.rows.filter((p) => p.status === "active");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const controlled = pipelineId !== undefined;
+  const [internalId, setInternalId] = useState<string | null>(null);
+  const selectedId = controlled ? pipelineId : internalId;
+  const setSelectedId = (id: string | null) => {
+    if (controlled) onPipelineChange?.(id);
+    else setInternalId(id);
+  };
   useEffect(() => {
     if (selectedId && activePipelines.some((p) => p.id === selectedId)) return;
     setSelectedId(activePipelines[0]?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePipelines, selectedId]);
 
   const stages = useMemo(
@@ -274,13 +291,17 @@ export function StageDesigner() {
   });
 
   return (
-    <div className="max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8">
-      <PageHeader
-        kicker="Configure"
-        title="Stage pipelines"
-        subtitle="Each pipeline is a stage backbone a family of studies runs on — the stages, their order, which run in parallel, and the target days each should take. Task flows add the tasks and teams for these stages."
-      />
-      <AutoSaveNote />
+    <div className={embedded ? "" : "max-w-page-standard mx-auto px-4 md:px-6 2xl:px-12 py-8"}>
+      {!embedded && (
+        <>
+          <PageHeader
+            kicker="Configure"
+            title="Stage pipelines"
+            subtitle="Each pipeline is a stage backbone a family of studies runs on — the stages, their order, which run in parallel, and the target days each should take. Task flows add the tasks and teams for these stages."
+          />
+          <AutoSaveNote />
+        </>
+      )}
 
       <PipelineSelector
         pipelines={activePipelines}

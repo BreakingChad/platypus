@@ -89,7 +89,17 @@ const displayKind = (k: TaskKind): TaskKind =>
 
 type DragMeta = { type: "module"; stageKey?: string };
 
-export function WorkStreamBuilder() {
+export function WorkStreamBuilder({
+  pipelineId,
+  onPipelineChange,
+  embedded = false,
+}: {
+  /** Controlled pipeline selection (Workstreams page lifts it across tabs). */
+  pipelineId?: string | null;
+  onPipelineChange?: (id: string | null) => void;
+  /** Embedded in the Workstreams page — its header/frame is provided there. */
+  embedded?: boolean;
+} = {}) {
   const { orgId } = useCurrentOrg();
   const { isAdmin, loading: memberLoading } = useCurrentMember();
   const toast = useToast();
@@ -101,12 +111,19 @@ export function WorkStreamBuilder() {
   const roles = useOrgTable<TeamRoleRow>("team_roles", { realtime: true });
   const modules = useOrgTable<WorkflowModuleRow>("workflow_modules", { orderBy: "position", realtime: true });
 
-  /* ---------- pipeline selection ---------- */
+  /* ---------- pipeline selection (controllable from the Workstreams page) ---------- */
   const activePipelines = pipelines.rows.filter((p) => p.status === "active");
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+  const controlled = pipelineId !== undefined;
+  const [internalPipelineId, setInternalPipelineId] = useState<string | null>(null);
+  const selectedPipelineId = controlled ? pipelineId : internalPipelineId;
+  const setSelectedPipelineId = (id: string | null) => {
+    if (controlled) onPipelineChange?.(id);
+    else setInternalPipelineId(id);
+  };
   useEffect(() => {
     if (selectedPipelineId && activePipelines.some((p) => p.id === selectedPipelineId)) return;
     setSelectedPipelineId(activePipelines[0]?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePipelines, selectedPipelineId]);
   const selectedPipeline = activePipelines.find((p) => p.id === selectedPipelineId) ?? null;
 
@@ -357,17 +374,19 @@ export function WorkStreamBuilder() {
   }
 
   return (
-    <div className="max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8">
-      <PageHeader
-        kicker="Configure"
-        title="Task flows"
-        subtitle="Build the tasks and teams for a pipeline's stages. Pick a pipeline, then a task flow within it; the pipeline's stages are read-only here — add the modules and tasks that run on them."
-        actions={
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 text-emerald-700 px-2.5 py-1.5 text-xs font-semibold" title="There's no save button — every change is written instantly">
-            <Icon name="check" size={13} /> Auto-saved
-          </span>
-        }
-      />
+    <div className={embedded ? "" : "max-w-page-wide mx-auto px-4 md:px-6 2xl:px-12 py-8"}>
+      {!embedded && (
+        <PageHeader
+          kicker="Configure"
+          title="Task flows"
+          subtitle="Build the tasks and teams for a pipeline's stages. Pick a pipeline, then a task flow within it; the pipeline's stages are read-only here — add the modules and tasks that run on them."
+          actions={
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 text-emerald-700 px-2.5 py-1.5 text-xs font-semibold" title="There's no save button — every change is written instantly">
+              <Icon name="check" size={13} /> Auto-saved
+            </span>
+          }
+        />
+      )}
 
       {/* PIPELINE PICKER */}
       <div className="mt-5 rounded-xl border border-slate-200 bg-white p-3 flex items-center gap-2 flex-wrap">

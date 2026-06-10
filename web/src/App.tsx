@@ -18,7 +18,7 @@ import { ComingSoon } from "./pages/ComingSoon";
 // Lazy — admin-only designers + management surfaces.
 const StudyDetail          = lazy(() => import("./pages/StudyDetail").then(m => ({ default: m.StudyDetail })));
 const FieldsDesigner       = lazy(() => import("./pages/FieldsDesigner").then(m => ({ default: m.FieldsDesigner })));
-const StageDesigner        = lazy(() => import("./pages/StageDesigner").then(m => ({ default: m.StageDesigner })));
+const Workstreams          = lazy(() => import("./pages/Workstreams").then(m => ({ default: m.Workstreams })));
 const TeamBuilder          = lazy(() => import("./pages/TeamBuilder").then(m => ({ default: m.TeamBuilder })));
 const AccessRoles          = lazy(() => import("./pages/AccessRoles").then(m => ({ default: m.AccessRoles })));
 const OrgSettings          = lazy(() => import("./pages/OrgSettings").then(m => ({ default: m.OrgSettings })));
@@ -26,7 +26,6 @@ const Members              = lazy(() => import("./pages/Members").then(m => ({ d
 const NavDesigner          = lazy(() => import("./pages/NavDesigner").then(m => ({ default: m.NavDesigner })));
 const PageLayoutDesigner   = lazy(() => import("./pages/PageLayoutDesigner").then(m => ({ default: m.PageLayoutDesigner })));
 const AuditFeed            = lazy(() => import("./pages/AuditFeed").then(m => ({ default: m.AuditFeed })));
-const WorkStreamBuilder    = lazy(() => import("./pages/WorkStreamBuilder").then(m => ({ default: m.WorkStreamBuilder })));
 const SponsorsCros         = lazy(() => import("./pages/SponsorsCros").then(m => ({ default: m.SponsorsCros })));
 const SiteSetup            = lazy(() => import("./pages/SiteSetup").then(m => ({ default: m.SiteSetup })));
 const CalendarPage         = lazy(() => import("./pages/CalendarPage").then(m => ({ default: m.CalendarPage })));
@@ -90,7 +89,7 @@ function renderRoute(
     return { node: <FieldsDesigner /> };
   }
   if (hash === "#/settings/stages") {
-    return { node: <StageDesigner /> };
+    return { node: <Workstreams initialTab="stages" /> };
   }
   if (hash === "#/settings/teams") {
     return { node: <TeamBuilder /> };
@@ -141,7 +140,7 @@ function renderRoute(
     return { node: <FormsAdmin /> };
   }
   if (hash === "#/settings/work-streams") {
-    return { node: <WorkStreamBuilder /> };
+    return { node: <Workstreams initialTab="flows" /> };
   }
   if (hash === "#/settings/sponsors") {
     return { node: <SponsorsCros /> };
