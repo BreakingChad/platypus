@@ -48,6 +48,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Icon } from "../components/ui/Icon";
+import { DraftInput } from "../components/ui/DraftInput";
 import { PageHeader } from "../components/ui/PageHeader";
 import { InfoTip } from "../components/ui/Tip";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -956,7 +957,7 @@ function ModuleDrawer({
 
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Description (optional)</label>
-            <Input value={mod.description ?? ""} onChange={(e) => void onUpdate({ description: e.target.value || null })} placeholder="What does this module produce?" />
+            <DraftInput value={mod.description ?? ""} onCommit={(v) => void onUpdate({ description: v || null })} placeholder="What does this module produce?" />
           </div>
 
           <div>

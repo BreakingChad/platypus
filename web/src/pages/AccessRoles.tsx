@@ -13,6 +13,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Pill } from "../components/ui/Pill";
 import { Icon } from "../components/ui/Icon";
+import { DraftInput } from "../components/ui/DraftInput";
 import { PageHeader } from "../components/ui/PageHeader";
 import { AutoSaveNote } from "../components/ui/AutoSaveNote";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -511,30 +512,5 @@ function ScopeEditor({
   );
 }
 
-/** Local-draft input — commits on blur or Enter instead of writing to the
- *  database per keystroke (which made typing lag behind the network). */
-function DraftInput({
-  value,
-  onCommit,
-  placeholder,
-}: {
-  value: string;
-  onCommit: (v: string) => void;
-  placeholder?: string;
-}) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  return (
-    <Input
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft !== value) onCommit(draft.trim());
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-      }}
-      placeholder={placeholder}
-    />
-  );
-}
+// DraftInput now lives in components/ui/DraftInput (shared — the module
+// drawer caught the same per-keystroke-write disease).
