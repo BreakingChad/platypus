@@ -217,9 +217,9 @@ export function WorkStreamBuilder({
     try {
       const { error } = await supabase.from("workflow_modules").insert({
         org_id: orgId, stage_key: stageKey, workstream_id: selectedWsId,
-        name: `Receives: ${fromTitle.trim() || "handoff"}`,
+        name: `${teamName} — handoff`,
         owner_team_id: teamId, enabled: true, position: pos,
-        description: `Auto-created to receive the "${fromTitle.trim()}" handoff — rename and add ${teamName}'s tasks.`,
+        description: `Receives the "${fromTitle.trim()}" handoff — rename and add ${teamName}'s tasks.`,
       } as any);
       if (error) throw error;
       toast.success(stamped(`Receiving module created in ${stageLabel(stageKey)} for ${teamName} — open it to name & configure`));
@@ -608,13 +608,19 @@ function FlowCanvas({
 }) {
   const cols = flowColumns(stages);
 
-  // Draw the batons (Tier-2 UX): orthogonal elbow connectors from each
-  // handoff's source module to its receiving module, measured off the DOM.
+  // Connectors are HOVER-ONLY (Chad: the always-on green lines were noise):
+  // hover a module and just ITS handoff connections light up.
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [hoverMod, setHoverMod] = useState<string | null>(null);
+  const activeLinks = useMemo(
+    () => (hoverMod && links ? links.filter((l) => l.from === hoverMod || l.to === hoverMod) : []),
+    [hoverMod, links]
+  );
   const [paths, setPaths] = useState<{ d: string; title: string }[]>([]);
   useEffect(() => {
     const el = canvasRef.current;
-    if (!el || !links || links.length === 0) {
+    const links = activeLinks;
+    if (!el || links.length === 0) {
       setPaths([]);
       return;
     }
@@ -648,16 +654,24 @@ function FlowCanvas({
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [links, modules, stages]);
+  }, [activeLinks, modules, stages]);
 
   return (
     <div className="mt-6 overflow-x-auto pb-4">
-      <div ref={canvasRef} className="relative flex items-start gap-0 min-w-max">
+      <div
+        ref={canvasRef}
+        className="relative flex items-start gap-0 min-w-max"
+        onMouseOver={(e) => {
+          const id = (e.target as HTMLElement).closest?.("[data-mod-id]")?.getAttribute("data-mod-id") ?? null;
+          if (id !== hoverMod) setHoverMod(id);
+        }}
+        onMouseLeave={() => setHoverMod(null)}
+      >
         {paths.length > 0 && (
           <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" aria-hidden="true">
             <defs>
               <marker id="handoff-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 0 L 8 4 L 0 8 z" className="fill-emerald-500" />
+                <path d="M 0 0 L 8 4 L 0 8 z" className="fill-violet-500" />
               </marker>
             </defs>
             {paths.map((p, i) => (
@@ -665,10 +679,10 @@ function FlowCanvas({
                 key={i}
                 d={p.d}
                 fill="none"
-                strokeWidth={1.5}
-                strokeDasharray="5 4"
+                strokeWidth={2}
+                strokeLinejoin="round"
                 markerEnd="url(#handoff-arrow)"
-                className="stroke-emerald-400"
+                className="stroke-violet-400"
               >
                 <title>{p.title}</title>
               </path>
@@ -847,13 +861,15 @@ function ModuleChip({ m, teams, taskCount, receives, onOpen }: {
             <span>·</span>
             <span className={taskCount > 0 ? "text-brand-600 font-semibold" : ""}>{taskCount} task{taskCount === 1 ? "" : "s"}</span>
           </div>
-          {receives && receives.length > 0 && (
+          {/* To-do hint only: once the module has tasks, the label retires
+              (hover still draws its connections). */}
+          {receives && receives.length > 0 && taskCount === 0 && (
             <div
-              className="flex items-center gap-1 mt-0.5 pl-3 text-[10px] font-semibold text-emerald-600"
+              className="flex items-center gap-1 mt-0.5 pl-3 text-[10px] font-semibold text-violet-600"
               title={receives.join("\n")}
             >
               <Icon name="arrow-right" size={9} />
-              receives {receives.length} handoff{receives.length === 1 ? "" : "s"}
+              receives {receives.length} handoff{receives.length === 1 ? "" : "s"} — add this team's tasks
             </div>
           )}
         </button>
@@ -987,7 +1003,7 @@ function ModuleDrawer({
 
         <div>
           <div className="flex items-baseline justify-between mb-1.5 gap-2">
-            <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
+            <div className="text-xs font-semibold text-slate-700">Tasks <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
             <p className="text-[11px] text-slate-500">Fire when a study reaches <span className="font-semibold">{stageLabel}</span> · drag to reorder</p>
           </div>
           <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} emptyRoleIds={emptyRoleIds} />
@@ -1082,12 +1098,12 @@ function TemplatesList({
     void Promise.all(next.map((t, i) => supabase.from("workflow_task_templates").update({ position: (i + 1) * 10 } as any).eq("id", t.id)));
   };
 
-  if (templates === null) return <div className="text-[11px] text-slate-500">Loading task templates…</div>;
+  if (templates === null) return <div className="text-[11px] text-slate-500">Loading tasks…</div>;
 
   return (
     <>
       {templates.length === 0 && (
-        <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 italic">No tasks yet. Add one below.</div>
+        <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 italic">No tasks yet — add one below.</div>
       )}
       {templates.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -1103,7 +1119,7 @@ function TemplatesList({
         </DndContext>
       )}
       <button onClick={addTemplate} className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline">
-        <Icon name="plus" size={11} /> Add task template
+        <Icon name="plus" size={11} /> Add task
       </button>
     </>
   );
