@@ -29,7 +29,6 @@ import { useCurrentOrg } from "../lib/OrgContext";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useToast } from "../lib/Toast";
-import { useModalA11y } from "../lib/useModalA11y";
 import type {
   PipelineRow,
   PipelineStageRow,
@@ -202,10 +201,16 @@ export function WorkStreamBuilder({
    *  configurable. Created once; renaming/deleting it afterwards is respected. */
   const ensureReceiverModule = async (stageKey: string, teamId: string, fromTitle: string) => {
     if (!orgId || !selectedWsId) return;
-    const exists = modules.rows.some(
-      (m) => m.workstream_id === selectedWsId && m.stage_key === stageKey && m.owner_team_id === teamId
-    );
-    if (exists) return;
+    // Existence check against the DATABASE, not the realtime cache — the
+    // cache lags inserts, which duplicated receiver modules on rapid edits.
+    const { data: existing } = await supabase
+      .from("workflow_modules")
+      .select("id")
+      .eq("workstream_id", selectedWsId)
+      .eq("stage_key", stageKey)
+      .eq("owner_team_id", teamId)
+      .limit(1);
+    if (existing && existing.length > 0) return;
     const teamName = teams.rows.find((t) => t.id === teamId)?.name ?? "receiving team";
     const pos = modules.rows.filter((m) => m.stage_key === stageKey && m.workstream_id === selectedWsId)
       .reduce((m, x) => Math.max(m, x.position), 0) + 10;
@@ -488,6 +493,8 @@ export function WorkStreamBuilder({
         </DndContext>
       )}
 
+      {/* Spacer so the docked editor never permanently hides canvas content. */}
+      {editorModule && <div style={{ height: "46vh" }} aria-hidden="true" />}
       {editorModule && (
         <ModuleDrawer
           module={editorModule}
@@ -877,7 +884,8 @@ function ModuleDrawer({
   /** Fires when a handoff template gains a complete (stage, team) target. */
   onEnsureReceiver?: (stageKey: string, teamId: string, title: string) => void;
 }) {
-  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
+  // Plain ref — no focus trap: the dock coexists with a live canvas above.
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(mod.name);
   useEffect(() => { setNameDraft(mod.name); }, [mod.id, mod.name]);
@@ -900,6 +908,16 @@ function ModuleDrawer({
     return () => { cancelled = true; };
   }, [mod.id]);
 
+  // Docked editor (not a modal): Esc closes, but the canvas above stays
+  // live — clicking another module switches what you're editing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const availableRoles = useMemo(() => {
     if (!mod.owner_team_id) return roles;
     return roles.filter((r) => r.team_id === mod.owner_team_id);
@@ -913,67 +931,66 @@ function ModuleDrawer({
     return new Set(availableRoles.filter((r) => !held.has(r.id)).map((r) => r.id));
   }, [holders.rows, availableRoles]);
 
+  // Bottom-docked workbench (Chad, 2026-06-09: "don't love the right panel").
+  // The canvas stays visible and LIVE above — click another module to switch.
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} aria-hidden="true" />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Edit module ${mod.name}`} className="relative w-full max-w-md bg-white shadow-2xl h-full overflow-y-auto flex flex-col">
-        <div style={{ height: 3, backgroundColor: stageColor }} />
-        <div className="px-4 py-3 border-b border-slate-100 flex items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-1">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: stageColor }} />
-              <span className="uppercase tracking-wide font-semibold">{stageLabel}</span>
-              <span>· module</span>
-            </div>
-            {renaming ? (
-              <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={commitName}
-                onKeyDown={(e) => { if (e.key === "Enter") commitName(); if (e.key === "Escape") { setNameDraft(mod.name); setRenaming(false); } }}
-                className="font-display font-bold text-lg text-slate-900 border border-brand-200 rounded px-1.5 py-0.5 outline-none w-full" />
-            ) : (
-              <button onClick={() => setRenaming(true)} className="font-display font-bold text-lg text-slate-900 hover:text-brand-700 text-left truncate w-full" title="Rename">{mod.name}</button>
-            )}
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 -mr-1" aria-label="Close"><Icon name="x" size={18} /></button>
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-label={`Edit module ${mod.name}`}
+      className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-16px_48px_-16px_rgba(15,23,42,0.35)] flex flex-col"
+      style={{ maxHeight: "46vh" }}
+    >
+      <div style={{ height: 3, backgroundColor: stageColor }} />
+      <div className="px-5 py-2.5 border-b border-slate-100 flex items-center gap-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 flex-shrink-0">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: stageColor }} />
+          <span className="uppercase tracking-wide font-semibold">{stageLabel}</span>
+          <span>· module</span>
         </div>
+        {renaming ? (
+          <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={commitName}
+            onKeyDown={(e) => { if (e.key === "Enter") commitName(); if (e.key === "Escape") { setNameDraft(mod.name); setRenaming(false); } }}
+            className="font-display font-bold text-base text-slate-900 border border-brand-200 rounded px-1.5 py-0.5 outline-none flex-1 min-w-0 max-w-md" />
+        ) : (
+          <button onClick={() => setRenaming(true)} className="font-display font-bold text-base text-slate-900 hover:text-brand-700 text-left truncate" title="Rename">{mod.name}</button>
+        )}
+        <div className="flex-1" />
+        <Button variant="ghost" size="sm" onClick={onDuplicate}><Icon name="copy" size={13} /> Duplicate</Button>
+        <button onClick={onRemove} className="text-xs font-semibold text-red-600 hover:bg-red-50 rounded px-2 py-1.5 inline-flex items-center gap-1"><Icon name="trash" size={13} /> Remove</button>
+        <Button variant="primary" size="sm" onClick={onClose}>Done</Button>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 -mr-1" aria-label="Close editor"><Icon name="x" size={16} /></button>
+      </div>
 
-        <div className="p-4 space-y-4 flex-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1">Owner team</label>
-              <Select value={mod.owner_team_id ?? ""} onChange={(e) => void onUpdate({ owner_team_id: e.target.value || null })}>
-                <option value="">— Unassigned —</option>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </Select>
-              <p className="text-[10px] text-slate-400 mt-1">Its roles are who tasks assign to.</p>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1">Status</label>
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg border border-slate-200 px-3 py-2.5">
-                <input type="checkbox" checked={mod.enabled} onChange={(e) => void onUpdate({ enabled: e.target.checked })} className="accent-brand-500 w-3.5 h-3.5" />
-                {mod.enabled ? "Enabled" : "Disabled"}
-              </label>
-            </div>
+      <div className="px-5 py-4 overflow-y-auto grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-x-8 gap-y-4">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Owner team</label>
+            <Select value={mod.owner_team_id ?? ""} onChange={(e) => void onUpdate({ owner_team_id: e.target.value || null })}>
+              <option value="">— Unassigned —</option>
+              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+            <p className="text-[10px] text-slate-400 mt-1">Its roles are who tasks assign to.</p>
           </div>
-
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Status</label>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg border border-slate-200 px-3 py-2">
+              <input type="checkbox" checked={mod.enabled} onChange={(e) => void onUpdate({ enabled: e.target.checked })} className="accent-brand-500 w-3.5 h-3.5" />
+              {mod.enabled ? "Enabled" : "Disabled"}
+            </label>
+          </div>
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Description (optional)</label>
             <DraftInput value={mod.description ?? ""} onCommit={(v) => void onUpdate({ description: v || null })} placeholder="What does this module produce?" />
           </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
-            </div>
-            <p className="text-[11px] text-slate-500 mb-2">These fire as tasks when a study reaches <span className="font-semibold">{stageLabel}</span>. Drag to reorder.</p>
-            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} emptyRoleIds={emptyRoleIds} />
-          </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onDuplicate}><Icon name="copy" size={13} /> Duplicate</Button>
-          <button onClick={onRemove} className="text-xs font-semibold text-red-600 hover:bg-red-50 rounded px-2 py-1.5 inline-flex items-center gap-1"><Icon name="trash" size={13} /> Remove</button>
-          <div className="flex-1" />
-          <Button variant="primary" size="sm" onClick={onClose}>Done</Button>
+        <div>
+          <div className="flex items-baseline justify-between mb-1.5 gap-2">
+            <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
+            <p className="text-[11px] text-slate-500">Fire when a study reaches <span className="font-semibold">{stageLabel}</span> · drag to reorder</p>
+          </div>
+          <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} emptyRoleIds={emptyRoleIds} />
         </div>
       </div>
     </div>
@@ -1022,16 +1039,20 @@ function TemplatesList({
     try {
       const { error } = await supabase.from("workflow_task_templates").update(patch as any).eq("id", id);
       if (error) throw error;
-      // Handoff target just became complete → materialize the receiving module
-      // so the baton visibly lands somewhere (named + configured by the admin).
+      // Handoff target became complete OR moved to a NEW (stage, team) pair →
+      // materialize the receiving module. Fires only on actual pair changes,
+      // not on every unrelated edit (that re-fired and duplicated receivers).
       if ("handoff_to_stage_key" in patch || "handoff_to_team_id" in patch) {
         const base = prev.find((t) => t.id === id);
         const merged = base ? { ...base, ...patch } : null;
-        if (
-          merged && merged.kind === "handoff" &&
-          merged.handoff_to_stage_key && merged.handoff_to_team_id
-        ) {
-          onHandoffTarget?.(merged.handoff_to_stage_key, merged.handoff_to_team_id, merged.title);
+        const pairOf = (t: { handoff_to_stage_key?: string | null; handoff_to_team_id?: string | null } | null) =>
+          t?.handoff_to_stage_key && t?.handoff_to_team_id
+            ? `${t.handoff_to_stage_key}|${t.handoff_to_team_id}`
+            : null;
+        const before = pairOf(base ?? null);
+        const after = pairOf(merged);
+        if (merged && merged.kind === "handoff" && after && after !== before) {
+          onHandoffTarget?.(merged.handoff_to_stage_key!, merged.handoff_to_team_id!, merged.title);
         }
       }
     } catch (e: any) {
