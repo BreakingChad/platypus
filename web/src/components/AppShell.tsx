@@ -168,6 +168,30 @@ export function AppShell({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Collapsible rail (sticky): icon-only sidebar for people who know the map.
   const [navCollapsed, setNavCollapsed] = useStickyState<boolean>("shell/navCollapsed", false);
+  // Drag-to-resize (sticky): 200–360px, double-click the handle to reset.
+  const [navWidth, setNavWidth] = useStickyState<number>("shell/navWidth", 240);
+  const [navDragging, setNavDragging] = useState(false);
+  const startNavResize = (e: React.PointerEvent) => {
+    if (navCollapsed) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = navWidth;
+    setNavDragging(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    const move = (ev: PointerEvent) => {
+      setNavWidth(Math.min(360, Math.max(200, startW + (ev.clientX - startX))));
+    };
+    const up = () => {
+      setNavDragging(false);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [fromSetup, setFromSetup] = useState(false);
   const previewRole = usePreviewRole();
 
@@ -337,9 +361,10 @@ export function AppShell({
 
       {/* DESKTOP SIDEBAR */}
       <aside
+        style={{ width: navCollapsed ? 64 : navWidth }}
         className={
-          "hidden md:flex shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 " +
-          (navCollapsed ? "w-16" : "w-60")
+          "hidden md:flex relative shrink-0 flex-col border-r border-slate-200 bg-white " +
+          (navDragging ? "" : "transition-[width] duration-200")
         }
       >
         <SidebarBody
@@ -353,6 +378,15 @@ export function AppShell({
           collapsed={navCollapsed}
           onToggleCollapse={() => setNavCollapsed(!navCollapsed)}
         />
+        {!navCollapsed && (
+          <div
+            onPointerDown={startNavResize}
+            onDoubleClick={() => setNavWidth(240)}
+            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-brand-300/50 active:bg-brand-400/60 transition-colors"
+            title="Drag to resize · double-click to reset"
+            aria-hidden="true"
+          />
+        )}
       </aside>
 
       {/* MOBILE DRAWER */}
