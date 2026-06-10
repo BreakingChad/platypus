@@ -302,6 +302,7 @@ function DocCard({
             <button
               onClick={onOpen}
               title="Open file"
+              aria-label={`Open file ${doc.title}`}
               className="p-1 rounded text-slate-400 hover:text-brand-700 hover:bg-brand-50 transition"
             >
               <Icon name="external" size={13} />
@@ -310,6 +311,7 @@ function DocCard({
           <button
             onClick={onDelete}
             title="Delete"
+            aria-label={`Delete ${doc.title}`}
             className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
           >
             <Icon name="trash" size={13} />

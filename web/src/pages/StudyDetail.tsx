@@ -9,6 +9,8 @@ import { uniqueChannelName } from "../lib/uniqueChannel";
 import { useOrgTable } from "../lib/useOrgTable";
 import { useCurrentMember } from "../lib/useCurrentMember";
 import { useToast } from "../lib/Toast";
+import { useStickyState } from "../lib/useStickyState";
+import { pushRecentStudy } from "../lib/recents";
 import type {
   StudyRow,
   PipelineStageRow,
@@ -126,7 +128,8 @@ export function StudyDetail({
   // overriding any role/page config. Remove this filter to bring it back.
   ).filter((t) => t.key !== "documents");
   const roleDefaultTab = (pageCfg.options?.defaultTab as Tab | undefined) ?? "overview";
-  const [tab, setTabRaw] = useState<Tab | null>(null);
+  // Sticky (Tier-1 UX): remember the last tab across studies + sessions.
+  const [tab, setTabRaw] = useStickyState<Tab | null>("study-detail/lastTab", null);
   const effectiveTab: Tab = (() => {
     const want = tab ?? roleDefaultTab;
     return safeTabs.some((t) => t.key === want) ? want : safeTabs[0].key;
@@ -136,6 +139,19 @@ export function StudyDetail({
   // down and the record gets the main column (Option B, Chad 2026-06-03).
   const isXl = useMediaQuery("(min-width: 1280px)");
   const shownTab: Tab = isXl && (effectiveTab === "tasks" || effectiveTab === "activity") ? "overview" : effectiveTab;
+
+  // Wayfinding (Tier-1 UX): browser tab tells you which study + tab this is,
+  // and the visit lands in the Cmd-K "recent" list.
+  useEffect(() => {
+    if (!study) return;
+    pushRecentStudy(study.id);
+    const tabLabel = safeTabs.find((t) => t.key === shownTab)?.label;
+    document.title = `${study.code}${tabLabel ? ` · ${tabLabel}` : ""} · Platypus`;
+    return () => {
+      document.title = "Platypus";
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [study?.id, study?.code, shownTab]);
   const [advancing, setAdvancing] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [activityCount, setActivityCount] = useState<number | null>(null);

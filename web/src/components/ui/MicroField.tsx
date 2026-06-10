@@ -13,7 +13,7 @@ export function MicroField({
 }) {
   return (
     <label className={"block " + className}>
-      <span className="block text-[11px] font-semibold text-slate-500 mb-1">{label}</span>
+      <span className="block text-xs font-semibold text-slate-500 mb-1">{label}</span>
       {children}
     </label>
   );

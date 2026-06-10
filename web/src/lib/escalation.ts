@@ -55,6 +55,9 @@ export async function escalateTask(opts: {
       due_at: new Date(Date.now() + 2 * 86400000).toISOString(),
       assigned_to_user_id: assignedUser,
       assigned_to_role_id: targetRole?.id ?? null,
+      // Source link (0047): also the dedupe key the automatic overdue sweep
+      // checks — a manually escalated task won't get auto-escalated again.
+      receipt_of_task_id: task.id,
       created_by: opts.actorUserId,
     } as any)
     .select("id")

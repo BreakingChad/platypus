@@ -16,7 +16,7 @@ export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone
   return (
     <span
       className={
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold whitespace-nowrap " +
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold whitespace-nowrap " +
         tones[tone]
       }
     >

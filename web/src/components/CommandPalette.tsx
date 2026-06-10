@@ -3,6 +3,7 @@ import { fmtDate } from "../lib/dates";
 import { useOrgTable } from "../lib/useOrgTable";
 import type { StudyRow, PipelineStageRow, TaskRow, DocumentRow } from "../lib/types";
 import { useCurrentMember } from "../lib/useCurrentMember";
+import { getRecentStudyIds } from "../lib/recents";
 import { categoryByKey } from "../lib/documents";
 import { Icon } from "./ui/Icon";
 
@@ -89,7 +90,7 @@ export function CommandPalette({
         { id: "nav-org", kind: "nav", title: "Organization settings", subtitle: "Configure your org", icon: "settings", navigateTo: "#/settings/org" },
         { id: "nav-members", kind: "nav", title: "Members", subtitle: "Manage access", icon: "users", navigateTo: "#/settings/members" },
         { id: "nav-fields", kind: "nav", title: "Study fields", subtitle: "Configure field definitions", icon: "file", navigateTo: "#/settings/fields" },
-        { id: "nav-stages", kind: "nav", title: "Pipeline stages", subtitle: "Design the lifecycle", icon: "workflow", navigateTo: "#/settings/stages" },
+        { id: "nav-stages", kind: "nav", title: "Workstreams", subtitle: "Stage pipelines & task flows", icon: "workflow", navigateTo: "#/settings/stages" },
         { id: "nav-teams", kind: "nav", title: "Teams & roles", subtitle: "Org structure", icon: "users", navigateTo: "#/settings/teams" },
         { id: "nav-access", kind: "nav", title: "Access roles", subtitle: "Module permissions", icon: "shield", navigateTo: "#/settings/access" },
         { id: "nav-setup", kind: "nav", title: "Guided setup", subtitle: "First-run configuration", icon: "check", navigateTo: "#/setup" },
@@ -107,10 +108,16 @@ export function CommandPalette({
     const studyById = new Map(studies.rows.map((s) => [s.id, s]));
 
     if (!query) {
-      // Empty query: recent studies + my open tasks + all nav commands.
-      const recent = [...studies.rows]
-        .filter((s) => !s.closed)
-        .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
+      // Empty query: studies YOU visited recently first (localStorage),
+      // padded with recently-updated; then my open tasks + nav commands.
+      const visitedIds = getRecentStudyIds();
+      const visited = visitedIds
+        .map((id) => studies.rows.find((s) => s.id === id))
+        .filter((s): s is StudyRow => !!s && !s.closed);
+      const byUpdate = [...studies.rows]
+        .filter((s) => !s.closed && !visitedIds.includes(s.id))
+        .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+      const recent = [...visited, ...byUpdate]
         .slice(0, 5)
         .map((s) => studyToResult(s, stageByKey, 0));
       const recentTasks = [...openTasks]

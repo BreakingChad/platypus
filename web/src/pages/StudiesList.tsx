@@ -2,7 +2,7 @@ import { friendlyError } from "../lib/errors";
 import { fmtDate } from "../lib/dates";
 import { PageBlocks } from "../blocks/PageBlocks";
 import { confirmDialog } from "../lib/confirm";
-import { Loader } from "../components/ui/Loader";
+import { Loader, SkeletonRows } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { useEffect, useMemo, useState } from "react";
 import { useOrgTable } from "../lib/useOrgTable";
@@ -615,7 +615,7 @@ export function StudiesList({
         )}
 
         {studies.loading && studies.rows.length === 0 && (
-          <div className="p-6"><Loader label="Loading studies…" /></div>
+          <SkeletonRows rows={8} />
         )}
 
         {!studies.loading && studies.rows.length === 0 && (

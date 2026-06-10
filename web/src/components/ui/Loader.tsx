@@ -19,3 +19,20 @@ export function Spinner() {
 export function Skeleton({ className = "h-4 w-full" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-slate-200 ${className}`} />;
 }
+
+/** Shimmer placeholder rows for list/table surfaces — content-shaped
+ *  loading beats a spinner for perceived speed. */
+export function SkeletonRows({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="px-4 py-3 space-y-3.5" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-28 hidden sm:block" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}

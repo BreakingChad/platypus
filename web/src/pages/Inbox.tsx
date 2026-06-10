@@ -4,7 +4,7 @@ import { PageBlocks } from "../blocks/PageBlocks";
 import { useModalA11y } from "../lib/useModalA11y";
 import { dueBucket, BUCKET_LABELS, type DueBucket } from "../lib/inboxBuckets";
 import { useMediaQuery } from "../lib/useMediaQuery";
-import { Loader } from "../components/ui/Loader";
+import { Loader, SkeletonRows } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
 import { useEffect, useMemo, useState } from "react";
@@ -293,6 +293,10 @@ export function Inbox({
   }, [tasks.rows, userId, myRoleIds]);
 
   const completeTask = async (t: TaskRow) => {
+    // Completion advances the cursor (Outlook model): pick the next item
+    // BEFORE the list re-filters the completed one away.
+    const idx = filtered.findIndex((x) => x.id === t.id);
+    const nextId = filtered[idx + 1]?.id ?? filtered[idx - 1]?.id ?? null;
     try {
       const { error } = await supabase
         .from("tasks")
@@ -303,6 +307,7 @@ export function Inbox({
         })
         .eq("id", t.id);
       if (error) throw error;
+      if (openTaskId === t.id || idx >= 0) setOpenTaskId(nextId);
       if (orgId && userId) {
         void writeAuditEvent({
           orgId, actorId: userId, actorEmail: userEmail,
@@ -320,6 +325,48 @@ export function Inbox({
       toast.error(friendlyError(e, "Couldn't complete task"));
     }
   };
+
+  /** Keyboard triage (Tier-1 UX): j/k or arrows move the cursor, e completes.
+   *  Disabled while typing in any field; rows scroll into view as you move. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
+      )
+        return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (filtered.length === 0) return;
+      const idx = openTaskId ? filtered.findIndex((x) => x.id === openTaskId) : -1;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setOpenTaskId(filtered[Math.min(idx + 1, filtered.length - 1)]?.id ?? null);
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setOpenTaskId(filtered[Math.max(idx - 1, 0)]?.id ?? null);
+      } else if (e.key === "e" && idx >= 0) {
+        const sel = filtered[idx];
+        if (sel.status === "open" || sel.status === "in_progress") {
+          e.preventDefault();
+          const d = sel.document_id ? docById[sel.document_id] ?? null : null;
+          const a = actionTypeByKey(sel.action_type);
+          if (d && a) setSigning({ task: sel, doc: d });
+          else void completeTask(sel);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, openTaskId, docById]);
+
+  useEffect(() => {
+    if (!openTaskId) return;
+    document
+      .querySelector(`[data-task-id="${openTaskId}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [openTaskId]);
 
   const skipTask = async (t: TaskRow) => {
     if (!(await confirmDialog({ title: "Skip task", message: `Skip "${t.title}"? It will be marked not-applicable.`, confirmLabel: "Skip" }))) return;
@@ -369,7 +416,7 @@ export function Inbox({
       <PageHeader
         kicker="Workspace"
         title="Inbox"
-        subtitle="Tasks routed to you and to the roles you hold. Triage in one place — complete, skip, or open the study to dig in."
+        subtitle="Tasks routed to you and to the roles you hold. Triage in one place — j/k to move, e to complete, or open the study to dig in."
         actions={
           isAdmin && (
             <Button variant="primary" size="sm" onClick={() => setAddingTask(true)}>
@@ -498,7 +545,7 @@ export function Inbox({
         )}
 
         {tasks.loading && filtered.length === 0 && (
-          <div className="p-6"><Loader label="Loading tasks…" /></div>
+          <SkeletonRows rows={8} />
         )}
 
         {filtered.length > 0 && (
@@ -528,6 +575,7 @@ export function Inbox({
               return (
                 <li
                   key={t.id}
+                  data-task-id={t.id}
                   role="button"
                   tabIndex={0}
                   aria-label={`Open task ${t.title}`}
@@ -1002,7 +1050,7 @@ function TaskDrawer(props: Parameters<typeof TaskDetail>[0] & { onClose: () => v
   );
 }
 
-function NewTaskModal({
+export function NewTaskModal({
   orgId,
   userId,
   studies,

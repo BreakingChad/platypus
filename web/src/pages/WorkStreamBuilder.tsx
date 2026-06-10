@@ -2,7 +2,7 @@ import { friendlyError } from "../lib/errors";
 import { Loader } from "../components/ui/Loader";
 import { stamped } from "../lib/stamp";
 import { confirmDialog } from "../lib/confirm";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -452,6 +452,7 @@ export function WorkStreamBuilder({
               const wsModIds = new Set(wsMods.map((m) => m.id));
               const receiptsByModule: Record<string, string[]> = {};
               const ghostsByStage: Record<string, ReceiptGhost[]> = {};
+              const links: { from: string; to: string; title: string }[] = [];
               for (const t of handoffTpls) {
                 if (!wsModIds.has(t.module_id) || !t.handoff_to_stage_key || !t.handoff_to_team_id) continue;
                 const src = wsMods.find((m) => m.id === t.module_id)!;
@@ -460,6 +461,7 @@ export function WorkStreamBuilder({
                 );
                 if (receiver) {
                   (receiptsByModule[receiver.id] ??= []).push(`“${t.title}” from ${src.name}`);
+                  links.push({ from: src.id, to: receiver.id, title: t.title });
                 } else {
                   (ghostsByStage[t.handoff_to_stage_key] ??= []).push({
                     title: t.title,
@@ -469,7 +471,7 @@ export function WorkStreamBuilder({
                   });
                 }
               }
-              return { receiptsByModule, ghostsByStage };
+              return { receiptsByModule, ghostsByStage, links };
             })()}
             onCreateReceiver={(stageKey, teamId, title) => void ensureReceiverModule(stageKey, teamId, title)}
             onAddModule={(key, name) => void addModuleTo(key, name)}
@@ -581,7 +583,7 @@ function WorkstreamManager({
  * ========================================================================== */
 
 function FlowCanvas({
-  stages, modules, teams, taskCounts, receiptsByModule, ghostsByStage, onCreateReceiver, onAddModule, onOpenModule, onCopyFrom,
+  stages, modules, teams, taskCounts, receiptsByModule, ghostsByStage, links, onCreateReceiver, onAddModule, onOpenModule, onCopyFrom,
 }: {
   stages: PipelineStageRow[];
   modules: WorkflowModuleRow[];
@@ -589,15 +591,82 @@ function FlowCanvas({
   taskCounts: Record<string, number>;
   receiptsByModule: Record<string, string[]>;
   ghostsByStage: Record<string, ReceiptGhost[]>;
+  /** Handoff connections: source module → receiving module (the batons). */
+  links?: { from: string; to: string; title: string }[];
   onCreateReceiver: (stageKey: string, teamId: string, title: string) => void;
   onAddModule: (stageKey: string, name: string) => void;
   onOpenModule: (id: string) => void;
   onCopyFrom: (srcStageKey: string, destStageKey: string) => void;
 }) {
   const cols = flowColumns(stages);
+
+  // Draw the batons (Tier-2 UX): orthogonal elbow connectors from each
+  // handoff's source module to its receiving module, measured off the DOM.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [paths, setPaths] = useState<{ d: string; title: string }[]>([]);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || !links || links.length === 0) {
+      setPaths([]);
+      return;
+    }
+    let raf = 0;
+    const measure = () => {
+      const base = el.getBoundingClientRect();
+      const next: { d: string; title: string }[] = [];
+      for (const l of links) {
+        const a = el.querySelector(`[data-mod-id="${l.from}"]`)?.getBoundingClientRect();
+        const b = el.querySelector(`[data-mod-id="${l.to}"]`)?.getBoundingClientRect();
+        if (!a || !b) continue;
+        const leftToRight = b.left >= a.right;
+        const sx = (leftToRight ? a.right : a.left) - base.left;
+        const sy = a.top + a.height / 2 - base.top;
+        const tx = (leftToRight ? b.left : b.right) - base.left;
+        const ty = b.top + b.height / 2 - base.top;
+        const mx = (sx + tx) / 2;
+        next.push({ d: `M ${sx} ${sy} L ${mx} ${sy} L ${mx} ${ty} L ${tx} ${ty}`, title: l.title });
+      }
+      setPaths(next);
+    };
+    raf = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    });
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [links, modules, stages]);
+
   return (
     <div className="mt-6 overflow-x-auto pb-4">
-      <div className="flex items-start gap-0 min-w-max">
+      <div ref={canvasRef} className="relative flex items-start gap-0 min-w-max">
+        {paths.length > 0 && (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" aria-hidden="true">
+            <defs>
+              <marker id="handoff-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 8 4 L 0 8 z" className="fill-emerald-500" />
+              </marker>
+            </defs>
+            {paths.map((p, i) => (
+              <path
+                key={i}
+                d={p.d}
+                fill="none"
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                markerEnd="url(#handoff-arrow)"
+                className="stroke-emerald-400"
+              >
+                <title>{p.title}</title>
+              </path>
+            ))}
+          </svg>
+        )}
         {cols.map((col, ci) => (
           <div key={ci} className="flex items-start">
             <div className={col.stages.length > 1
@@ -753,7 +822,7 @@ function ModuleChip({ m, teams, taskCount, receives, onOpen }: {
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   const team = teams.find((t) => t.id === m.owner_team_id);
   return (
-    <div ref={setNodeRef} style={style}
+    <div ref={setNodeRef} style={style} data-mod-id={m.id}
       className={"group rounded-lg border bg-white hover:border-brand-300 hover:shadow-sm transition " + (m.enabled ? "border-slate-200" : "border-slate-200 opacity-60")}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-1.5">

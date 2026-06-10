@@ -10,6 +10,9 @@ import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
 import { AUDIT_WRITE_FAILED_EVENT } from "../lib/auditLog";
 import { sweepEscalations } from "../lib/escalations";
 import { useToast } from "../lib/Toast";
+import { useOrgTable } from "../lib/useOrgTable";
+import { NewTaskModal } from "../pages/Inbox";
+import type { StudyRow, PipelineStageRow, TeamRoleRow, TeamRoleHolderRow } from "../lib/types";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { BrandMark } from "./ui/BrandMark";
 import { UserAvatar } from "./ui/UserAvatar";
@@ -74,6 +77,63 @@ function EscalationSweeper() {
       });
   }, [orgId, auth.status, isAdmin, toast, auth]);
   return null;
+}
+
+/** Global quick-add (Tier-2 UX): send a task from anywhere — the modal's
+ *  data loads only when opened. Admin-gated to match RLS (tasks insert). */
+function GlobalNewTask() {
+  const auth = useAuth();
+  const { orgId } = useCurrentOrg();
+  const { isAdmin } = useCurrentMember();
+  const [open, setOpen] = useState(false);
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
+  if (!orgId || !userId || !isAdmin) return null;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="hidden md:inline-flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 p-1.5 text-slate-500 transition"
+        title="Send a task"
+        aria-label="Send a new task"
+      >
+        <Icon name="plus" size={14} />
+      </button>
+      {open && (
+        <GlobalNewTaskModal orgId={orgId} userId={userId} userEmail={userEmail} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function GlobalNewTaskModal({
+  orgId,
+  userId,
+  userEmail,
+  onClose,
+}: {
+  orgId: string;
+  userId: string;
+  userEmail: string | null;
+  onClose: () => void;
+}) {
+  const studies = useOrgTable<StudyRow>("studies", { orderBy: "created_at" });
+  const stages = useOrgTable<PipelineStageRow>("pipeline_stages", { orderBy: "position" });
+  const roles = useOrgTable<TeamRoleRow>("team_roles");
+  const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders");
+  return (
+    <NewTaskModal
+      orgId={orgId}
+      userId={userId}
+      userEmail={userEmail}
+      studies={studies.rows}
+      stages={stages.rows}
+      roles={roles.rows}
+      holders={holders.rows}
+      onClose={onClose}
+      onCreated={onClose}
+    />
+  );
 }
 
 /** Resolved nav shape — what SidebarBody actually renders. */
@@ -210,8 +270,55 @@ export function AppShell({
   }, [isAdmin, orgId, currentHash, onNavigate]);
 
   const userEmail = auth.status === "signedIn" ? auth.user.email ?? "signed in" : "—";
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
 
   const { navGroups } = useResolvedConfig();
+
+  // Wayfinding (Tier-1 UX): the browser tab names the page. Study pages
+  // override this with the study code + tab.
+  useEffect(() => {
+    const c = CRUMBS[currentHash.split("?")[0]];
+    if (c) document.title = `${c.title} · Platypus`;
+    else if (!currentHash.startsWith("#/studies/")) document.title = "Platypus";
+  }, [currentHash]);
+
+  // Sidebar triage badges (Tier-1 UX): numbers beat dots. Refreshed on
+  // navigation — cheap head-count queries, not full table subscriptions.
+  const [navCounts, setNavCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!orgId || !userId) return;
+    let cancelled = false;
+    void (async () => {
+      const { data: hold } = await supabase
+        .from("team_role_holders")
+        .select("team_role_id")
+        .eq("user_id", userId);
+      const roleIds = ((hold ?? []) as any[]).map((h) => h.team_role_id);
+      const mineOr = [
+        `assigned_to_user_id.eq.${userId}`,
+        ...(roleIds.length > 0 ? [`assigned_to_role_id.in.(${roleIds.join(",")})`] : []),
+      ].join(",");
+      const [{ count: inbox }, { count: approvals }] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", orgId)
+          .in("status", ["open", "in_progress"])
+          .or(mineOr),
+        supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", orgId)
+          .in("status", ["open", "in_progress"])
+          .not("action_type", "is", null)
+          .or(mineOr),
+      ]);
+      if (!cancelled) setNavCounts({ inbox: inbox ?? 0, approvals: approvals ?? 0 });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, userId, currentHash]);
 
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
@@ -234,6 +341,7 @@ export function AppShell({
           orgName={orgName}
           tier={tier}
           isAdmin={isAdmin}
+          counts={navCounts}
         />
       </aside>
 
@@ -252,6 +360,7 @@ export function AppShell({
               orgName={orgName}
               tier={tier}
               isAdmin={isAdmin}
+              counts={navCounts}
               onCloseMobile={() => setMobileNavOpen(false)}
             />
           </aside>
@@ -305,6 +414,7 @@ export function AppShell({
               </button>
             </div>
 
+            <GlobalNewTask />
             {isAdmin && (
               <ConfigGearMenu currentHash={currentHash} onNavigate={onNavigate} />
             )}
@@ -437,6 +547,7 @@ function SidebarBody({
   orgName,
   tier,
   isAdmin,
+  counts,
   onCloseMobile,
 }: {
   groups: ResolvedNavGroup[];
@@ -445,6 +556,8 @@ function SidebarBody({
   orgName: string | null;
   tier: string | null;
   isAdmin: boolean;
+  /** Per-nav-key triage counts (e.g. inbox/approvals open items). */
+  counts?: Record<string, number>;
   onCloseMobile?: () => void;
 }) {
   return (
@@ -499,6 +612,17 @@ function SidebarBody({
                         className={active ? "text-brand-600" : "text-slate-400"}
                       />
                       <span className="flex-1">{item.label}</span>
+                      {(counts?.[item.key] ?? 0) > 0 && (
+                        <span
+                          className={
+                            "text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center " +
+                            (active ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-500")
+                          }
+                          aria-label={`${counts![item.key]} open`}
+                        >
+                          {counts![item.key] > 99 ? "99+" : counts![item.key]}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
