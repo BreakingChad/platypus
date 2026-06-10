@@ -243,7 +243,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
       }
       const parts: string[] = [];
       if (res.inserted) parts.push(`${res.inserted} stud${res.inserted === 1 ? "y" : "ies"}`);
-      if (ws.modules) parts.push(`${ws.modules} work-stream module${ws.modules === 1 ? "" : "s"}`);
+      if (ws.modules) parts.push(`${ws.modules} task-flow module${ws.modules === 1 ? "" : "s"}`);
       toast.success(stamped(parts.length ? `Loaded ${parts.join(" + ")}` : "Demo content already loaded"));
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't load demo content"));
@@ -493,7 +493,7 @@ export function GuidedSetup({ onNavigate }: { onNavigate: (h: string) => void })
                   expressLabel={busy === "studies" ? "Loading…" : "Load 8 demo studies"}
                   onExpress={loadDemo}
                   busy={busy === "studies"}
-                  note="Demo studies + work-stream modules across your stages. Existing studies are untouched."
+                  note="Demo studies + task-flow modules across your stages. Existing studies are untouched."
                   customizeLabel="Create a real study"
                   onCustomize={() => gotoDesigner("#/studies")}
                 />

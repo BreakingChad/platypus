@@ -27,6 +27,8 @@ export type HandoffReceiptInsert = {
   assigned_to_team_id: string | null;
   created_by: string;
   position: number;
+  /** 0047 — the completed handoff task this receipt answers (dedupe key). */
+  receipt_of_task_id: string | null;
 };
 
 /** Pure: build the receipt task for a completed handoff (null when the task
@@ -36,7 +38,7 @@ export type HandoffReceiptInsert = {
 export function buildHandoffReceipt(
   task: Pick<
     TaskRow,
-    "org_id" | "study_id" | "stage_key" | "kind" | "title" | "position"
+    "id" | "org_id" | "study_id" | "stage_key" | "kind" | "title" | "position"
       | "handoff_to_role_id" | "handoff_to_team_id" | "handoff_to_stage_key"
   >,
   opts: { holderIds: string[]; actorUserId: string; now?: Date }
@@ -63,6 +65,7 @@ export function buildHandoffReceipt(
     assigned_to_team_id: toTeam,
     created_by: opts.actorUserId,
     position: task.position ?? 0,
+    receipt_of_task_id: task.id ?? null,
   };
 }
 
@@ -81,13 +84,25 @@ export async function maybeSpawnHandoffReceipt(opts: {
     return { spawned: false, toRoleTitle: null, toTeamName: null };
   }
 
-  // Duplicate guard — an open receipt for this handoff already exists.
+  // Duplicate guard (0047): keyed on the SOURCE TASK, not the title — two
+  // same-titled handoffs each get their own receipt.
+  const { data: existingById } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("org_id", opts.orgId)
+    .eq("receipt_of_task_id", t.id)
+    .limit(1);
+  if (existingById && existingById.length > 0) {
+    return { spawned: false, toRoleTitle: null, toTeamName: null };
+  }
+  // Legacy fallback: receipts spawned pre-0047 carry no source link.
   const title = `${HANDOFF_RECEIPT_PREFIX}${t.title}`;
   let dupQuery = supabase
     .from("tasks")
     .select("id")
     .eq("org_id", opts.orgId)
     .eq("title", title)
+    .is("receipt_of_task_id", null)
     .in("status", ["open", "in_progress"])
     .limit(1);
   dupQuery = t.study_id ? dupQuery.eq("study_id", t.study_id) : dupQuery.is("study_id", null);
@@ -135,6 +150,25 @@ export async function maybeSpawnHandoffReceipt(opts: {
       receipt_task_id: (created as any)?.id ?? null,
     },
   });
+  // 0047: the receipt task gets its own audit root — the receiving side of
+  // the baton is part of the chain too, not just the throw.
+  if ((created as any)?.id) {
+    void writeAuditEvent({
+      orgId: opts.orgId,
+      actorId: opts.actorUserId,
+      actorEmail: opts.actorEmail,
+      entityType: "task",
+      entityId: (created as any).id,
+      action: "handoff_receipt_spawned",
+      payload: {
+        from_task_id: t.id,
+        from_title: t.title,
+        study_id: t.study_id,
+        to_role: roleTitle,
+        to_team: teamName,
+      },
+    });
+  }
 
   return { spawned: true, toRoleTitle: roleTitle, toTeamName: teamName };
 }

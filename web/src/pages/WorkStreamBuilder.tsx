@@ -35,6 +35,7 @@ import type {
   PipelineStageRow,
   TeamRow,
   TeamRoleRow,
+  TeamRoleHolderRow,
   WorkflowModuleRow,
   WorkflowTaskTemplateRow,
   TaskKind,
@@ -834,6 +835,14 @@ function ModuleDrawer({
     return roles.filter((r) => r.team_id === mod.owner_team_id);
   }, [roles, mod.owner_team_id]);
 
+  // 0047 review fix #9: warn at design time when a role has no holders —
+  // its spawned tasks would queue unowned.
+  const holders = useOrgTable<TeamRoleHolderRow>("team_role_holders");
+  const emptyRoleIds = useMemo(() => {
+    const held = new Set(holders.rows.map((h) => h.team_role_id));
+    return new Set(availableRoles.filter((r) => !held.has(r.id)).map((r) => r.id));
+  }, [holders.rows, availableRoles]);
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} aria-hidden="true" />
@@ -886,7 +895,7 @@ function ModuleDrawer({
               <div className="text-xs font-semibold text-slate-700">Task templates <span className="text-slate-400 font-normal">({templates?.length ?? 0})</span></div>
             </div>
             <p className="text-[11px] text-slate-500 mb-2">These fire as tasks when a study reaches <span className="font-semibold">{stageLabel}</span>. Drag to reorder.</p>
-            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} />
+            <TemplatesList moduleId={mod.id} templates={templates} setTemplates={setTemplates} availableRoles={availableRoles} allRoles={roles} teams={teams} stages={stages} onChanged={onTemplatesChanged} onHandoffTarget={onEnsureReceiver} emptyRoleIds={emptyRoleIds} />
           </div>
         </div>
 
@@ -906,7 +915,7 @@ function ModuleDrawer({
  * ========================================================================== */
 
 function TemplatesList({
-  moduleId, templates, setTemplates, availableRoles, allRoles, teams, stages, onChanged, onHandoffTarget,
+  moduleId, templates, setTemplates, availableRoles, allRoles, teams, stages, onChanged, onHandoffTarget, emptyRoleIds,
 }: {
   moduleId: string;
   templates: WorkflowTaskTemplateRow[] | null;
@@ -917,6 +926,7 @@ function TemplatesList({
   stages: PipelineStageRow[];
   onChanged?: () => void;
   onHandoffTarget?: (stageKey: string, teamId: string, title: string) => void;
+  emptyRoleIds?: Set<string>;
 }) {
   const toast = useToast();
   const sensors = useSensors(
@@ -994,6 +1004,7 @@ function TemplatesList({
             <div className="space-y-1.5">
               {templates.map((t) => (
                 <TemplateRow key={t.id} template={t} availableRoles={availableRoles} allRoles={allRoles} teams={teams} stages={stages}
+                  emptyRoleIds={emptyRoleIds}
                   onUpdate={(patch) => updateTemplate(t.id, patch)} onRemove={() => removeTemplate(t.id)} />
               ))}
             </div>
@@ -1008,13 +1019,15 @@ function TemplatesList({
 }
 
 function TemplateRow({
-  template, availableRoles, allRoles, teams, stages, onUpdate, onRemove,
+  template, availableRoles, allRoles, teams, stages, emptyRoleIds, onUpdate, onRemove,
 }: {
   template: WorkflowTaskTemplateRow;
   availableRoles: TeamRoleRow[];
   allRoles: TeamRoleRow[];
   teams: TeamRow[];
   stages: PipelineStageRow[];
+  /** Roles with zero holders — tasks assigned to them queue unowned. */
+  emptyRoleIds?: Set<string>;
   onUpdate: (patch: Partial<WorkflowTaskTemplateRow>) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
@@ -1059,6 +1072,11 @@ function TemplateRow({
           {availableRoles.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
         </Select>
       </div>
+      {template.assigned_to_role_id && emptyRoleIds?.has(template.assigned_to_role_id) && (
+        <div className="mt-1 ml-7 text-[10px] font-semibold text-amber-600">
+          Nobody holds this role yet — spawned tasks will sit unassigned on the role queue. Add a holder in Team Builder.
+        </div>
+      )}
       {template.kind === "handoff" && (
         <div className="mt-1.5 ml-7 flex items-center gap-2 text-[11px] text-slate-600 flex-wrap">
           <Icon name="arrow-right" size={11} className="text-slate-400 flex-shrink-0" />

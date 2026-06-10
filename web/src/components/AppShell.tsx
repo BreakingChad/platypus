@@ -7,6 +7,8 @@ import { useMyProfile } from "../lib/useMyProfile";
 import { displayName } from "../lib/types";
 import { useResolvedConfig } from "../lib/useResolvedConfig";
 import { setPreviewRole, usePreviewRole } from "../lib/previewRole";
+import { AUDIT_WRITE_FAILED_EVENT } from "../lib/auditLog";
+import { useToast } from "../lib/Toast";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { BrandMark } from "./ui/BrandMark";
 import { UserAvatar } from "./ui/UserAvatar";
@@ -21,6 +23,23 @@ import { CommandPalette } from "./CommandPalette";
  *    slide-in drawer. The drawer auto-closes on navigation and on Esc.
  *  - Mounts the Cmd-K palette globally.
  */
+
+/** Surfaces failed audit writes as a visible warning (0047) — the action
+ *  succeeded but its trail entry didn't, which a regulated org must know. */
+function AuditFailureWatcher() {
+  const toast = useToast();
+  useEffect(() => {
+    const onFail = (e: Event) => {
+      const d = (e as CustomEvent).detail as { action?: string } | undefined;
+      toast.error(
+        `Heads up: the last action (${d?.action ?? "unknown"}) saved, but its audit-trail entry failed to record. Retry the action or report this.`
+      );
+    };
+    window.addEventListener(AUDIT_WRITE_FAILED_EVENT, onFail);
+    return () => window.removeEventListener(AUDIT_WRITE_FAILED_EVENT, onFail);
+  }, [toast]);
+  return null;
+}
 
 /** Resolved nav shape — what SidebarBody actually renders. */
 type ResolvedNavItem = {
@@ -161,6 +180,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[#faf8f4] text-slate-900 flex">
+      <AuditFailureWatcher />
       {/* Skip link for keyboard / screen-reader users */}
       <a
         href="#platypus-main"

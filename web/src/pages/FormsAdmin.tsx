@@ -64,7 +64,7 @@ export function FormsAdmin() {
   const copy = async (text: string, what: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${what} copied to clipboard`);
+      toast.success(stamped(`${what} copied to clipboard`));
     } catch {
       toast.error("Couldn't reach the clipboard — copy from the address bar instead");
     }

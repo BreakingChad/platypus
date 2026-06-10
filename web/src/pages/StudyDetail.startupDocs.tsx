@@ -6,6 +6,7 @@ import { useAuth } from "../auth/useAuth";
 import { useToast } from "../lib/Toast";
 import { friendlyError } from "../lib/errors";
 import { confirmDialog } from "../lib/confirm";
+import { writeAuditEvent } from "../lib/auditLog";
 import { stamped } from "../lib/stamp";
 import { fmtDay } from "../lib/dates";
 import type { StartupDocumentRow, StudyRow } from "../lib/types";
@@ -37,7 +38,18 @@ export function StartupDocsTab({ study }: { study: StudyRow }) {
   const { orgId } = useCurrentOrg();
   const auth = useAuth();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userEmail = auth.status === "signedIn" ? auth.user.email ?? null : null;
   const toast = useToast();
+
+  /** Every doc action lands in the study's audit chain (0047 review fix). */
+  const audit = (action: string, payload: Record<string, unknown>) => {
+    if (!orgId || !userId) return;
+    void writeAuditEvent({
+      orgId, actorId: userId, actorEmail: userEmail,
+      entityType: "study", entityId: study.id,
+      action, payload,
+    });
+  };
 
   const { rows, loading, error, insert, update, remove } = useOrgTable<StartupDocumentRow>(
     "startup_documents",
@@ -80,6 +92,7 @@ export function StartupDocsTab({ study }: { study: StudyRow }) {
           content_type: f.type || null,
           size_bytes: f.size,
         } as Partial<StartupDocumentRow>);
+        audit("startup_doc_added", { title: f.name, bucket: bucketKey, size_bytes: f.size });
         ok += 1;
       }
       if (ok > 0) {
@@ -112,14 +125,16 @@ export function StartupDocsTab({ study }: { study: StudyRow }) {
   const rename = (d: StartupDocumentRow, title: string) => {
     const t = title.trim();
     if (!t || t === d.title) return;
-    update(d.id, { title: t }).catch((e: any) => toast.error(friendlyError(e, "Couldn't rename")));
+    update(d.id, { title: t })
+      .then(() => audit("startup_doc_renamed", { from: d.title, to: t, bucket: d.bucket }))
+      .catch((e: any) => toast.error(friendlyError(e, "Couldn't rename")));
   };
 
   const moveTo = (d: StartupDocumentRow, bucketKey: string) => {
     if (d.bucket === bucketKey) return;
-    update(d.id, { bucket: bucketKey }).catch((e: any) =>
-      toast.error(friendlyError(e, "Couldn't move it"))
-    );
+    update(d.id, { bucket: bucketKey })
+      .then(() => audit("startup_doc_moved", { title: d.title, from: d.bucket, to: bucketKey }))
+      .catch((e: any) => toast.error(friendlyError(e, "Couldn't move it")));
   };
 
   const removeDoc = async (d: StartupDocumentRow) => {
@@ -135,6 +150,7 @@ export function StartupDocsTab({ study }: { study: StudyRow }) {
         await supabase.storage.from(STORAGE_BUCKET).remove([d.file_path]);
       }
       await remove(d.id);
+      audit("startup_doc_deleted", { title: d.title, bucket: d.bucket, had_file: !!d.file_path });
       toast.success(stamped(`"${d.title}" deleted`));
     } catch (e: any) {
       toast.error(friendlyError(e, "Couldn't delete it"));

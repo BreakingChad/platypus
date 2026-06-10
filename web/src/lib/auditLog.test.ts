@@ -32,13 +32,14 @@ function computeFnv1aLocal(input: string): string {
 }
 
 describe("verifyChain", () => {
-  it("returns ok for a clean two-event chain", () => {
+  it("returns ok for a clean two-event chain (full content verification via ts)", () => {
     const events = [
       {
         id: "e1",
         prev_hash: null,
         event_hash: KNOWN_HASH_1,
         created_at: "t1",
+        ts: "t1",
         actor_id: "alice",
         action: "created",
         payload: {},
@@ -48,6 +49,7 @@ describe("verifyChain", () => {
         prev_hash: KNOWN_HASH_1,
         event_hash: KNOWN_HASH_2,
         created_at: "t2",
+        ts: "t2",
         actor_id: "alice",
         action: "closed",
         payload: {},
@@ -55,7 +57,39 @@ describe("verifyChain", () => {
     ];
     const r = verifyChain(events);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.count).toBe(2);
+    if (r.ok) {
+      expect(r.count).toBe(2);
+      expect(r.legacyCount).toBe(0);
+    }
+  });
+
+  it("legacy events (no ts) are linkage-verified only and counted", () => {
+    const events = [
+      {
+        id: "e1",
+        prev_hash: null,
+        event_hash: "aaaaaaaa", // content can't be recomputed without ts
+        created_at: "t1",
+        actor_id: "alice",
+        action: "created",
+        payload: { anything: true },
+      },
+      {
+        id: "e2",
+        prev_hash: "aaaaaaaa",
+        event_hash: "bbbbbbbb",
+        created_at: "t2",
+        actor_id: "alice",
+        action: "closed",
+        payload: {},
+      },
+    ];
+    const r = verifyChain(events);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.legacyCount).toBe(2);
+    // ...but broken linkage in legacy chains is still caught:
+    const broken = verifyChain([events[0], { ...events[1], prev_hash: "deadbeef" }]);
+    expect(broken.ok).toBe(false);
   });
 
   it("detects prev_hash mismatch (broken linkage)", () => {
@@ -74,6 +108,7 @@ describe("verifyChain", () => {
         prev_hash: "deadbeef", // wrong
         event_hash: KNOWN_HASH_2,
         created_at: "t2",
+        ts: "t2",
         actor_id: "alice",
         action: "closed",
         payload: {},
@@ -94,6 +129,7 @@ describe("verifyChain", () => {
         prev_hash: null,
         event_hash: KNOWN_HASH_1,
         created_at: "t1",
+        ts: "t1",
         actor_id: "alice",
         action: "created",
         payload: { tampered: true }, // doesn't match the hash
@@ -117,6 +153,7 @@ describe("verifyChain", () => {
         prev_hash: KNOWN_HASH_1,
         event_hash: KNOWN_HASH_2,
         created_at: "t2",
+        ts: "t2",
         actor_id: "alice",
         action: "closed",
         payload: {},
@@ -126,6 +163,7 @@ describe("verifyChain", () => {
         prev_hash: null,
         event_hash: KNOWN_HASH_1,
         created_at: "t1",
+        ts: "t1",
         actor_id: "alice",
         action: "created",
         payload: {},

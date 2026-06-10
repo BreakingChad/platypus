@@ -17,6 +17,7 @@ import { spawnTasksForStageEntry } from "../lib/workStreamEngine";
 import { useAuth } from "../auth/useAuth";
 import { useToast } from "../lib/Toast";
 import { writeAuditEvent } from "../lib/auditLog";
+import { stamped } from "../lib/stamp";
 
 /** WorkStreamPanel — read-only visualization of the task flow modules
  *  configured for a study's current stage. Lists each module + its task
@@ -132,7 +133,7 @@ export function WorkStreamPanel({
         actorUserId: userId,
       });
       if (res.spawned > 0) {
-        toast.success(`Spawned ${res.spawned} task${res.spawned === 1 ? "" : "s"}${res.skipped > 0 ? ` (skipped ${res.skipped} already-open)` : ""}`);
+        toast.success(stamped(`Spawned ${res.spawned} task${res.spawned === 1 ? "" : "s"}${res.skipped > 0 ? ` (skipped ${res.skipped} already-open)` : ""}`));
         // Log a deliberate manual re-run as an audit event so the trail is complete.
         void writeAuditEvent({
           orgId, actorId: userId, actorEmail: userEmail,
@@ -184,7 +185,7 @@ export function WorkStreamPanel({
       <div className="mt-6 rounded-xl border border-slate-200 bg-white px-4 py-3 flex items-center gap-2 flex-wrap">
         <Icon name="workflow" size={14} className="text-slate-400 flex-shrink-0" />
         <span className="text-xs text-slate-500">
-          No work-stream modules fire at <span className="font-semibold text-slate-700">{stage.label}</span> yet.
+          No task-flow modules fire at <span className="font-semibold text-slate-700">{stage.label}</span> yet.
         </span>
         {isAdmin && onNavigate && (
           <button

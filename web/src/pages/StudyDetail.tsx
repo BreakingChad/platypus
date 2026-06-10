@@ -365,6 +365,54 @@ export function StudyDetail({
     }
     setAdvancing(true);
     try {
+      // 0047: moving BACKWARD strands open tasks in later stages. Make it a
+      // deliberate, audited act: confirm the move, then choose the tasks' fate.
+      const orderedKeys = studyStages.map((s) => s.key);
+      const fromIdx = orderedKeys.indexOf(study.stage_key ?? "");
+      const toIdx = orderedKeys.indexOf(nextKey);
+      if (fromIdx >= 0 && toIdx >= 0 && toIdx < fromIdx) {
+        const laterKeys = orderedKeys.slice(toIdx + 1);
+        const { data: openLater } = await supabase
+          .from("tasks")
+          .select("id")
+          .eq("study_id", study.id)
+          .in("status", ["open", "in_progress"])
+          .in("stage_key", laterKeys);
+        const ids = ((openLater ?? []) as { id: string }[]).map((r) => r.id);
+        if (ids.length > 0) {
+          const n = ids.length;
+          const toLabel = stages.rows.find((s) => s.key === nextKey)?.label ?? nextKey;
+          const ok = await confirmDialog({
+            title: "Move study backward?",
+            message: `${n} open task${n === 1 ? "" : "s"} belong${n === 1 ? "s" : ""} to stages after ${toLabel}. The move is audited either way; next you'll choose what happens to ${n === 1 ? "that task" : "those tasks"}.`,
+            confirmLabel: "Move backward",
+          });
+          if (!ok) return;
+          const cancelTasks = await confirmDialog({
+            title: `Cancel the ${n} later-stage task${n === 1 ? "" : "s"}?`,
+            message: `"Cancel tasks" marks them cancelled (audited, recoverable by admins). "Keep them open" leaves them live in their original stages.`,
+            confirmLabel: "Cancel tasks",
+            cancelLabel: "Keep them open",
+          });
+          if (cancelTasks) {
+            const { error: cErr } = await supabase
+              .from("tasks")
+              .update({ status: "cancelled" } as any)
+              .in("id", ids);
+            if (cErr) throw cErr;
+            if (orgId && userId) {
+              void writeAuditEvent({
+                orgId, actorId: userId, actorEmail: userEmail,
+                entityType: "study", entityId: study.id,
+                action: "tasks_cancelled_on_stage_regression",
+                payload: { count: n, moved_to: nextKey, task_ids: ids },
+              });
+            }
+            toast.success(stamped(`${n} later-stage task${n === 1 ? "" : "s"} cancelled`));
+          }
+        }
+      }
+
       const patch: Partial<StudyRow> = { stage_key: nextKey };
       // First time we transition out of intake we record committed_at.
       if (study.stage_key === "intake" && nextKey !== "intake" && !study.committed_at) {
@@ -559,11 +607,19 @@ export function StudyDetail({
               isAdmin={isAdmin}
               onSetSponsor={async (id) => {
                 const name = id ? (sponsors.rows.find((s) => s.id === id)?.name ?? null) : null;
-                try { await supabase.from("studies").update({ sponsor_id: id, sponsor: name } as any).eq("id", study.id); toast.success(stamped("Sponsor updated")); }
+                try {
+                  await supabase.from("studies").update({ sponsor_id: id, sponsor: name } as any).eq("id", study.id);
+                  if (orgId && userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "sponsor_changed", payload: { sponsor_id: id, sponsor: name } });
+                  toast.success(stamped("Sponsor updated"));
+                }
                 catch (e: any) { toast.error(friendlyError(e, "Couldn't set sponsor")); }
               }}
               onSetCro={async (id) => {
-                try { await supabase.from("studies").update({ cro_id: id } as any).eq("id", study.id); toast.success(stamped("CRO updated")); }
+                try {
+                  await supabase.from("studies").update({ cro_id: id } as any).eq("id", study.id);
+                  if (orgId && userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "cro_changed", payload: { cro_id: id, cro: cros.rows.find((c) => c.id === id)?.name ?? null } });
+                  toast.success(stamped("CRO updated"));
+                }
                 catch (e: any) { toast.error(friendlyError(e, "Couldn't set CRO")); }
               }}
               onCreateSponsor={async (name) => {
@@ -572,6 +628,7 @@ export function StudyDetail({
                   const { data, error } = await supabase.from("sponsors").insert({ org_id: orgId, name, status: "active" } as any).select("id").single();
                   if (error) throw error;
                   await supabase.from("studies").update({ sponsor_id: (data as any).id, sponsor: name } as any).eq("id", study.id);
+                  if (userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "sponsor_changed", payload: { sponsor_id: (data as any).id, sponsor: name, created: true } });
                   toast.success(stamped(`Sponsor "${name}" added`));
                 } catch (e: any) { toast.error(friendlyError(e, "Couldn't add sponsor")); }
               }}
@@ -581,6 +638,7 @@ export function StudyDetail({
                   const { data, error } = await supabase.from("cros").insert({ org_id: orgId, name, status: "active" } as any).select("id").single();
                   if (error) throw error;
                   await supabase.from("studies").update({ cro_id: (data as any).id } as any).eq("id", study.id);
+                  if (userId) void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "cro_changed", payload: { cro_id: (data as any).id, cro: name, created: true } });
                   toast.success(stamped(`CRO "${name}" added`));
                 } catch (e: any) { toast.error(friendlyError(e, "Couldn't add CRO")); }
               }}

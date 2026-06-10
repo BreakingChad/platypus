@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildHandoffReceipt, HANDOFF_RECEIPT_PREFIX } from "./handoff";
 
 const base = {
+  id: "task1",
   org_id: "org1",
   study_id: "study1",
   stage_key: "regulatory",
@@ -32,6 +33,7 @@ describe("buildHandoffReceipt", () => {
     expect(r.study_id).toBe("study1");
     expect(r.stage_key).toBe("regulatory");
     expect(r.created_by).toBe("u1");
+    expect(r.receipt_of_task_id).toBe("task1"); // 0047 dedupe key
   });
 
   it("is due 2 days after completion", () => {

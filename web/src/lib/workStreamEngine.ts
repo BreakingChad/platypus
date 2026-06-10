@@ -108,17 +108,23 @@ export async function spawnTasksForStageEntry(opts: {
     return { user: null, covered: userId }; // OOO without usable delegate -> role queue
   };
 
-  // 4. Idempotency: figure out which (study, stage_key, title) tuples already
-  //    have an OPEN task spawned from this configuration. We avoid duplicates
-  //    when an admin re-enters the same stage manually.
+  // 4. Idempotency (0047): keyed on the TEMPLATE that spawned the task, so
+  //    same-titled tasks from different modules don't shadow each other.
+  //    Legacy open tasks (spawned pre-0047, no template_id) fall back to a
+  //    title match so re-entering an old stage still doesn't double-spawn.
   const { data: existing } = await supabase
     .from("tasks")
-    .select("title")
+    .select("title, template_id")
     .eq("study_id", opts.studyId)
     .eq("stage_key", opts.stageKey)
     .in("status", ["open", "in_progress"]);
-  const existingTitles = new Set<string>(
-    (existing ?? []).map((r: any) => (r.title as string).toLowerCase())
+  const existingTemplateIds = new Set<string>(
+    ((existing ?? []) as any[]).map((r) => r.template_id as string | null).filter(Boolean) as string[]
+  );
+  const legacyTitles = new Set<string>(
+    ((existing ?? []) as any[])
+      .filter((r) => !r.template_id)
+      .map((r) => (r.title as string).toLowerCase())
   );
 
   // 5. Build the inserts.
@@ -138,11 +144,15 @@ export async function spawnTasksForStageEntry(opts: {
     handoff_to_stage_key: string | null;
     created_by: string;
     position: number;
+    template_id: string | null;
   };
   const inserts: Insert[] = [];
   let skipped = 0;
   for (const tpl of templates as any[]) {
-    if (existingTitles.has((tpl.title as string).toLowerCase())) {
+    if (
+      existingTemplateIds.has(tpl.id as string) ||
+      legacyTitles.has((tpl.title as string).toLowerCase())
+    ) {
       skipped += 1;
       continue;
     }
@@ -179,6 +189,7 @@ export async function spawnTasksForStageEntry(opts: {
         ? "Covering while the assigned holder is out of office."
         : (tpl.description ?? null),
       position: tpl.position ?? 0,
+      template_id: tpl.id ?? null,
     });
   }
 

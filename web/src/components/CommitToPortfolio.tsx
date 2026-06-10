@@ -41,12 +41,20 @@ export function IntakeDecisionBar({
   const workstreams = useOrgTable<WorkstreamRow>("workstreams", {});
   const [open, setOpen] = useState(false);
 
+  // 0047 review fix #8: a study with no task flow used to silently commit
+  // onto an arbitrary pipeline. If the org has task flows, picking one is
+  // now part of the commit ceremony.
+  const activeWs = workstreams.rows.filter((w) => (w as any).status === "active");
+  const [pickedWsId, setPickedWsId] = useState<string>("");
+  const effectiveWsId = study.workstream_id ?? (pickedWsId || null);
+  const needsWsPick = activeWs.length > 0 && !effectiveWsId;
+
   /** Commit drops the study onto the FIRST non-terminal stage of the pipeline
    *  its task flow belongs to (0040). Falls back to the first non-intake,
-   *  non-terminal stage org-wide for studies with no task flow. */
+   *  non-terminal stage org-wide only when the org has no task flows at all. */
   const commitStage = useMemo(() => {
-    const pipelineId = study.workstream_id
-      ? workstreams.rows.find((w) => w.id === study.workstream_id)?.pipeline_id ?? null
+    const pipelineId = effectiveWsId
+      ? workstreams.rows.find((w) => w.id === effectiveWsId)?.pipeline_id ?? null
       : null;
     if (pipelineId) {
       return (
@@ -56,7 +64,7 @@ export function IntakeDecisionBar({
       );
     }
     return stages.rows.find((s) => s.key !== "intake" && !s.terminal) ?? null;
-  }, [stages.rows, workstreams.rows, study.workstream_id]);
+  }, [stages.rows, workstreams.rows, effectiveWsId]);
   const studyFields = fields.rows.filter((f) => f.entity_type === "study" && f.enabled);
   const comp = completeness(study, studyFields);
 
@@ -93,17 +101,25 @@ export function IntakeDecisionBar({
 
   const commit = async () => {
     if (!orgId || !userId || !commitStage) return;
+    if (needsWsPick) return; // the modal blocks this, belt-and-braces
     try {
+      const patch: Record<string, unknown> = {
+        stage_key: commitStage.key,
+        committed_at: new Date().toISOString(),
+        intake_status: "committed",
+        stage_entered_at: new Date().toISOString(),
+      };
+      if (!study.workstream_id && effectiveWsId) patch.workstream_id = effectiveWsId;
       const { error } = await supabase
         .from("studies")
-        .update({ stage_key: commitStage.key, committed_at: new Date().toISOString(), intake_status: "committed", stage_entered_at: new Date().toISOString() } as never)
+        .update(patch as never)
         .eq("id", study.id);
       if (error) throw error;
-      void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "committed_to_portfolio", payload: { code: study.code, to_stage: commitStage.key, to_label: commitStage.label } });
+      void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "committed_to_portfolio", payload: { code: study.code, to_stage: commitStage.key, to_label: commitStage.label, workstream_id: effectiveWsId ?? null } });
       void writeAuditEvent({ orgId, actorId: userId, actorEmail: userEmail, entityType: "study", entityId: study.id, action: "stage_changed", payload: { from: study.stage_key ?? null, to: commitStage.key, from_label: "Intake", to_label: commitStage.label, source: "intake_commit" } });
       let spawned = 0;
       try {
-        const res = await spawnTasksForStageEntry({ orgId, studyId: study.id, stageKey: commitStage.key, workstreamId: study.workstream_id, actorUserId: userId });
+        const res = await spawnTasksForStageEntry({ orgId, studyId: study.id, stageKey: commitStage.key, workstreamId: effectiveWsId, actorUserId: userId });
         spawned = res.spawned;
       } catch { /* engine failure shouldn't block commit */ }
       toast.success(stamped(`Committed ${study.code} to ${commitStage.label}` + (spawned > 0 ? ` — ${spawned} task${spawned === 1 ? "" : "s"} spawned` : "")));
@@ -140,10 +156,34 @@ export function IntakeDecisionBar({
         <CommitModal
           study={study}
           commitStage={commitStage}
-          modules={modules.rows.filter((m) => m.stage_key === commitStage.key && m.enabled && m.workstream_id === study.workstream_id)}
+          modules={modules.rows.filter((m) => m.stage_key === commitStage.key && m.enabled && m.workstream_id === effectiveWsId)}
           completenessInfo={comp}
           onClose={() => setOpen(false)}
           onCommit={commit}
+          confirmBlocked={needsWsPick}
+          wsPicker={
+            !study.workstream_id && activeWs.length > 0 ? (
+              <div>
+                <div className="text-xs font-semibold text-slate-500 mb-1">
+                  Task flow <span className="text-brand-600 font-bold">*</span>
+                </div>
+                <select
+                  value={pickedWsId}
+                  onChange={(e) => setPickedWsId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                  aria-label="Task flow this study runs on"
+                >
+                  <option value="">— Choose the task flow this study runs on —</option>
+                  {activeWs.map((w) => (
+                    <option key={w.id} value={w.id}>{(w as any).name}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Sets the pipeline and the tasks that fire at each stage. Required before commit.
+                </p>
+              </div>
+            ) : null
+          }
         />
       )}
     </>
@@ -157,6 +197,8 @@ function CommitModal({
   completenessInfo,
   onClose,
   onCommit,
+  wsPicker,
+  confirmBlocked = false,
 }: {
   study: StudyRow;
   commitStage: PipelineStageRow;
@@ -164,6 +206,9 @@ function CommitModal({
   completenessInfo: { pct: number; missingRequired: string[] };
   onClose: () => void;
   onCommit: () => Promise<void>;
+  /** Task-flow picker shown when the study doesn't have one yet (0047 #8). */
+  wsPicker?: React.ReactNode;
+  confirmBlocked?: boolean;
 }) {
   const dlgRef = useModalA11y<HTMLDivElement>(onClose);
   const [busy, setBusy] = useState(false);
@@ -192,6 +237,7 @@ function CommitModal({
           </p>
         </div>
         <div className="p-5 space-y-4">
+          {wsPicker}
           {completenessInfo.missingRequired.length > 0 && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
               <strong>{completenessInfo.missingRequired.length} required field
@@ -206,8 +252,9 @@ function CommitModal({
             </div>
             {modules.length === 0 ? (
               <div className="text-sm text-slate-500">
-                No task flow modules configured for {commitStage.label} — no tasks auto-spawn.
-                Configure them in Work Streams.
+                {confirmBlocked
+                  ? "Pick a task flow above to preview what fires at commit."
+                  : `No task-flow modules configured for ${commitStage.label} — no tasks auto-spawn. Configure them in Workstreams → Task flows.`}
               </div>
             ) : (
               <ul className="space-y-1.5">
@@ -227,7 +274,7 @@ function CommitModal({
           </Button>
           <Button
             variant="primary"
-            disabled={busy}
+            disabled={busy || confirmBlocked}
             onClick={async () => {
               setBusy(true);
               try {

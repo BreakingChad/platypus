@@ -130,6 +130,8 @@ export type AuditEventRow = {
   payload: Record<string, unknown>;
   prev_hash: string | null;
   event_hash: string;
+  /** 0047 — the exact timestamp string that was hashed (null = legacy row). */
+  ts?: string | null;
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;
@@ -160,6 +162,9 @@ export type TaskRow = {
   /** Team handoffs (0041): the team + stage the work hands off to. */
   handoff_to_team_id?: string | null;
   handoff_to_stage_key?: string | null;
+  /** 0047 — template-keyed spawn idempotency + receipt lineage. */
+  template_id?: string | null;
+  receipt_of_task_id?: string | null;
   completed_at: string | null;
   completed_by: string | null;
   created_by: string | null;
