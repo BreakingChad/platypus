@@ -330,6 +330,15 @@ export function StageDesigner({
         </Card>
       ) : (
         <>
+          {/* Actions live at the TOP (design principle #3). */}
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-500">
+              {stages.length} stage{stages.length === 1 ? "" : "s"} on this pipeline
+            </span>
+            <Button variant="primary" size="sm" onClick={() => void addStage()}>
+              <Icon name="plus" size={12} /> Add stage
+            </Button>
+          </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <div>
@@ -364,10 +373,6 @@ export function StageDesigner({
             <span className="text-[11px] text-slate-400">· parallel stages count the longest lane</span>
           </div>
 
-          <button onClick={() => void addStage()}
-            className="w-full rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-brand-300 hover:text-brand-700 transition flex items-center justify-center gap-1.5 text-sm font-semibold py-3">
-            <Icon name="plus" size={14} /> Add stage
-          </button>
         </>
       )}
 

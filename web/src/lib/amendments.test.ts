@@ -36,7 +36,7 @@ describe("buildAmendmentInsert", () => {
     stage_key: "activation", committed_at: "2026-06-02",
   });
   it("copies identity, resets lifecycle, wires lineage", () => {
-    const a = buildAmendmentInsert(orig, { code: "BAN-002", versionLabel: "v2", purpose: "", createdBy: "u1" });
+    const a = buildAmendmentInsert(orig, { code: "BAN-002", versionLabel: "v2", purpose: "" });
     expect(a.study_kind).toBe("amendment");
     expect(a.root_study_id).toBe("a");
     expect(a.amendment_of).toBe("a");
@@ -48,7 +48,7 @@ describe("buildAmendmentInsert", () => {
   });
   it("inherits the root for an amendment-of-an-amendment", () => {
     const v2 = study({ id: "b", root_study_id: "a", amendment_of: "a" });
-    const a = buildAmendmentInsert(v2, { code: "BAN-003", versionLabel: "v3", purpose: "", createdBy: null });
+    const a = buildAmendmentInsert(v2, { code: "BAN-003", versionLabel: "v3", purpose: "" });
     expect(a.root_study_id).toBe("a");
     expect(a.amendment_of).toBe("b");
   });

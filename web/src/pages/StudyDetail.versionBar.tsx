@@ -370,7 +370,7 @@ function AmendmentModal({
       const { data: codes } = await supabase.from("studies").select("code").eq("org_id", orgId);
       const { data: org } = await supabase.from("orgs").select("project_id_prefix").eq("id", orgId).maybeSingle();
       const code = nextStudyCode(((codes ?? []) as { code: string }[]).map((c) => c.code), (org as any)?.project_id_prefix || "STU");
-      const insert = buildAmendmentInsert(original, { code, versionLabel, purpose, createdBy: userId });
+      const insert = buildAmendmentInsert(original, { code, versionLabel, purpose });
       const { data: created, error } = await supabase.from("studies").insert(insert as any).select("id, code").single();
       if (error) throw error;
       const newId = (created as any).id as string;

@@ -20,10 +20,12 @@ export function rootIdOf(s: StudyRow): string {
 }
 
 /** Build the insert for a new amendment off `original`. Copies identity +
- *  custom fields; resets lifecycle to intake; wires the lineage. */
+ *  custom fields; resets lifecycle to intake; wires the lineage.
+ *  NOTE: studies has no created_by column — the creator is recorded by the
+ *  amendment_created audit event (sending the field broke every insert). */
 export function buildAmendmentInsert(
   original: StudyRow,
-  opts: { code: string; versionLabel: string; purpose: string; createdBy: string | null }
+  opts: { code: string; versionLabel: string; purpose: string }
 ): Partial<StudyRow> {
   return {
     org_id: original.org_id,
@@ -45,7 +47,6 @@ export function buildAmendmentInsert(
     stage_key: "intake",
     intake_status: "submitted",
     intake_date: new Date().toISOString(),
-    created_by: opts.createdBy,
   } as Partial<StudyRow>;
 }
 
