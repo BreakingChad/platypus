@@ -19,6 +19,7 @@ import { ComingSoon } from "./pages/ComingSoon";
 const StudyDetail          = lazy(() => import("./pages/StudyDetail").then(m => ({ default: m.StudyDetail })));
 const FieldsDesigner       = lazy(() => import("./pages/FieldsDesigner").then(m => ({ default: m.FieldsDesigner })));
 const Workstreams          = lazy(() => import("./pages/Workstreams").then(m => ({ default: m.Workstreams })));
+const Analytics            = lazy(() => import("./pages/Analytics").then(m => ({ default: m.Analytics })));
 const TeamBuilder          = lazy(() => import("./pages/TeamBuilder").then(m => ({ default: m.TeamBuilder })));
 const AccessRoles          = lazy(() => import("./pages/AccessRoles").then(m => ({ default: m.AccessRoles })));
 const OrgSettings          = lazy(() => import("./pages/OrgSettings").then(m => ({ default: m.OrgSettings })));
@@ -75,7 +76,7 @@ function renderRoute(
   if (hash === "#/amendments")
     return { node: <IntakeTriage onNavigate={navigate} initialTab="amendments" /> };
   if (hash === "#/analytics")
-    return { node: <ComingSoon kicker="Insights" title="Analytics" iconName="workflow" description="Cycle time per stage, throughput per site, workload — with CSV export. Root-study rollups arrive with the multi-site model." onBackToHome={() => navigate("#/")} /> };
+    return { node: <Analytics onNavigate={navigate} /> };
   if (hash === "#/binders")
     return { node: <ComingSoon kicker="Documents" title="Binders" iconName="shield" description="eReg / eISF digital binders on the CDISC framework — version control, Part 11 e-signatures, monitor access. On the roadmap for 2027. Today, each study's files live on its Startup docs tab — drag in, name it, done." onBackToHome={() => navigate("#/")} /> };
   if (hash === "#/expirations")

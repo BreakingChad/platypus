@@ -496,6 +496,20 @@ export type ProfileRow = {
   signature_name?: string | null;
 };
 
+/** 0048 — Analytics: an admin-saved report definition (lib/reports.ts). */
+export type SavedReportRow = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  definition: Record<string, unknown>;
+  pinned: boolean;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 /** 0043 — staff licenses / training / certifications with expiry. */
 export type StaffCredentialRow = {
   id: string;
@@ -540,6 +554,7 @@ export type Database = {
       pipeline_stages:   { Row: PipelineStageRow;    Insert: Partial<PipelineStageRow>;    Update: Partial<PipelineStageRow>;    Relationships: [] };
       studies:           { Row: StudyRow;            Insert: Partial<StudyRow>;            Update: Partial<StudyRow>;            Relationships: [] };
       staff_credentials: { Row: StaffCredentialRow;  Insert: Partial<StaffCredentialRow>;  Update: Partial<StaffCredentialRow>;  Relationships: [] };
+      saved_reports:     { Row: SavedReportRow;      Insert: Partial<SavedReportRow>;      Update: Partial<SavedReportRow>;      Relationships: [] };
       teams:             { Row: TeamRow;             Insert: Partial<TeamRow>;             Update: Partial<TeamRow>;             Relationships: [] };
       team_roles:        { Row: TeamRoleRow;         Insert: Partial<TeamRoleRow>;         Update: Partial<TeamRoleRow>;         Relationships: [] };
       team_role_holders: { Row: TeamRoleHolderRow;   Insert: Partial<TeamRoleHolderRow>;   Update: Partial<TeamRoleHolderRow>;   Relationships: [] };
