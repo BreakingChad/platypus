@@ -700,46 +700,38 @@ function SidebarBody({
         ))}
       </nav>
 
-      {!collapsed && (
-        <div className="border-t border-slate-200 p-3">
-          <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-            <div className="text-[11px] font-semibold text-slate-400 mb-0.5">
-              Organization
-            </div>
-            <div className="text-sm font-semibold text-slate-900 truncate">
+      {/* ONE compact footer bar — org identity + collapse together (two
+          stacked bordered sections made the pinned footer read as a bug). */}
+      <div className={"border-t border-slate-200 flex items-center gap-2 " + (collapsed ? "p-2 justify-center" : "p-2.5")}>
+        {!collapsed && (
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-slate-900 truncate" title={orgName ?? undefined}>
               {orgName ?? "Loading…"}
             </div>
             {tier && (
-              <div className="mt-1.5">
+              <div className="mt-0.5">
                 <Pill tone={tier === "developer" ? "dev" : isAdmin ? "brand" : "neutral"}>
                   {tier}
                 </Pill>
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {onToggleCollapse && (
-        <div className="border-t border-slate-200 p-2">
+        )}
+        {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={
-              "w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition " +
-              (collapsed ? "justify-center px-0" : "")
-            }
+            className="flex items-center justify-center rounded-lg p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition flex-shrink-0"
           >
             <Icon
               name="chevron-right"
-              size={14}
+              size={15}
               className={"transition-transform " + (collapsed ? "" : "rotate-180")}
             />
-            {!collapsed && "Collapse"}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
